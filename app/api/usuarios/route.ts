@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { claveTemporal, createAdminClient } from "@/lib/supabase/admin";
+import {
+  buscarUsuarioPorEmail,
+  claveTemporal,
+  createAdminClient,
+} from "@/lib/supabase/admin";
 
 /**
  * Verifica que quien llama sea administrador y devuelve su tenant.
@@ -72,30 +76,57 @@ export async function POST(request: Request) {
   }
 
   const rol = body.rol === "admin" ? "admin" : "supervisor";
-  const clave = claveTemporal();
 
-  const { data: creado, error: errAuth } = await admin.auth.admin.createUser({
-    email,
-    password: clave,
-    email_confirm: true,
-  });
+  // Un usuario puede existir ya en Auth —creado a mano en Supabase o en
+  // un intento anterior— pero sin perfil: existe para iniciar sesión y
+  // no pertenece a ninguna organización, así que no ve nada. En ese
+  // caso NO se crea de nuevo: se vincula.
+  const existente = await buscarUsuarioPorEmail(admin, email);
 
-  if (errAuth || !creado?.user) {
-    const yaExiste = /already been registered|already exists/i.test(
-      errAuth?.message ?? "",
-    );
-    return NextResponse.json(
-      {
-        error: yaExiste
-          ? "Ya existe un usuario con ese correo."
-          : (errAuth?.message ?? "No se pudo crear el usuario."),
-      },
-      { status: 400 },
-    );
+  let usuarioId: string;
+  let clave: string | undefined;
+  let vinculado = false;
+
+  if (existente) {
+    const { data: perfilPrevio } = await admin
+      .from("perfil")
+      .select("tenant_id")
+      .eq("id", existente.id)
+      .maybeSingle();
+
+    if (perfilPrevio) {
+      return NextResponse.json(
+        {
+          error:
+            perfilPrevio.tenant_id === ctx.tenantId
+              ? "Ese usuario ya está en tu organización."
+              : "Ese correo ya pertenece a otra organización.",
+        },
+        { status: 400 },
+      );
+    }
+
+    usuarioId = existente.id;
+    vinculado = true;
+  } else {
+    clave = claveTemporal();
+    const { data: creado, error: errAuth } = await admin.auth.admin.createUser({
+      email,
+      password: clave,
+      email_confirm: true,
+    });
+
+    if (errAuth || !creado?.user) {
+      return NextResponse.json(
+        { error: errAuth?.message ?? "No se pudo crear el usuario." },
+        { status: 400 },
+      );
+    }
+    usuarioId = creado.user.id;
   }
 
   const { error: errPerfil } = await admin.from("perfil").insert({
-    id: creado.user.id,
+    id: usuarioId,
     tenant_id: ctx.tenantId,
     nombre: body.nombre?.trim() || email,
     email,
@@ -104,19 +135,20 @@ export async function POST(request: Request) {
 
   if (errPerfil) {
     // Sin perfil el usuario quedaría autenticable pero sin acceso a
-    // nada: se revierte para no dejar cuentas huérfanas.
-    await admin.auth.admin.deleteUser(creado.user.id);
+    // nada. Sólo se borra la cuenta si la acabamos de crear nosotros:
+    // una cuenta preexistente no se toca.
+    if (!vinculado) await admin.auth.admin.deleteUser(usuarioId);
     return NextResponse.json({ error: errPerfil.message }, { status: 500 });
   }
 
   const campanas = (body.campanas ?? []).filter(Boolean);
   if (rol === "supervisor" && campanas.length > 0) {
     await admin.from("perfil_campana").insert(
-      campanas.map((campana_id) => ({ perfil_id: creado.user.id, campana_id })),
+      campanas.map((campana_id) => ({ perfil_id: usuarioId, campana_id })),
     );
   }
 
-  return NextResponse.json({ id: creado.user.id, email, clave });
+  return NextResponse.json({ id: usuarioId, email, clave, vinculado });
 }
 
 /* ------------------------------------------------------------------ */

@@ -30,10 +30,12 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 export function Usuarios({
   usuarios,
   campanas,
+  huerfanos,
   yo,
 }: {
   usuarios: UsuarioFila[];
   campanas: { id: string; nombre: string }[];
+  huerfanos: { id: string; email: string }[];
   yo: string | null;
 }) {
   const router = useRouter();
@@ -43,7 +45,11 @@ export function Usuarios({
   const [rol, setRol] = useState<"admin" | "supervisor">("supervisor");
   const [asignadas, setAsignadas] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [credencial, setCredencial] = useState<{ email: string; clave: string } | null>(null);
+  const [credencial, setCredencial] = useState<{
+    email: string;
+    clave?: string;
+    vinculado?: boolean;
+  } | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
   async function crear(e: React.FormEvent) {
@@ -66,7 +72,11 @@ export function Usuarios({
       return;
     }
 
-    setCredencial({ email: json.email, clave: json.clave });
+    setCredencial({
+      email: json.email,
+      clave: json.clave,
+      vinculado: json.vinculado,
+    });
     setEmail("");
     setNombre("");
     setAsignadas([]);
@@ -184,14 +194,60 @@ export function Usuarios({
             background: "color-mix(in srgb, var(--good) 8%, transparent)",
           }}
         >
-          <p className="text-xs font-medium">Contraseña temporal</p>
+          {credencial.vinculado ? (
+            <>
+              <p className="text-xs font-medium">Cuenta vinculada</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                <strong>{credencial.email}</strong> ya existía en Supabase. Se
+                le dio acceso a esta organización y conserva su contraseña
+                actual. Si no la recuerda, usa «Nueva clave» en la tabla.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-medium">Contraseña temporal</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Entrégasela a <strong>{credencial.email}</strong>. No se vuelve
+                a mostrar; si se pierde, genera una nueva desde la tabla.
+              </p>
+              <code className="mt-2 block rounded bg-[var(--surface-2)] px-2 py-1.5 text-sm">
+                {credencial.clave}
+              </code>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {huerfanos.length > 0 ? (
+        <div
+          className="mt-4 rounded-md border p-3"
+          style={{
+            borderColor: "color-mix(in srgb, var(--serious) 40%, transparent)",
+            background: "color-mix(in srgb, var(--serious) 7%, transparent)",
+          }}
+        >
+          <p className="text-xs font-medium">Cuentas sin acceso</p>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
-            Entrégasela a <strong>{credencial.email}</strong>. No se vuelve a
-            mostrar; si se pierde, genera una nueva desde la tabla.
+            Existen en Supabase Auth pero no pertenecen a ninguna organización,
+            así que pueden iniciar sesión y no ven nada. Dales acceso desde el
+            formulario de arriba.
           </p>
-          <code className="mt-2 block rounded bg-[var(--surface-2)] px-2 py-1.5 text-sm">
-            {credencial.clave}
-          </code>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {huerfanos.map((h) => (
+              <button
+                key={h.id}
+                onClick={() => {
+                  setEmail(h.email);
+                  setCredencial(null);
+                  setError(null);
+                }}
+                className="rounded border bg-[var(--surface-2)] px-2 py-1 text-xs hover:border-[var(--series-1)]"
+              >
+                {h.email}
+                <span className="ml-1.5 text-[var(--series-1)]">dar acceso</span>
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 

@@ -7,6 +7,7 @@ import { getContexto } from "@/lib/datos";
 import { fmt } from "@/lib/utils";
 import { FormMeta, FormCampana, Semilla } from "./formularios";
 import { Usuarios, type UsuarioFila } from "./usuarios";
+import { createAdminClient, usuariosSinPerfil } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,11 @@ export default async function Mantenedor() {
     .from("perfil")
     .select("id, nombre, email, rol, activo, campanas:perfil_campana (campana_id)")
     .order("nombre");
+
+  // Cuentas de Auth que no tienen perfil: existen para iniciar sesión
+  // pero no pertenecen a ninguna organización. Requiere service role.
+  const admin = ctx.esAdmin ? createAdminClient() : null;
+  const huerfanos = admin ? await usuariosSinPerfil(admin) : [];
 
   const usuarios: UsuarioFila[] = (perfiles ?? []).map((p) => ({
     id: p.id,
@@ -230,7 +236,12 @@ export default async function Mantenedor() {
               <CardTitle hint="Un supervisor sólo ve las campañas que le asignes. El administrador ve todo el tenant.">
                 Usuarios y accesos
               </CardTitle>
-              <Usuarios usuarios={usuarios} campanas={ctx.campanas} yo={ctx.userId} />
+              <Usuarios
+                usuarios={usuarios}
+                campanas={ctx.campanas}
+                huerfanos={huerfanos}
+                yo={ctx.userId}
+              />
             </Card>
           ) : null}
 
