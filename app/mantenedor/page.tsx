@@ -170,6 +170,14 @@ export default async function Mantenedor() {
                 opciones no se muestran. Si una futura carga los contiene,
                 Atlas habilitará sus controles automáticamente.
               </p>
+              {ctx.esAdmin ? (
+                <div className="mt-5 border-t pt-4">
+                  <p className="mb-3 text-xs font-medium">
+                    ¿Tu operación usa campañas?
+                  </p>
+                  <FormCampana />
+                </div>
+              ) : null}
             </Card>
           ) : null}
 

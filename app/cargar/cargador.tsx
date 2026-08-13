@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
+import { Upload } from "tus-js-client";
 import { extraeMatriz, perfilaHoja, type PerfilHoja } from "@/lib/perfilador";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/stat";
 import { fmt } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { leerCredenciales } from "@/lib/supabase/env";
 
 const ROLES = [
   { valor: "", etiqueta: "— sin usar —" },
@@ -65,11 +67,74 @@ interface ArchivoEnCola {
   roles: Record<number, Record<number, string>>;
   estado: EstadoArchivo;
   mensaje: string | null;
+  /** Etapa operativa que explica qué está haciendo Atlas ahora. */
+  etapa: string | null;
   /** 0 a 1; alimenta la barra de avance */
   progreso: number;
   /** El archivo original: se sube a Storage tal cual llegó */
   original: File;
   cargaId?: string;
+}
+
+async function subirConProgreso(
+  archivo: File,
+  ruta: string,
+  alAvanzar: (bytesSubidos: number, bytesTotales: number) => void,
+) {
+  const credenciales = leerCredenciales();
+  if (!credenciales) throw new Error("Falta configurar Supabase.");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+  if (error || !session?.access_token) {
+    throw new Error("La sesión expiró. Vuelve a entrar para cargar el archivo.");
+  }
+
+  const api = new URL(credenciales.url);
+  const referencia = api.hostname.endsWith(".supabase.co")
+    ? api.hostname.split(".")[0]
+    : null;
+  const endpoint = referencia
+    ? `https://${referencia}.storage.supabase.co/storage/v1/upload/resumable`
+    : `${api.origin}/storage/v1/upload/resumable`;
+
+  await new Promise<void>((resolve, reject) => {
+    const carga = new Upload(archivo, {
+      endpoint,
+      retryDelays: [0, 3_000, 5_000, 10_000, 20_000],
+      headers: {
+        authorization: `Bearer ${session.access_token}`,
+        apikey: credenciales.key,
+        "x-upsert": "false",
+      },
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      chunkSize: 6 * 1024 * 1024,
+      metadata: {
+        bucketName: "cargas",
+        objectName: ruta,
+        contentType: archivo.type || "application/octet-stream",
+        cacheControl: "3600",
+      },
+      onProgress: alAvanzar,
+      onError: (fallo) => reject(fallo),
+      onSuccess: () => resolve(),
+    });
+
+    carga
+      .findPreviousUploads()
+      .then((anteriores) => {
+        const anterior = anteriores.find(
+          (a) => a.metadata?.bucketName === "cargas" && a.metadata?.objectName === ruta,
+        );
+        if (anterior) carga.resumeFromPreviousUpload(anterior);
+        carga.start();
+      })
+      .catch(reject);
+  });
 }
 
 const ESTADO_TONO: Record<EstadoArchivo, "good" | "warning" | "critical" | "neutro"> = {
@@ -158,6 +223,7 @@ export function Cargador({
         roles,
         estado: "pendiente",
         mensaje: null,
+        etapa: null,
         progreso: 0,
         original: f,
       });
@@ -289,7 +355,12 @@ export function Cargador({
       return false;
     }
 
-    actualizar(indice, { estado: "subiendo", mensaje: null, progreso: 0 });
+    actualizar(indice, {
+      estado: "subiendo",
+      mensaje: null,
+      etapa: "Preparando la base…",
+      progreso: 0,
+    });
 
     let baseId: string | null;
     try {
@@ -303,23 +374,35 @@ export function Cargador({
       return false;
     }
 
-    /* 1. El archivo original va a Storage tal cual llegó */
-    const supabase = createClient();
+    /* 1. El archivo original va a Storage tal cual llegó. TUS entrega
+       bytes confirmados por el servidor: el primer 20% es subida real. */
     const limpio = archivo.nombre.replace(/[^a-zA-Z0-9._-]/g, "_");
     const ruta = `${tenantId}/${crypto.randomUUID()}-${limpio}`;
 
-    const { error: errSubida } = await supabase.storage
-      .from("cargas")
-      .upload(ruta, archivo.original, { upsert: false });
-
-    if (errSubida) {
+    try {
+      await subirConProgreso(archivo.original, ruta, (subidos, total) => {
+        const fraccion = total > 0 ? subidos / total : 0;
+        const porcentajeSubida = Math.round(fraccion * 100);
+        actualizar(indice, {
+          estado: "subiendo",
+          progreso: fraccion * 0.2,
+          etapa: `Subiendo archivo · ${porcentajeSubida}%`,
+        });
+      });
+    } catch (e) {
       actualizar(indice, {
         estado: "error",
         progreso: 0,
-        mensaje: `No se pudo subir el archivo: ${errSubida.message}`,
+        etapa: null,
+        mensaje: `No se pudo subir el archivo: ${e instanceof Error ? e.message : "error desconocido"}`,
       });
       return false;
     }
+
+    actualizar(indice, {
+      progreso: 0.2,
+      etapa: `Archivo subido · preparando hoja 1 de ${seleccionadas.length}`,
+    });
 
     let procesadasTotal = 0;
     let insertadasTotal = 0;
@@ -377,7 +460,11 @@ export function Cargador({
         return false;
       }
 
-      actualizar(indice, { estado: "cargando", cargaId: iniciado.cargaId });
+      actualizar(indice, {
+        estado: "cargando",
+        cargaId: iniciado.cargaId,
+        etapa: `Procesando ${hoja.hoja} · hoja ${posicion + 1} de ${seleccionadas.length}`,
+      });
 
       let vueltas = 0;
       let terminoHoja = false;
@@ -400,10 +487,12 @@ export function Cargador({
         }
 
         insertadasTotal += json.insertadas ?? 0;
+        const avanceHoja = json.total > 0 ? json.procesadas / json.total : 1;
+        const avanceProceso = (posicion + avanceHoja) / seleccionadas.length;
+        const progresoReal = 0.2 + avanceProceso * 0.8;
         actualizar(indice, {
-          progreso:
-            (posicion + (json.total > 0 ? json.procesadas / json.total : 1)) /
-            seleccionadas.length,
+          progreso: Math.min(progresoReal, 0.999),
+          etapa: `Procesando ${hoja.hoja} · ${fmt.entero(json.procesadas ?? 0)} de ${fmt.entero(json.total ?? 0)} filas`,
         });
 
         if (json.terminado) {
@@ -415,6 +504,7 @@ export function Cargador({
       if (!terminoHoja) {
         actualizar(indice, {
           estado: "error",
+          etapa: null,
           mensaje: `La hoja ${hoja.hoja} quedó a medio procesar. Puedes reanudarla desde Cargas registradas.`,
         });
         return false;
@@ -424,6 +514,7 @@ export function Cargador({
     actualizar(indice, {
       estado: "cargado",
       progreso: 1,
+      etapa: "Carga completa",
       mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}`,
     });
     return true;
@@ -763,7 +854,7 @@ export function Cargador({
                 disabled={ocupado}
                 className="rounded-xl bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {ocupado ? "Cargando…" : "Cargar esta hoja"}
+                {ocupado ? `${Math.round(archivo.progreso * 100)}%` : "Cargar esta hoja"}
               </button>
 
               {archivos.length > 1 ? (
@@ -790,6 +881,54 @@ export function Cargador({
                 </p>
               ) : null}
             </div>
+
+            {archivo.estado !== "pendiente" &&
+            (archivo.progreso > 0 || archivo.estado !== "error") ? (
+              <div
+                className="mt-5 rounded-xl border border-[var(--vidrio-borde)] bg-[var(--surface-1)] p-4"
+                role="progressbar"
+                aria-label="Progreso de la carga"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(archivo.progreso * 100)}
+              >
+                <div className="mb-2 flex items-center justify-between gap-4 text-sm">
+                  <span className="font-medium text-[var(--text-primary)]">
+                    {archivo.etapa ?? "Cargando…"}
+                  </span>
+                  <span
+                    className="tabular text-lg font-semibold"
+                    style={{
+                      color:
+                        archivo.estado === "cargado"
+                          ? "var(--good)"
+                          : archivo.estado === "error"
+                            ? "var(--critical)"
+                            : "var(--series-1)",
+                    }}
+                  >
+                    {Math.round(archivo.progreso * 100)}%
+                  </span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-[var(--surface-0)]">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-300 ease-out"
+                    style={{
+                      width: `${Math.round(archivo.progreso * 100)}%`,
+                      background:
+                        archivo.estado === "cargado"
+                          ? "var(--good)"
+                          : archivo.estado === "error"
+                            ? "var(--critical)"
+                            : "var(--series-1)",
+                    }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-[var(--text-muted)]">
+                  El porcentaje usa bytes recibidos por Storage y filas confirmadas por la base.
+                </p>
+              </div>
+            ) : null}
 
             <p className="mt-4 border-t pt-3 text-xs text-[var(--text-muted)]">
               Los archivos se cargan de a uno en orden, no en paralelo: si dos

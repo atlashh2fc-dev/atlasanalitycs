@@ -69,13 +69,19 @@ export async function PATCH(request: Request) {
   };
 
   if (body.layout) {
-    // Se guardan una por una: son pocas tarjetas y así un fallo parcial
-    // no deja la disposición a medio escribir.
+    // Son pocas tarjetas. Cada error se reporta: la UI nunca debe afirmar
+    // "guardado" si RLS o la red rechazaron una posición.
     for (const l of body.layout) {
-      await supabase
+      const { error } = await supabase
         .from("panel_widget")
         .update({ x: l.x, y: l.y, w: l.w, h: l.h })
         .eq("id", l.id);
+      if (error) {
+        return NextResponse.json(
+          { error: `No se pudo guardar la disposición: ${error.message}` },
+          { status: 500 },
+        );
+      }
     }
   }
 

@@ -108,6 +108,7 @@ export default async function Dashboard() {
     .from("panel")
     .select("id")
     .eq("perfil_id", ctx.userId!)
+    .is("dataset_id", null)
     .maybeSingle();
 
   if (!panel) {

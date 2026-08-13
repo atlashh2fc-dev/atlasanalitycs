@@ -7,10 +7,16 @@ import "react-resizable/css/styles.css";
 import { motion } from "framer-motion";
 import { CalendarRange, Check, Lock, LockOpen, Plus, Target } from "lucide-react";
 import { Asistente } from "./asistente";
+import { AsistenteDataset } from "./asistente-dataset";
 import { ContenidoTarjeta, type Filtros } from "./tarjeta";
 import { usaMovimientoReducido } from "@/lib/animacion";
 import { tonoDe } from "@/lib/tonos";
 import type { ConfigWidget, TipoWidget } from "@/lib/widgets";
+import type {
+  CatalogoDataset,
+  ConfigWidgetDataset,
+  NuevoWidgetDataset,
+} from "@/lib/panel-dataset";
 
 const Grid = WidthProvider(Responsive);
 
@@ -18,7 +24,7 @@ export interface WidgetGuardado {
   id: string;
   tipo: TipoWidget;
   titulo: string;
-  config: ConfigWidget;
+  config: ConfigWidget | ConfigWidgetDataset;
   x: number;
   y: number;
   w: number;
@@ -31,12 +37,14 @@ export function Panel({
   campanas,
   fuentesDisponibles,
   rangoInicial,
+  catalogoDataset,
 }: {
   panelId: string;
   widgetsIniciales: WidgetGuardado[];
   campanas: { id: string; nombre: string }[];
   fuentesDisponibles: Record<string, number>;
   rangoInicial: { desde: string; hasta: string };
+  catalogoDataset?: CatalogoDataset;
 }) {
   const [widgets, setWidgets] = useState<WidgetGuardado[]>(widgetsIniciales);
   // Las tarjetas se arrastran siempre. El candado existe para quien
@@ -86,14 +94,16 @@ export function Panel({
 
     if (temporizador.current) clearTimeout(temporizador.current);
     temporizador.current = setTimeout(async () => {
-      await fetch("/api/panel", {
+      const respuesta = await fetch("/api/panel", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           layout: nuevo.map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })),
         }),
       });
-      setGuardado("Disposición guardada");
+      setGuardado(
+        respuesta.ok ? "Disposición guardada" : "No se pudo guardar",
+      );
       setTimeout(() => setGuardado(null), 2000);
     }, 700);
   }
@@ -101,8 +111,8 @@ export function Panel({
   async function crear(t: {
     tipo: TipoWidget;
     titulo: string;
-    config: ConfigWidget;
-  }) {
+    config: ConfigWidget | ConfigWidgetDataset;
+  } | NuevoWidgetDataset) {
     // El KPI necesita alto para la mini-serie; la tabla, para varias filas
     const alto = t.tipo === "kpi" ? 4 : t.tipo === "tabla" ? 6 : 5;
     const ancho = t.tipo === "kpi" ? 3 : 6;
@@ -170,7 +180,7 @@ export function Panel({
           />
         </label>
 
-        <label className="pildora cursor-pointer">
+        {!catalogoDataset ? <label className="pildora cursor-pointer">
           <Target className="size-3.5 text-[var(--text-muted)]" />
           <select
             value={filtros.campanaId ?? ""}
@@ -187,12 +197,17 @@ export function Panel({
               </option>
             ))}
           </select>
-        </label>
+        </label> : null}
 
         <div className="ml-auto flex items-center gap-2">
           {guardado ? (
-            <span className="flex items-center gap-1 text-xs text-[var(--good)]">
-              <Check className="size-3.5" /> {guardado}
+            <span
+              className="flex items-center gap-1 text-xs"
+              style={{
+                color: guardado === "Disposición guardada" ? "var(--good)" : "var(--critical)",
+              }}
+            >
+              {guardado === "Disposición guardada" ? <Check className="size-3.5" /> : null} {guardado}
             </span>
           ) : null}
 
@@ -364,7 +379,14 @@ export function Panel({
         </Grid>
       ) : null}
 
-      {asistente ? (
+      {asistente && catalogoDataset ? (
+        <AsistenteDataset
+          catalogo={catalogoDataset}
+          filtros={filtros}
+          onCancelar={() => setAsistente(false)}
+          onCrear={crear}
+        />
+      ) : asistente ? (
         <Asistente
           filtros={filtros}
           fuentesDisponibles={fuentesDisponibles}

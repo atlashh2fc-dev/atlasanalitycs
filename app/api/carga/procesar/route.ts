@@ -43,13 +43,21 @@ export async function POST(request: Request) {
   }
 
   try {
-    const resultado = await procesaLote(supabase, perfil.tenant_id, {
-      id: carga.id,
-      hoja: carga.hoja,
-      storage_path: carga.storage_path,
-      filas_procesadas: carga.filas_procesadas ?? 0,
-      config: carga.config as ConfigCarga,
-    });
+    const config = carga.config as ConfigCarga;
+    const resultado = await procesaLote(
+      supabase,
+      perfil.tenant_id,
+      {
+        id: carga.id,
+        hoja: carga.hoja,
+        storage_path: carga.storage_path,
+        filas_procesadas: carga.filas_procesadas ?? 0,
+        config,
+      },
+      // Una matriz genera muchas filas al hacer unpivot. Dos mil por vuelta
+      // mantiene progreso visible sin descargar el Excel decenas de veces.
+      config.modo === "matriz" ? 2_000 : 400,
+    );
     return NextResponse.json(resultado);
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : "No se pudo procesar la carga.";

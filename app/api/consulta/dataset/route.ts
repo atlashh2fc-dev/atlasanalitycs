@@ -13,6 +13,12 @@ interface ConsultaDatasetBody {
   orden?: "asc" | "desc";
 }
 
+type RespuestaRpc = {
+  series?: { clave: string; valor: number }[];
+  total?: number;
+  metadatos?: { filas?: number };
+};
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -44,5 +50,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json(data);
+  const resultado = (data ?? {}) as RespuestaRpc;
+  let unidad: "entero" | "decimal" | "uf" | "clp" | "porcentaje" =
+    body.agregacion === "count" || body.agregacion === "count_distinct"
+      ? "entero"
+      : "decimal";
+
+  if (body.metricaId) {
+    const { data: campo } = await supabase
+      .from("dataset_campo")
+      .select("tipo,unidad")
+      .eq("id", body.metricaId)
+      .eq("dataset_id", body.datasetId)
+      .maybeSingle();
+
+    if (campo?.unidad && ["entero", "decimal", "uf", "clp", "porcentaje"].includes(campo.unidad)) {
+      unidad = campo.unidad as typeof unidad;
+    } else if (campo?.tipo === "uf") unidad = "uf";
+    else if (campo?.tipo === "monto") unidad = "clp";
+    else if (campo?.tipo === "entero" && body.agregacion !== "avg") unidad = "entero";
+  }
+
+  return NextResponse.json({
+    ...resultado,
+    filas: resultado.series ?? [],
+    total: Number(resultado.total ?? 0),
+    registros: Number(resultado.metadatos?.filas ?? 0),
+    unidad,
+  });
 }

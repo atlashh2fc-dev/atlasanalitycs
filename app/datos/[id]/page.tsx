@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { Card } from "@/components/ui/card";
+import { AsignarCampana } from "@/components/datos/asignar-campana";
 import { getContexto } from "@/lib/datos";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
@@ -54,7 +55,9 @@ export default async function DetalleDataset({
   const supabase = await createClient();
   const { data: dataset } = await supabase
     .from("dataset")
-    .select("id, nombre, descripcion, activo, created_at, updated_at")
+    .select(
+      "id, nombre, descripcion, activo, campana_id, created_at, updated_at",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -215,6 +218,33 @@ export default async function DetalleDataset({
                   pequeno
                 />
               </div>
+
+              {ctx.esAdmin ? (
+                <Card className="mt-4">
+                  <p className="etiqueta">Organización</p>
+                  <h2 className="mb-3 mt-1 text-sm font-semibold">
+                    Campaña de esta base
+                  </h2>
+                  {ctx.campanas.length > 0 ? (
+                    <AsignarCampana
+                      datasetId={id}
+                      campanas={ctx.campanas}
+                      campanaInicial={dataset.campana_id}
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-dashed p-4 text-xs text-[var(--text-secondary)]">
+                      Todavía no hay campañas. Crea una desde{" "}
+                      <Link
+                        href="/mantenedor"
+                        className="font-medium text-[var(--series-1)] hover:underline"
+                      >
+                        Configuración
+                      </Link>{" "}
+                      y vuelve para asociarla.
+                    </div>
+                  )}
+                </Card>
+              ) : null}
 
               {tieneEquipo || tieneMetas ? (
                 <Card className="mt-4">
