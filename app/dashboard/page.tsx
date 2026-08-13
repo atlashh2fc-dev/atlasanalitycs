@@ -1,182 +1,187 @@
-import Link from "next/link";
-import { Card, CardTitle } from "@/components/ui/card";
-import { Stat, estadoPorCumplimiento } from "@/components/ui/stat";
-import { GraficoCumplimiento } from "@/components/charts/cumplimiento";
-import { GraficoCuadrantes } from "@/components/charts/cuadrantes";
-import { GraficoRanking } from "@/components/charts/ranking";
-import { Nav } from "@/components/nav";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Nav } from "@/components/nav";
+import { Panel, type WidgetGuardado } from "@/components/panel/panel";
 import { hayCredenciales } from "@/lib/supabase/client";
-import { getContexto, getResumenVentas, rangoMes } from "@/lib/datos";
-import { fmt } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { getContexto, rangoMes } from "@/lib/datos";
+import type { ConfigWidget, TipoWidget } from "@/lib/widgets";
 
 export const dynamic = "force-dynamic";
 
-export default async function Dashboard({
-  searchParams,
-}: {
-  searchParams: Promise<{ campana?: string; mes?: string }>;
-}) {
+/**
+ * Tarjetas con las que arranca un panel nuevo.
+ *
+ * No es una plantilla decorativa: es el pack de gestión de venta
+ * outbound. El usuario puede moverlas, redimensionarlas o borrarlas, y
+ * agregar las suyas.
+ */
+const SEMILLA: {
+  tipo: TipoWidget;
+  titulo: string;
+  config: ConfigWidget;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}[] = [
+  {
+    tipo: "kpi",
+    titulo: "Asegurados del periodo",
+    config: { fuente: "venta", metrica: "asegurados", objetivo: 310 },
+    x: 0, y: 0, w: 3, h: 3,
+  },
+  {
+    tipo: "kpi",
+    titulo: "Contratos",
+    config: { fuente: "venta", metrica: "contratos" },
+    x: 3, y: 0, w: 3, h: 3,
+  },
+  {
+    tipo: "kpi",
+    titulo: "UF vendida",
+    config: { fuente: "venta", metrica: "uf" },
+    x: 6, y: 0, w: 3, h: 3,
+  },
+  {
+    tipo: "kpi",
+    titulo: "Cotizaciones",
+    config: { fuente: "cotizacion", metrica: "cotizaciones" },
+    x: 9, y: 0, w: 3, h: 3,
+  },
+  {
+    tipo: "barras",
+    titulo: "Asegurados por agrupación de meta",
+    config: { fuente: "venta", metrica: "asegurados", dimension: "agrupacion", limite: 8, orden: "desc" },
+    x: 0, y: 3, w: 6, h: 5,
+  },
+  {
+    tipo: "barras_horizontal",
+    titulo: "Asegurados por ejecutivo",
+    config: { fuente: "venta", metrica: "asegurados", dimension: "ejecutivo", limite: 12, orden: "desc" },
+    x: 6, y: 3, w: 6, h: 7,
+  },
+  {
+    tipo: "area",
+    titulo: "Evolución diaria de asegurados",
+    config: { fuente: "venta", metrica: "asegurados", dimension: "fecha", granularidad: "dia" },
+    x: 0, y: 8, w: 6, h: 5,
+  },
+  {
+    tipo: "dona",
+    titulo: "Mix de producto",
+    config: { fuente: "venta", metrica: "asegurados", dimension: "producto", limite: 6, orden: "desc" },
+    x: 6, y: 10, w: 6, h: 5,
+  },
+];
+
+export default async function Dashboard() {
   if (!hayCredenciales()) redirect("/configuracion");
 
-  const sp = await searchParams;
   const ctx = await getContexto();
+  const supabase = await createClient();
 
-  const base = sp.mes ? new Date(`${sp.mes}-15T12:00:00`) : new Date();
-  const rango = rangoMes(base);
-  // Sin campaña elegida se muestra TODO. Antes se filtraba por la
-  // primera campaña, así que una carga hecha con "Sin campaña" quedaba
-  // invisible aunque los datos estuvieran en la base.
-  const campanaId = sp.campana || null;
+  if (!ctx.tenantId) {
+    return (
+      <>
+        <Nav email={ctx.email} />
+        <main className="mx-auto max-w-[700px] px-6 py-10">
+          <div className="rounded-xl border border-dashed p-8 text-center">
+            <p className="text-sm font-medium">Falta crear tu organización</p>
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              Es un paso de una sola vez.
+            </p>
+            <Link
+              href="/cargar"
+              className="mt-4 inline-block rounded-md bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white"
+            >
+              Empezar
+            </Link>
+          </div>
+        </main>
+      </>
+    );
+  }
 
-  const r = await getResumenVentas(campanaId, rango);
+  // Panel personal del usuario; se crea con el pack la primera vez.
+  let { data: panel } = await supabase
+    .from("panel")
+    .select("id")
+    .eq("perfil_id", ctx.userId!)
+    .maybeSingle();
 
-  const totalMeta = r.cumplimiento.reduce((a, c) => a + c.meta, 0);
-  const cumplimientoGlobal = totalMeta > 0 ? r.totales.asegurados / totalMeta : null;
+  if (!panel) {
+    const { data: creado } = await supabase
+      .from("panel")
+      .insert({
+        tenant_id: ctx.tenantId,
+        perfil_id: ctx.userId,
+        nombre: "Mi panel",
+        es_default: true,
+      })
+      .select("id")
+      .single();
+
+    panel = creado;
+
+    if (panel) {
+      await supabase.from("panel_widget").insert(
+        SEMILLA.map((s, i) => ({
+          panel_id: panel!.id,
+          tipo: s.tipo,
+          titulo: s.titulo,
+          config: s.config,
+          x: s.x,
+          y: s.y,
+          w: s.w,
+          h: s.h,
+          orden: i,
+        })),
+      );
+    }
+  }
+
+  const { data: widgets } = await supabase
+    .from("panel_widget")
+    .select("id, tipo, titulo, config, x, y, w, h")
+    .eq("panel_id", panel?.id ?? "")
+    .order("orden");
+
+  // Sólo se ofrecen en el asistente las fuentes que tienen datos.
+  const [venta, cotizacion, agendamiento, cliente] = await Promise.all([
+    supabase.from("venta").select("id", { count: "exact", head: true }),
+    supabase.from("cotizacion").select("id", { count: "exact", head: true }),
+    supabase.from("agendamiento").select("id", { count: "exact", head: true }),
+    supabase.from("cliente").select("id", { count: "exact", head: true }),
+  ]);
+
+  const rango = rangoMes();
 
   return (
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1400px] px-6 py-6">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              Gestión de ventas
-            </h1>
-            <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
-              {rango.desde} al {rango.hasta}
-            </p>
-          </div>
-
-          <form className="flex items-end gap-3">
-            <label className="text-xs text-[var(--text-secondary)]">
-              <span className="mb-1 block font-medium">Campaña</span>
-              <select
-                name="campana"
-                defaultValue={campanaId ?? ""}
-                className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
-              >
-                <option value="">Todas las campañas</option>
-                {ctx.campanas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs text-[var(--text-secondary)]">
-              <span className="mb-1 block font-medium">Mes</span>
-              <input
-                type="month"
-                name="mes"
-                defaultValue={rango.desde.slice(0, 7)}
-                className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
-              />
-            </label>
-            <button
-              type="submit"
-              className="rounded-md border bg-[var(--surface-2)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--surface-0)]"
-            >
-              Aplicar
-            </button>
-          </form>
+      <main className="mx-auto max-w-[1500px] px-6 py-6">
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold tracking-tight">Mi panel</h1>
+          <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
+            Arma tu vista: agrega las tarjetas que te sirven, muévelas y
+            dales el tamaño que necesites.
+          </p>
         </div>
 
-        {!ctx.tenantId ? (
-          <Card className="mb-6">
-            <p className="text-sm text-[var(--text-secondary)]">
-              Tu usuario todavía no tiene organización.{" "}
-              <Link href="/cargar" className="font-medium text-[var(--series-1)] underline">
-                Créala en un paso
-              </Link>{" "}
-              y después carga tu primer Excel.
-            </p>
-          </Card>
-        ) : !r.hayDatos ? (
-          <Card className="mb-6">
-            <p className="text-sm text-[var(--text-secondary)]">
-              Todavía no hay datos para este periodo.{" "}
-              <Link href="/cargar" className="font-medium text-[var(--series-1)] underline">
-                Carga un Excel
-              </Link>{" "}
-              y los indicadores se generan solos.
-            </p>
-          </Card>
-        ) : null}
-
-        <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Asegurados"
-            valor={fmt.entero(r.totales.asegurados)}
-            sub={totalMeta > 0 ? `de ${fmt.entero(totalMeta)} de meta` : undefined}
-            estado={estadoPorCumplimiento(cumplimientoGlobal)}
-            mostrarEstado
-          />
-          <Stat
-            label="Contratos"
-            valor={fmt.entero(r.totales.contratos)}
-            sub={
-              r.totales.profundidad
-                ? `${fmt.decimal(r.totales.profundidad)} asegurados por contrato`
-                : undefined
-            }
-          />
-          <Stat
-            label="Tasa de cierre"
-            valor={fmt.pct(r.totales.tasaCierre)}
-            sub={`${fmt.entero(r.totales.cotizaciones)} cotizaciones`}
-          />
-          <Stat
-            label="UF vendida"
-            valor={fmt.decimal(r.totales.uf)}
-            sub={
-              r.totales.asegurados > 0
-                ? `${fmt.decimal(r.totales.uf / r.totales.asegurados, 3)} UF por asegurado`
-                : undefined
-            }
-          />
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-2">
-          <Card>
-            <CardTitle hint="El consolidado esconde el problema: una línea sobre ritmo puede tapar el atraso de la otra.">
-              Cumplimiento por línea de meta
-            </CardTitle>
-            <GraficoCumplimiento datos={r.cumplimiento} />
-          </Card>
-
-          <Card>
-            <CardTitle hint="Ritmo contra efectividad. Separa a quien gestiona poco de quien gestiona mucho y cierra mal.">
-              Matriz de diagnóstico por ejecutivo
-            </CardTitle>
-            <GraficoCuadrantes datos={r.ejecutivos} />
-          </Card>
-
-          <Card className="lg:col-span-2">
-            <CardTitle
-              hint={
-                r.brechaOportunidad > 0
-                  ? `Brecha de oportunidad: ${fmt.entero(Math.round(r.brechaOportunidad))} asegurados si quienes están bajo la mediana la alcanzaran.`
-                  : undefined
-              }
-            >
-              Ranking y dispersión del equipo
-            </CardTitle>
-            <GraficoRanking datos={r.ranking} mediana={r.medianaAsegurados} />
-            {r.coefVariacion !== null ? (
-              <p className="mt-3 border-t pt-3 text-xs text-[var(--text-secondary)]">
-                Coeficiente de variación del IP-D:{" "}
-                <span className="tabular font-medium">
-                  {fmt.decimal(r.coefVariacion)}
-                </span>
-                {r.coefVariacion > 0.5
-                  ? " — dispersión alta. El equipo rinde muy disparejo y ahí está la ganancia disponible."
-                  : " — dispersión contenida."}
-              </p>
-            ) : null}
-          </Card>
-        </div>
+        <Panel
+          panelId={panel?.id ?? ""}
+          widgetsIniciales={(widgets ?? []) as unknown as WidgetGuardado[]}
+          campanas={ctx.campanas}
+          fuentesDisponibles={{
+            venta: venta.count ?? 0,
+            cotizacion: cotizacion.count ?? 0,
+            agendamiento: agendamiento.count ?? 0,
+            cliente: cliente.count ?? 0,
+          }}
+          rangoInicial={{ desde: rango.desde, hasta: rango.hasta }}
+        />
       </main>
     </>
   );

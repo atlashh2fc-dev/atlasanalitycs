@@ -55,3 +55,51 @@ body {
   fill: var(--text-secondary);
   font-size: 12px;
 }
+
+/* --------------------------------------------------------------
+   Panel armable: retroalimentación visual al arrastrar y soltar
+   -------------------------------------------------------------- */
+@keyframes cargando {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: color-mix(in srgb, var(--series-1) 16%, transparent);
+  border: 2px dashed var(--series-1);
+  border-radius: 12px;
+  opacity: 1;
+  transition-duration: 100ms;
+}
+
+.react-grid-item.react-draggable-dragging {
+  z-index: 30;
+  transition: none;
+}
+
+.react-grid-item.react-draggable-dragging > div {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  transform: scale(1.01);
+}
+
+.react-grid-item > .react-resizable-handle {
+  width: 18px;
+  height: 18px;
+  right: 4px;
+  bottom: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.react-grid-item:hover > .react-resizable-handle {
+  opacity: 0.6;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  width: 7px;
+  height: 7px;
+  right: 5px;
+  bottom: 5px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+}
