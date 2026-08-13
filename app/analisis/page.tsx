@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { Panel, type WidgetGuardado } from "@/components/panel/panel";
@@ -13,14 +12,16 @@ export const dynamic = "force-dynamic";
 export default async function Analisis({
   searchParams,
 }: {
-  searchParams: Promise<{ dataset?: string }>;
+  searchParams: Promise<{ dataset?: string; campana?: string }>;
 }) {
   if (!hayCredenciales()) redirect("/configuracion");
-  const { dataset: datasetId } = await searchParams;
+  const { dataset: datasetId, campana } = await searchParams;
 
   // Sin contexto explícito se conserva exactamente el panel personal legacy
   // de Seguros, con sus widgets, metas y filtros de campaña.
-  if (!datasetId) return <DashboardLegacy />;
+  if (!datasetId) {
+    return <DashboardLegacy searchParams={Promise.resolve({ campana })} />;
+  }
 
   const ctx = await getContexto();
   if (!ctx.tenantId || !ctx.userId) redirect("/cargar");
@@ -73,7 +74,7 @@ export default async function Analisis({
     <>
       <Nav email={ctx.email} />
       <main className="mx-auto max-w-[1560px] px-6 py-7">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="mb-6">
           <div>
             <p className="etiqueta">Análisis de base</p>
             <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">
@@ -84,29 +85,16 @@ export default async function Analisis({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <form className="pildora">
-              <label htmlFor="dataset" className="text-xs text-[var(--text-muted)]">Base</label>
-              <select id="dataset" name="dataset" defaultValue={datasetId}>
-                {(datasets ?? []).map((dataset) => (
-                  <option key={dataset.id} value={dataset.id}>{dataset.nombre}</option>
-                ))}
-              </select>
-              <button type="submit" className="text-xs font-semibold text-[var(--series-1)]">Ver</button>
-            </form>
-            <Link href="/analisis" className="pildora text-xs font-semibold">
-              Panel de Seguros
-            </Link>
-          </div>
         </div>
 
         <Panel
           panelId={panelId as string}
           widgetsIniciales={(widgets ?? []) as unknown as WidgetGuardado[]}
-          campanas={[]}
+          campanas={ctx.campanas}
           fuentesDisponibles={{ dataset: Number(catalogoTipado.resumen.filas ?? 0) }}
           rangoInicial={{ desde: rango.desde, hasta: rango.hasta }}
           catalogoDataset={catalogoTipado}
+          datasets={datasets ?? []}
         />
       </main>
     </>

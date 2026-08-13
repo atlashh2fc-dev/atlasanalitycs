@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Responsive, WidthProvider, type Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -38,6 +39,8 @@ export function Panel({
   fuentesDisponibles,
   rangoInicial,
   catalogoDataset,
+  datasets,
+  campanaInicial,
 }: {
   panelId: string;
   widgetsIniciales: WidgetGuardado[];
@@ -45,7 +48,10 @@ export function Panel({
   fuentesDisponibles: Record<string, number>;
   rangoInicial: { desde: string; hasta: string };
   catalogoDataset?: CatalogoDataset;
+  datasets: { id: string; nombre: string }[];
+  campanaInicial?: string | null;
 }) {
+  const router = useRouter();
   const [widgets, setWidgets] = useState<WidgetGuardado[]>(widgetsIniciales);
   // Las tarjetas se arrastran siempre. El candado existe para quien
   // ya dejó su panel como quiere y no desea moverlo sin querer.
@@ -58,7 +64,7 @@ export function Panel({
   const [filtros, setFiltros] = useState<Filtros>({
     desde: rangoInicial.desde,
     hasta: rangoInicial.hasta,
-    campanaId: null,
+    campanaId: campanaInicial ?? null,
   });
 
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -180,24 +186,47 @@ export function Panel({
           />
         </label>
 
-        {!catalogoDataset ? <label className="pildora cursor-pointer">
+        <label className="pildora cursor-pointer">
           <Target className="size-3.5 text-[var(--text-muted)]" />
           <select
-            value={filtros.campanaId ?? ""}
-            onChange={(e) =>
-              setFiltros({ ...filtros, campanaId: e.target.value || null })
+            value={
+              catalogoDataset
+                ? `dataset:${catalogoDataset.dataset.id}`
+                : filtros.campanaId
+                  ? `campana:${filtros.campanaId}`
+                  : ""
             }
-            aria-label="Campaña"
+            onChange={(e) => {
+              const valor = e.target.value;
+              if (valor.startsWith("dataset:")) {
+                router.push(`/analisis?dataset=${encodeURIComponent(valor.slice(8))}`);
+                return;
+              }
+
+              const campanaId = valor.startsWith("campana:") ? valor.slice(9) : null;
+              setFiltros({ ...filtros, campanaId });
+              router.push(
+                campanaId
+                  ? `/analisis?campana=${encodeURIComponent(campanaId)}`
+                  : "/analisis",
+              );
+            }}
+            aria-label="Campaña o base"
             className="cursor-pointer"
           >
             <option value="">Todas las campañas</option>
             {campanas.map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={c.id} value={`campana:${c.id}`}>
                 {c.nombre}
               </option>
             ))}
+            {datasets.map((dataset) => (
+              <option key={dataset.id} value={`dataset:${dataset.id}`}>
+                {dataset.nombre}
+              </option>
+            ))}
           </select>
-        </label> : null}
+        </label>
 
         <div className="ml-auto flex items-center gap-2">
           {guardado ? (
