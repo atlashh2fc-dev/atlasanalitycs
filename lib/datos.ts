@@ -6,6 +6,7 @@ import type { FilaRanking } from "@/components/charts/ranking";
 import type { FilaMovilidad } from "@/components/charts/movilidad";
 
 export interface Contexto {
+  userId: string | null;
   email: string | null;
   tenantId: string | null;
   esAdmin: boolean;
@@ -19,7 +20,7 @@ export async function getContexto(): Promise<Contexto> {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { email: null, tenantId: null, esAdmin: false, campanas: [] };
+    return { userId: null, email: null, tenantId: null, esAdmin: false, campanas: [] };
   }
 
   const { data: perfil } = await supabase
@@ -34,6 +35,7 @@ export async function getContexto(): Promise<Contexto> {
     .order("nombre");
 
   return {
+    userId: user.id,
     email: user.email ?? null,
     tenantId: perfil?.tenant_id ?? null,
     esAdmin: perfil?.rol === "admin",

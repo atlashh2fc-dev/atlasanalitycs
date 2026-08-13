@@ -6,6 +6,7 @@ import { hayCredenciales } from "@/lib/supabase/client";
 import { getContexto } from "@/lib/datos";
 import { fmt } from "@/lib/utils";
 import { FormMeta, FormCampana, Semilla } from "./formularios";
+import { Usuarios, type UsuarioFila } from "./usuarios";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,22 @@ export default async function Mantenedor() {
         .limit(10),
       supabase.from("producto").select("id, nombre, agrupacion_meta").order("nombre"),
     ]);
+
+  const { data: perfiles } = await supabase
+    .from("perfil")
+    .select("id, nombre, email, rol, activo, campanas:perfil_campana (campana_id)")
+    .order("nombre");
+
+  const usuarios: UsuarioFila[] = (perfiles ?? []).map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    email: p.email,
+    rol: p.rol as "admin" | "supervisor",
+    activo: p.activo,
+    campanas: ((p.campanas ?? []) as unknown as { campana_id: string }[]).map(
+      (c) => c.campana_id,
+    ),
+  }));
 
   const sinTenant = !ctx.tenantId;
 
@@ -207,6 +224,15 @@ export default async function Mantenedor() {
               </tbody>
             </table>
           </Card>
+
+          {ctx.esAdmin && !sinTenant ? (
+            <Card className="lg:col-span-2">
+              <CardTitle hint="Un supervisor sólo ve las campañas que le asignes. El administrador ve todo el tenant.">
+                Usuarios y accesos
+              </CardTitle>
+              <Usuarios usuarios={usuarios} campanas={ctx.campanas} yo={ctx.userId} />
+            </Card>
+          ) : null}
 
           {ctx.esAdmin && !sinTenant ? (
             <Card className="lg:col-span-2">
