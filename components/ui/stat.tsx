@@ -33,13 +33,9 @@ export function Stat({
   mostrarEstado?: boolean;
 }) {
   return (
-    <div className="rounded-lg border bg-[var(--surface-2)] p-5">
-      <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-        {label}
-      </p>
-      <p className="tabular mt-2 text-3xl font-semibold leading-none text-[var(--text-primary)]">
-        {valor}
-      </p>
+    <div className="superficie rounded-xl border p-5">
+      <p className="etiqueta">{label}</p>
+      <p className="cifra mt-2.5 text-[2rem] text-[var(--text-primary)]">{valor}</p>
       <div className="mt-2 flex items-center gap-2">
         {mostrarEstado && estado !== "neutro" ? (
           <span

@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useState } from "react";
 import {
-  Area,
   AreaChart,
   Bar,
   BarChart,
@@ -19,7 +18,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Area, AreaChart as MiniArea } from "recharts";
 import { SERIES, Tooltip } from "@/components/charts/base";
+import { useConteo, usaMovimientoReducido } from "@/lib/animacion";
 import { fmt } from "@/lib/utils";
 import type { Resultado, TipoWidget } from "@/lib/widgets";
 
@@ -62,12 +63,15 @@ export function ContenidoTarjeta({
 }) {
   // Los degradados viven en <defs> con id propio: dos tarjetas en la
   // misma página no pueden compartirlo o la segunda pisa a la primera.
+  const reducido = usaMovimientoReducido();
   const idBase = useId().replace(/:/g, "");
   const gradVertical = `gv-${idBase}`;
   const gradHorizontal = `gh-${idBase}`;
   const gradArea = `ga-${idBase}`;
+  const gradTrazo = `gt-${idBase}`;
 
   const [datos, setDatos] = useState<Resultado | null>(null);
+  const [kpi, setKpi] = useState<DatosKpi | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
 
@@ -78,16 +82,39 @@ export function ContenidoTarjeta({
     setCargando(true);
     setError(null);
 
-    fetch("/api/consulta", {
+    const esKpi = tipo === "kpi";
+    const ruta = esKpi ? "/api/kpi" : "/api/consulta";
+    const cuerpo = esKpi
+      ? {
+          fuente: config.fuente,
+          metrica: config.metrica,
+          desde: filtros.desde,
+          hasta: filtros.hasta,
+          campanaId: filtros.campanaId,
+        }
+      : { ...config, ...filtros };
+
+    fetch(ruta, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...config, ...filtros }),
+      body: JSON.stringify(cuerpo),
     })
       .then((r) => r.json())
       .then((j) => {
         if (!vivo) return;
-        if (j.error) setError(j.error);
-        else setDatos(j as Resultado);
+        if (j.error) return setError(j.error);
+        if (esKpi) {
+          const k = j as DatosKpi;
+          setKpi(k);
+          setDatos({
+            filas: [],
+            total: k.total,
+            unidad: k.unidad,
+            registros: k.registros,
+          });
+        } else {
+          setDatos(j as Resultado);
+        }
       })
       .catch(() => vivo && setError("No se pudo consultar."))
       .finally(() => vivo && setCargando(false));
@@ -96,7 +123,7 @@ export function ContenidoTarjeta({
       vivo = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firma]);
+  }, [firma, tipo]);
 
   if (cargando) {
     return (
@@ -130,45 +157,16 @@ export function ContenidoTarjeta({
 
   /* ---------------- KPI ---------------- */
   if (tipo === "kpi") {
-    const pct = objetivo && objetivo > 0 ? datos.total / objetivo : null;
     return (
-      <div className="flex h-full flex-col justify-center px-1">
-        <p className="tabular text-[clamp(1.75rem,4.5vw,2.75rem)] font-semibold leading-none tracking-tight">
-          {formatea(datos.total, datos.unidad)}
-        </p>
-        {objetivo ? (
-          <>
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-0)]">
-              <div
-                className="h-full rounded-full transition-[width] duration-500"
-                style={{
-                  width: `${Math.min(100, (pct ?? 0) * 100)}%`,
-                  background: `linear-gradient(90deg, color-mix(in srgb, ${
-                    (pct ?? 0) >= 1
-                      ? "var(--good)"
-                      : (pct ?? 0) >= 0.85
-                        ? "var(--warning)"
-                        : "var(--serious)"
-                  } 55%, transparent), ${
-                    (pct ?? 0) >= 1
-                      ? "var(--good)"
-                      : (pct ?? 0) >= 0.85
-                        ? "var(--warning)"
-                        : "var(--serious)"
-                  })`,
-                }}
-              />
-            </div>
-            <p className="mt-1.5 text-xs text-[var(--text-secondary)]">
-              {fmt.pct(pct)} de {formatea(objetivo, datos.unidad)}
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
-            {fmt.entero(datos.registros)} registros
-          </p>
-        )}
-      </div>
+      <TarjetaCifra
+        total={datos.total}
+        unidad={datos.unidad}
+        registros={datos.registros}
+        objetivo={objetivo}
+        anterior={kpi?.anterior}
+        serie={kpi?.serie ?? []}
+        granularidad={kpi?.granularidad}
+      />
     );
   }
 
@@ -249,7 +247,9 @@ export function ContenidoTarjeta({
               outerRadius="88%"
               paddingAngle={2}
               stroke="var(--surface-2)"
-              strokeWidth={2}
+              strokeWidth={3}
+              isAnimationActive={!reducido}
+              animationDuration={700}
             >
               {top.map((_, i) => (
                 <Cell key={i} fill={SERIES[i % SERIES.length]} fillOpacity={1 - i * 0.11} />
@@ -270,7 +270,7 @@ export function ContenidoTarjeta({
                 }}
               />
               <span className="truncate text-[var(--text-secondary)]">{f.clave}</span>
-              <span className="tabular ml-auto font-medium">
+              <span className="tabular ml-auto font-medium tracking-tight">
                 {formatea(f.valor, datos.unidad)}
               </span>
             </div>
@@ -306,6 +306,13 @@ export function ContenidoTarjeta({
               <stop offset="55%" stopColor={SERIES[0]} stopOpacity={0.18} />
               <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.02} />
             </linearGradient>
+            {/* El trazo se aclara hacia la derecha: sugiere avance en
+                el tiempo sin cambiar el tono ni inventar una segunda
+                serie. */}
+            <linearGradient id={gradTrazo} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.65} />
+              <stop offset="100%" stopColor={SERIES[0]} stopOpacity={1} />
+            </linearGradient>
           </defs>
           <CartesianGrid vertical={false} />
           <XAxis
@@ -329,20 +336,24 @@ export function ContenidoTarjeta({
             <Area
               type="monotone"
               dataKey="valor"
-              stroke={SERIES[0]}
-              strokeWidth={2}
+              stroke={`url(#${gradTrazo})`}
+              strokeWidth={2.5}
               fill={`url(#${gradArea})`}
               dot={false}
               activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--surface-2)" }}
+              isAnimationActive={!reducido}
+              animationDuration={700}
             />
           ) : (
             <Line
               type="monotone"
               dataKey="valor"
-              stroke={SERIES[0]}
-              strokeWidth={2}
+              stroke={`url(#${gradTrazo})`}
+              strokeWidth={2.5}
               dot={false}
               activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--surface-2)" }}
+              isAnimationActive={!reducido}
+              animationDuration={700}
             />
           )}
         </Grafico>
@@ -381,6 +392,8 @@ export function ContenidoTarjeta({
             radius={[0, 4, 4, 0]}
             fill={`url(#${gradHorizontal})`}
             maxBarSize={20}
+            isAnimationActive={!reducido}
+            animationDuration={650}
           >
             <LabelList
               dataKey="valor"
@@ -431,8 +444,139 @@ export function ContenidoTarjeta({
           radius={[4, 4, 0, 0]}
           fill={`url(#${gradVertical})`}
           maxBarSize={56}
+          isAnimationActive={!reducido}
+          animationDuration={650}
         />
       </BarChart>
     </ResponsiveContainer>
+  );
+}
+
+
+interface DatosKpi {
+  total: number;
+  unidad: Resultado["unidad"];
+  registros: number;
+  anterior: number;
+  serie: { clave: string; valor: number }[];
+  granularidad: "dia" | "semana" | "mes";
+}
+
+/**
+ * Tarjeta de cifra.
+ *
+ * Un número solo no dice nada: 104 asegurados puede ser excelente o
+ * pésimo. Lo que le da sentido es contra qué se compara —la meta y el
+ * periodo anterior— y cómo llegó hasta ahí, que es lo que muestra la
+ * mini-serie.
+ */
+export function TarjetaCifra({
+  total,
+  unidad,
+  registros,
+  objetivo,
+  anterior,
+  serie,
+  granularidad = "dia",
+}: {
+  total: number;
+  unidad: Resultado["unidad"];
+  registros: number;
+  objetivo?: number;
+  anterior?: number;
+  serie: { clave: string; valor: number }[];
+  granularidad?: "dia" | "semana" | "mes";
+}) {
+  const reducido = usaMovimientoReducido();
+  const idSpark = useId().replace(/:/g, "");
+  const animado = useConteo(total);
+  const mostrado = reducido ? total : animado;
+
+  const pct = objetivo && objetivo > 0 ? total / objetivo : null;
+  const delta =
+    anterior !== undefined && anterior !== 0 ? (total - anterior) / anterior : null;
+
+  // Una variación es buena o mala según la métrica; acá todas las que
+  // existen son "más es mejor", así que el signo basta.
+  const tonoDelta =
+    delta === null ? "neutro" : delta > 0 ? "good" : delta < 0 ? "critical" : "neutro";
+
+  const colorEstado =
+    (pct ?? 0) >= 1 ? "var(--good)" : (pct ?? 0) >= 0.85 ? "var(--warning)" : "var(--serious)";
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-baseline gap-2.5">
+        <p className="cifra text-[clamp(1.9rem,4.2vw,2.9rem)] text-[var(--text-primary)]">
+          {formatea(mostrado, unidad)}
+        </p>
+
+        {delta !== null ? (
+          <span
+            className="tabular inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium"
+            style={{
+              color: `var(--${tonoDelta === "neutro" ? "text-muted" : tonoDelta})`,
+              background:
+                tonoDelta === "neutro"
+                  ? "transparent"
+                  : `color-mix(in srgb, var(--${tonoDelta}) 13%, transparent)`,
+            }}
+            title={`Periodo anterior: ${formatea(anterior ?? 0, unidad)}`}
+          >
+            {delta > 0 ? "▲" : delta < 0 ? "▼" : "="}{" "}
+            {fmt.pct(Math.abs(delta), 0)}
+          </span>
+        ) : null}
+      </div>
+
+      {objetivo ? (
+        <>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-0)]">
+            <div
+              className="h-full rounded-full transition-[width] duration-700 ease-out"
+              style={{
+                width: `${Math.min(100, (pct ?? 0) * 100)}%`,
+                background: `linear-gradient(90deg, color-mix(in srgb, ${colorEstado} 55%, transparent), ${colorEstado})`,
+              }}
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-[var(--text-secondary)]">
+            {fmt.pct(pct)} de {formatea(objetivo, unidad)}
+          </p>
+        </>
+      ) : (
+        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+          {fmt.entero(registros)} registros
+          {delta !== null ? " · vs. periodo anterior" : ""}
+        </p>
+      )}
+
+      {/* La mini-serie ocupa el espacio muerto con información, no con
+          decoración: muestra si la cifra viene subiendo o cayendo. */}
+      {serie.length > 2 ? (
+        <div className="mt-auto -mx-1 h-12 pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <MiniArea data={serie} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id={`chispa-${idSpark}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.42} />
+                  <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area
+                type="monotone"
+                dataKey="valor"
+                stroke={SERIES[0]}
+                strokeWidth={2}
+                fill={`url(#chispa-${idSpark})`}
+                dot={false}
+                isAnimationActive={!reducido}
+                animationDuration={600}
+              />
+            </MiniArea>
+          </ResponsiveContainer>
+        </div>
+      ) : null}
+    </div>
   );
 }

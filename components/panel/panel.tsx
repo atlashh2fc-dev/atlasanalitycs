@@ -63,8 +63,9 @@ export function Panel({
         y: w.y,
         w: w.w,
         h: w.h,
-        minW: 2,
-        minH: 3,
+        // Bajo estos mínimos la tarjeta deja de ser legible
+        minW: 3,
+        minH: w.tipo === "kpi" ? 3 : 4,
       })),
     [widgets],
   );
@@ -97,7 +98,8 @@ export function Panel({
     titulo: string;
     config: ConfigWidget;
   }) {
-    const alto = t.tipo === "kpi" ? 3 : 5;
+    // El KPI necesita alto para la mini-serie; la tabla, para varias filas
+    const alto = t.tipo === "kpi" ? 4 : t.tipo === "tabla" ? 6 : 5;
     const ancho = t.tipo === "kpi" ? 3 : 6;
 
     const res = await fetch("/api/panel", {
@@ -217,7 +219,7 @@ export function Panel({
       ) : null}
 
       {widgets.length === 0 ? (
-        <div className="rounded-xl border border-dashed py-16 text-center">
+        <div className="superficie rounded-xl border border-dashed py-16 text-center">
           <p className="text-sm font-medium">Tu panel está vacío</p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-[var(--text-secondary)]">
             Crea tu primera tarjeta: eliges qué medir, cómo desglosarlo y
@@ -249,7 +251,7 @@ export function Panel({
         >
           {widgets.map((w) => (
             <div key={w.id} className="group">
-              <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-[var(--surface-2)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.07)]">
+              <div className="superficie flex h-full flex-col overflow-hidden rounded-xl border">
                 <div
                   className={`flex items-start justify-between gap-2 px-4 pb-2 pt-3.5 ${
                     bloqueado ? "" : "arrastrar cursor-grab active:cursor-grabbing"
@@ -269,7 +271,7 @@ export function Panel({
                     <h3
                       onDoubleClick={() => setRenombrando(w.id)}
                       title="Doble clic para renombrar"
-                      className="truncate text-sm font-semibold"
+                      className="text-sm font-semibold leading-tight [overflow-wrap:anywhere]"
                     >
                       {w.titulo}
                     </h3>

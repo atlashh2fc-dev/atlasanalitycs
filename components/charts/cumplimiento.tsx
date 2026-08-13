@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { ESTADO, SERIES, SinDatos, Tooltip } from "./base";
+import { usaMovimientoReducido } from "@/lib/animacion";
 import { fmt } from "@/lib/utils";
 
 export interface FilaCumplimiento {
@@ -24,24 +25,55 @@ export interface FilaCumplimiento {
 }
 
 /**
- * Cumplimiento por línea de meta.
+ * Cumplimiento por línea, medido como avance sobre la propia meta.
  *
- * Una sola serie (asegurados reales) con dos referencias: el ritmo que
- * corresponde a la fecha y la meta del mes. El consolidado esconde el
- * problema — Oncológico sobre ritmo tapa el atraso de Complementario —,
- * así que este gráfico nunca se muestra agregado.
+ * El eje es relativo a propósito. En unidades absolutas, CM+CAT (meta 250)
+ * y Oncológico (meta 60) no son comparables: la barra de 57 se ve enorme
+ * al lado de la de 47 aunque vaya mucho más atrasada, y la línea de ritmo
+ * de una línea cruzaba la barra de la otra —una referencia horizontal
+ * abarca todo el gráfico, no una sola categoría—, lo que se leía como si
+ * Oncológico estuviera bajo el ritmo de Complementario.
+ *
+ * Sobre el eje relativo desaparecen ambos problemas: la meta es 100% para
+ * todas las líneas y el ritmo esperado, que es la meta por la fracción de
+ * mes transcurrida, cae en el mismo punto para todas. Una sola referencia,
+ * válida para todas las barras. Los valores absolutos siguen visibles en
+ * la etiqueta, el tooltip y la tabla.
  */
 export function GraficoCumplimiento({ datos }: { datos: FilaCumplimiento[] }) {
+  const reducido = usaMovimientoReducido();
+
   if (datos.length === 0) {
     return <SinDatos mensaje="Carga un archivo de ventas para ver el cumplimiento por línea." />;
   }
 
-  const maxY = Math.max(...datos.map((d) => Math.max(d.meta, d.proyeccion))) * 1.15;
+  const filas = datos.map((d) => {
+    const avance = d.meta > 0 ? (d.asegurados / d.meta) * 100 : 0;
+    const ritmo = d.meta > 0 ? (d.ritmoEsperado / d.meta) * 100 : 0;
+    return {
+      ...d,
+      avance,
+      ritmo,
+      faltante: Math.max(100 - avance, 0),
+      enRitmo: d.asegurados >= d.ritmoEsperado,
+    };
+  });
+
+  // El ritmo cae en el mismo punto para todas las líneas salvo que alguna
+  // tenga un calendario distinto. Si se separan, se dibuja una referencia
+  // por valor en vez de una sola, para no afirmar algo que no es cierto.
+  const ritmos = filas.map((f) => f.ritmo);
+  const dispersos = Math.max(...ritmos) - Math.min(...ritmos) > 1.5;
+  const referencias = dispersos
+    ? filas.map((f) => ({ y: f.ritmo, texto: `ritmo ${f.agrupacion}` }))
+    : [{ y: ritmos[0], texto: "ritmo a hoy" }];
+
+  const techo = Math.max(112, ...filas.map((f) => f.avance)) * 1.04;
 
   return (
     <div>
       <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={datos} margin={{ top: 24, right: 12, bottom: 4, left: 4 }}>
+        <BarChart data={filas} margin={{ top: 20, right: 78, bottom: 4, left: 4 }}>
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey="agrupacion"
@@ -50,7 +82,9 @@ export function GraficoCumplimiento({ datos }: { datos: FilaCumplimiento[] }) {
             tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
           />
           <YAxis
-            domain={[0, maxY]}
+            domain={[0, techo]}
+            ticks={[0, 25, 50, 75, 100]}
+            tickFormatter={(v: number) => `${v}%`}
             tickLine={false}
             axisLine={false}
             width={44}
@@ -60,43 +94,98 @@ export function GraficoCumplimiento({ datos }: { datos: FilaCumplimiento[] }) {
             cursor={{ fill: "color-mix(in srgb, var(--text-primary) 4%, transparent)" }}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
-              const d = payload[0].payload as FilaCumplimiento;
-              const pct = d.meta > 0 ? d.asegurados / d.meta : null;
+              const d = payload[0].payload as (typeof filas)[number];
               return (
                 <Tooltip
                   titulo={d.agrupacion}
                   filas={[
-                    { etiqueta: "Asegurados", valor: fmt.entero(d.asegurados), color: SERIES[0] },
-                    { etiqueta: "Meta del mes", valor: fmt.entero(d.meta) },
-                    { etiqueta: "Ritmo esperado a hoy", valor: fmt.entero(Math.round(d.ritmoEsperado)) },
+                    {
+                      etiqueta: "Asegurados",
+                      valor: `${fmt.entero(d.asegurados)} de ${fmt.entero(d.meta)}`,
+                      color: d.enRitmo ? SERIES[0] : ESTADO.serious,
+                    },
+                    { etiqueta: "Avance", valor: fmt.pct(d.avance / 100) },
+                    {
+                      etiqueta: "Ritmo esperado a hoy",
+                      valor: `${fmt.entero(Math.round(d.ritmoEsperado))} · ${fmt.pct(d.ritmo / 100)}`,
+                    },
                     { etiqueta: "Proyección al cierre", valor: fmt.entero(Math.round(d.proyeccion)) },
-                    { etiqueta: "Avance", valor: fmt.pct(pct) },
                   ]}
                 />
               );
             }}
           />
-          {datos.map((d) => (
+
+          {/* La meta: el 100% del propio objetivo de cada línea. */}
+          <ReferenceLine
+            y={100}
+            stroke="var(--border-strong)"
+            strokeWidth={1.5}
+            label={{
+              value: "meta",
+              position: "right",
+              offset: 8,
+              style: { fill: "var(--text-secondary)", fontSize: 11 },
+            }}
+          />
+
+          {/* El ritmo que correspondería a hoy: más exigente que la meta
+              de fin de mes y la referencia que de verdad importa. */}
+          {referencias.map((r) => (
             <ReferenceLine
-              key={`meta-${d.agrupacion}`}
-              y={d.meta}
+              key={r.texto}
+              y={r.y}
               stroke="var(--border-strong)"
               strokeDasharray="4 4"
               strokeWidth={2}
+              label={{
+                value: r.texto,
+                position: "right",
+                offset: 8,
+                style: { fill: "var(--text-muted)", fontSize: 11 },
+              }}
             />
           ))}
-          <Bar dataKey="asegurados" radius={[4, 4, 0, 0]} maxBarSize={72}>
-            {datos.map((d) => (
+
+          <Bar
+            dataKey="avance"
+            stackId="meta"
+            radius={[0, 0, 4, 4]}
+            maxBarSize={72}
+            isAnimationActive={!reducido}
+          >
+            {filas.map((d) => (
               <Cell
                 key={d.agrupacion}
-                fill={d.asegurados >= d.ritmoEsperado ? SERIES[0] : ESTADO.serious}
+                fill={d.enRitmo ? SERIES[0] : ESTADO.serious}
+                // Sobre el 100% no queda tramo gris encima: la barra
+                // cierra por arriba en vez de quedar cortada en plano.
+                {...(d.faltante === 0 ? { radius: 4 } : {})}
               />
             ))}
             <LabelList
               dataKey="asegurados"
-              position="top"
+              position="insideTop"
               offset={8}
-              style={{ fill: "var(--text-primary)", fontSize: 12, fontWeight: 600 }}
+              style={{ fill: "#fff", fontSize: 12, fontWeight: 700 }}
+            />
+          </Bar>
+
+          <Bar
+            dataKey="faltante"
+            stackId="meta"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={72}
+            fill="color-mix(in srgb, var(--text-muted) 18%, transparent)"
+            stroke="var(--border)"
+            isAnimationActive={!reducido}
+          >
+            <LabelList
+              dataKey="avance"
+              position="top"
+              offset={6}
+              formatter={(v: unknown) => fmt.pct(Number(v ?? 0) / 100)}
+              style={{ fill: "var(--text-secondary)", fontSize: 12, fontWeight: 600 }}
             />
           </Bar>
         </BarChart>

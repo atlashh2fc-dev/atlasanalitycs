@@ -38,7 +38,9 @@
 
   --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.04);
   --sombra-alta: 0 4px 16px rgba(0, 0, 0, 0.07);
-  --brillo: none;
+  --brillo-fino: none;
+  --brillo-solido: none;
+  --luz-cenital: rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme="dark"] {
@@ -70,9 +72,12 @@
 
   --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.5);
   --sombra-alta: 0 8px 28px rgba(0, 0, 0, 0.55);
-  /* El halo da profundidad sin tocar el tono: sólo se aplica a las
-     marcas de datos, nunca al texto. */
-  --brillo: drop-shadow(0 0 10px color-mix(in srgb, var(--series-1) 45%, transparent));
+  /* El halo se calibra por tipo de marca. En trazos finos da
+     profundidad; sobre superficies grandes —una dona, un área rellena—
+     sólo emborrona, así que ahí no se aplica. */
+  --brillo-fino: drop-shadow(0 0 8px color-mix(in srgb, var(--series-1) 55%, transparent));
+  --brillo-solido: drop-shadow(0 1px 5px color-mix(in srgb, var(--series-1) 26%, transparent));
+  --luz-cenital: rgba(255, 255, 255, 0.07);
 }
 
 * {
@@ -115,13 +120,19 @@ body {
   font-size: 12px;
 }
 
-/* El halo va sobre las marcas de datos, no sobre ejes ni etiquetas */
-:root[data-theme="dark"] .recharts-bar-rectangle,
-:root[data-theme="dark"] .recharts-area-area,
+/* Trazos finos: halo pleno. Nunca sobre ejes, texto ni rellenos. */
 :root[data-theme="dark"] .recharts-line-curve,
-:root[data-theme="dark"] .recharts-pie {
-  filter: var(--brillo);
+:root[data-theme="dark"] .recharts-scatter-symbol {
+  filter: var(--brillo-fino);
 }
+
+/* Barras: halo contenido, lo justo para despegarlas del fondo */
+:root[data-theme="dark"] .recharts-bar-rectangle {
+  filter: var(--brillo-solido);
+}
+
+/* La dona y las áreas rellenas van limpias: el halo sobre superficies
+   grandes se lee como desenfoque, no como profundidad. */
 
 /* ---------------------------------------------------------------
    Panel armable: retroalimentación al arrastrar y soltar
@@ -188,4 +199,79 @@ input[type="month"] {
 
 ::placeholder {
   color: var(--text-muted);
+}
+
+
+/* ---------------------------------------------------------------
+   Materialidad
+   ---------------------------------------------------------------
+   Lo que separa un modo oscuro diseñado de uno invertido es la luz:
+   un degradado muy leve en la superficie y una línea de un píxel
+   arriba que simula iluminación cenital. Sin eso, las tarjetas son
+   rectángulos planos apenas más claros que el fondo.
+   --------------------------------------------------------------- */
+.superficie {
+  position: relative;
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 92%, white),
+    var(--surface-2) 42%
+  );
+  box-shadow: var(--sombra-tarjeta);
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+:root[data-theme="dark"] .superficie {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 88%, white),
+    var(--surface-1) 46%
+  );
+}
+
+.superficie::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--luz-cenital) 18%,
+    var(--luz-cenital) 82%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.superficie:hover {
+  box-shadow: var(--sombra-alta);
+}
+
+/* Cifras: tabulares, apretadas y grandes. Una métrica se lee de un
+   vistazo o no sirve. */
+.cifra {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  line-height: 0.95;
+}
+
+.etiqueta {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

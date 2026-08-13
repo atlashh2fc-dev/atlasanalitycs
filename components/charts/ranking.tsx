@@ -52,7 +52,7 @@ export function GraficoRanking({
         <BarChart
           data={orden}
           layout="vertical"
-          margin={{ top: 8, right: 40, bottom: 24, left: 8 }}
+          margin={{ top: 18, right: 44, bottom: 24, left: 8 }}
           barCategoryGap={2}
         >
           <XAxis
@@ -94,10 +94,17 @@ export function GraficoRanking({
             stroke="var(--border-strong)"
             strokeDasharray="4 4"
             strokeWidth={2}
+            // Encima del área de trazado: dentro se cruzaba con la barra
+            // del primer ejecutivo y ninguna de las dos se leía.
             label={{
               value: `mediana ${fmt.decimal(mediana, 0)}`,
               position: "top",
-              style: { fill: "var(--text-muted)", fontSize: 11 },
+              offset: 6,
+              style: {
+                fill: "var(--text-muted)",
+                fontSize: 11,
+                textAnchor: "middle",
+              },
             }}
           />
           <Bar dataKey="asegurados" radius={[0, 4, 4, 0]} maxBarSize={18}>
