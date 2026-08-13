@@ -143,6 +143,46 @@ export function Cargador({
     );
   }
 
+  /**
+   * Vuelve a perfilar la hoja forzando el modo o la fila de encabezado.
+   * La detección automática acierta casi siempre, pero cuando no, el
+   * usuario tiene que poder corregirla sin quedarse bloqueado.
+   */
+  function reperfilar(
+    indice: number,
+    forzar: { modo?: "tabular" | "matriz"; filaEncabezado?: number },
+  ) {
+    const archivo = archivos[indice];
+    const actual = archivo.hojas[archivo.hojaActiva];
+
+    const matriz = XLSX.utils.sheet_to_json<unknown[]>(
+      archivo.libro.Sheets[actual.hoja],
+      { header: 1, defval: null, raw: true },
+    );
+
+    const nueva = perfilaHoja(actual.hoja, matriz, {}, {
+      modo: forzar.modo ?? actual.modo,
+      filaEncabezado: forzar.filaEncabezado ?? actual.filaEncabezado,
+    });
+
+    const roles: Record<number, string> = {};
+    for (const c of nueva.columnas) {
+      if (c.rolSugerido && !c.descartada) roles[c.posicion] = c.rolSugerido;
+    }
+
+    setArchivos((prev) =>
+      prev.map((a, i) =>
+        i !== indice
+          ? a
+          : {
+              ...a,
+              hojas: a.hojas.map((h, j) => (j === a.hojaActiva ? nueva : h)),
+              roles: { ...a.roles, [a.hojaActiva]: roles },
+            },
+      ),
+    );
+  }
+
   function quitar(indice: number) {
     setArchivos((prev) => prev.filter((_, i) => i !== indice));
     setActivo((a) => (a >= indice && a > 0 ? a - 1 : a));
@@ -354,18 +394,56 @@ export function Cargador({
               ))}
             </div>
 
+            <div className="mt-4 flex flex-wrap items-end gap-4 border-t pt-3">
+              <label className="text-xs text-[var(--text-secondary)]">
+                <span className="mb-1 block font-medium">Cómo leer la hoja</span>
+                <select
+                  value={hoja.modo}
+                  onChange={(e) =>
+                    reperfilar(activo, {
+                      modo: e.target.value as "tabular" | "matriz",
+                    })
+                  }
+                  className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+                >
+                  <option value="tabular">Tabla (una fila por registro)</option>
+                  <option value="matriz">Planilla (fechas en columnas)</option>
+                </select>
+              </label>
+
+              <label className="text-xs text-[var(--text-secondary)]">
+                <span className="mb-1 block font-medium">Fila del encabezado</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={hoja.filaEncabezado + 1}
+                  onChange={(e) =>
+                    reperfilar(activo, {
+                      filaEncabezado: Math.max(0, Number(e.target.value) - 1),
+                    })
+                  }
+                  className="w-24 rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+                />
+              </label>
+
+              <p className="pb-1.5 text-xs text-[var(--text-muted)]">
+                Detectado automáticamente. Si los nombres de columna de abajo
+                se ven como datos, corrige la fila acá.
+              </p>
+            </div>
+
             {hoja.modo === "matriz" ? (
               <p
-                className="mt-4 rounded-md px-3 py-2 text-xs"
+                className="mt-3 rounded-md px-3 py-2 text-xs"
                 style={{
                   color: "var(--serious)",
                   background: "color-mix(in srgb, var(--serious) 10%, transparent)",
                 }}
               >
-                Esta hoja tiene formato de planilla, no de base de datos: las
-                fechas están en la fila {hoja.filaEncabezado + 1} y las
-                entidades en las filas. Se procesará con unpivot automático a
-                formato largo.
+                Leída como planilla: las fechas están en la fila{" "}
+                {hoja.filaEncabezado + 1} y las entidades en las filas. Las
+                filas se guardan crudas y quedan disponibles para el unpivot;
+                todavía no alimentan los indicadores de venta.
               </p>
             ) : null}
 

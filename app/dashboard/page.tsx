@@ -24,7 +24,10 @@ export default async function Dashboard({
 
   const base = sp.mes ? new Date(`${sp.mes}-15T12:00:00`) : new Date();
   const rango = rangoMes(base);
-  const campanaId = sp.campana ?? ctx.campanas[0]?.id ?? null;
+  // Sin campaña elegida se muestra TODO. Antes se filtraba por la
+  // primera campaña, así que una carga hecha con "Sin campaña" quedaba
+  // invisible aunque los datos estuvieran en la base.
+  const campanaId = sp.campana || null;
 
   const r = await getResumenVentas(campanaId, rango);
 
@@ -54,6 +57,7 @@ export default async function Dashboard({
                 defaultValue={campanaId ?? ""}
                 className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
               >
+                <option value="">Todas las campañas</option>
                 {ctx.campanas.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nombre}
@@ -79,7 +83,17 @@ export default async function Dashboard({
           </form>
         </div>
 
-        {!r.hayDatos ? (
+        {!ctx.tenantId ? (
+          <Card className="mb-6">
+            <p className="text-sm text-[var(--text-secondary)]">
+              Tu usuario todavía no tiene organización.{" "}
+              <Link href="/cargar" className="font-medium text-[var(--series-1)] underline">
+                Créala en un paso
+              </Link>{" "}
+              y después carga tu primer Excel.
+            </p>
+          </Card>
+        ) : !r.hayDatos ? (
           <Card className="mb-6">
             <p className="text-sm text-[var(--text-secondary)]">
               Todavía no hay datos para este periodo.{" "}

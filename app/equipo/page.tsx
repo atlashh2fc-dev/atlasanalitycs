@@ -17,7 +17,7 @@ export default async function Equipo({
 
   const sp = await searchParams;
   const ctx = await getContexto();
-  const campanaId = sp.campana ?? ctx.campanas[0]?.id ?? null;
+  const campanaId = sp.campana || null;
 
   const { filas, transicion } = await getMovilidad(campanaId);
 

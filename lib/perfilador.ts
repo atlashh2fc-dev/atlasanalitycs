@@ -277,9 +277,22 @@ export function detectaFilaEncabezado(matriz: unknown[][]): number {
 }
 
 /**
- * Detecta el formato matriz: una fila con varias fechas consecutivas es
- * un reporte de planilla (entidades en filas, días en columnas), no una
- * base de datos. Requiere unpivot antes de poder analizarse.
+ * Detecta el formato matriz (entidades en filas, fechas en columnas).
+ *
+ * Encontrar varias fechas en una fila NO basta: la primera fila de datos
+ * de una tabla de ventas trae fecha de solicitud, de nacimiento, de pago
+ * y de vigencia, y eso la haría pasar por encabezado de planilla. Ese
+ * falso positivo corrompe el parseo entero, porque se toma una fila de
+ * datos como encabezado.
+ *
+ * Se exigen tres condiciones juntas:
+ *   1. Las fechas dominan la fila (más de la mitad de las celdas con
+ *      contenido).
+ *   2. Las MISMAS columnas, en las filas de abajo, no son fechas. Si lo
+ *      son, es una columna de fechas de una tabla normal.
+ *   3. Las fechas avanzan en el tiempo de izquierda a derecha, en saltos
+ *      de días. Una fecha de nacimiento de 1984 junto a uno de 2026 no
+ *      es una cabecera de calendario.
  */
 export function detectaMatriz(matriz: unknown[][]): {
   esMatriz: boolean;
@@ -289,8 +302,58 @@ export function detectaMatriz(matriz: unknown[][]): {
 
   for (let i = 0; i < limite; i++) {
     const fila = matriz[i] ?? [];
-    const fechas = fila.filter((c) => c instanceof Date || esFecha(c)).length;
-    if (fechas >= 4) return { esMatriz: true, filaFechas: i };
+
+    const columnasFecha: number[] = [];
+    fila.forEach((c, j) => {
+      if (c instanceof Date || esFecha(c)) columnasFecha.push(j);
+    });
+    if (columnasFecha.length < 4) continue;
+
+    // 1. las fechas tienen que dominar la fila
+    const conContenido = fila.filter(
+      (c) => c !== null && c !== undefined && String(c).trim() !== "",
+    ).length;
+    if (conContenido === 0) continue;
+    if (columnasFecha.length / conContenido < 0.5) continue;
+
+    // 2. abajo de una cabecera de calendario van marcas, no más fechas
+    const siguientes = matriz.slice(i + 1, i + 4);
+    if (siguientes.length > 0) {
+      let celdas = 0;
+      let fechasAbajo = 0;
+      for (const f of siguientes) {
+        for (const j of columnasFecha) {
+          const v = f?.[j];
+          if (v === null || v === undefined || String(v).trim() === "") continue;
+          celdas++;
+          if (v instanceof Date || esFecha(v)) fechasAbajo++;
+        }
+      }
+      if (celdas > 0 && fechasAbajo / celdas > 0.3) continue;
+    }
+
+    // 3. calendario: creciente y en saltos de días, no de años
+    const fechas = columnasFecha
+      .map((j) => {
+        const v = fila[j];
+        return v instanceof Date ? v : new Date(String(v));
+      })
+      .filter((d) => !isNaN(d.getTime()));
+
+    if (fechas.length < 4) continue;
+
+    const DIA = 86_400_000;
+    let calendario = true;
+    for (let k = 1; k < fechas.length; k++) {
+      const delta = (fechas[k].getTime() - fechas[k - 1].getTime()) / DIA;
+      if (delta <= 0 || delta > 7) {
+        calendario = false;
+        break;
+      }
+    }
+    if (!calendario) continue;
+
+    return { esMatriz: true, filaFechas: i };
   }
 
   return { esMatriz: false, filaFechas: -1 };
@@ -300,9 +363,17 @@ export function perfilaHoja(
   hoja: string,
   matriz: unknown[][],
   sinonimosExtra: Record<string, string> = {},
+  forzar?: { modo?: "tabular" | "matriz"; filaEncabezado?: number },
 ): PerfilHoja {
-  const { esMatriz, filaFechas } = detectaMatriz(matriz);
-  const filaEncabezado = esMatriz ? filaFechas : detectaFilaEncabezado(matriz);
+  const deteccion = detectaMatriz(matriz);
+  const esMatriz = forzar?.modo ? forzar.modo === "matriz" : deteccion.esMatriz;
+
+  const filaEncabezado =
+    forzar?.filaEncabezado !== undefined
+      ? forzar.filaEncabezado
+      : esMatriz && deteccion.filaFechas >= 0
+        ? deteccion.filaFechas
+        : detectaFilaEncabezado(matriz);
 
   const encabezado = (matriz[filaEncabezado] ?? []).map((c, i) =>
     typeof c === "string" && c.trim() !== "" ? c.trim() : `columna_${i + 1}`,
