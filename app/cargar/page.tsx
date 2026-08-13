@@ -5,6 +5,8 @@ import { getContexto } from "@/lib/datos";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Semilla } from "../mantenedor/formularios";
 import { Cargador } from "./cargador";
+import { Pendientes, type CargaPendiente } from "./pendientes";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,26 @@ export default async function Cargar() {
     );
   }
 
+  const supabase = await createClient();
+  const { data: filas } = await supabase
+    .from("carga")
+    .select(
+      "id, archivo_nombre, hoja, estado, filas_procesadas, filas_totales, error_detalle, created_at",
+    )
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  const cargas: CargaPendiente[] = (filas ?? []).map((c) => ({
+    id: c.id,
+    archivo: c.archivo_nombre,
+    hoja: c.hoja,
+    estado: c.estado,
+    filasProcesadas: c.filas_procesadas ?? 0,
+    filasTotales: c.filas_totales,
+    error: c.error_detalle,
+    fecha: c.created_at,
+  }));
+
   return (
     <>
       <Nav email={ctx.email} />
@@ -55,7 +77,14 @@ export default async function Cargar() {
           </p>
         </div>
 
-        <Cargador campanas={ctx.campanas} />
+        <Cargador campanas={ctx.campanas} tenantId={ctx.tenantId} />
+
+        <Card className="mt-6">
+          <CardTitle hint="El archivo queda guardado y el avance vive en la base: puedes irte de la pantalla y volver a retomar.">
+            Cargas registradas
+          </CardTitle>
+          <Pendientes cargas={cargas} esAdmin={ctx.esAdmin} />
+        </Card>
       </main>
     </>
   );

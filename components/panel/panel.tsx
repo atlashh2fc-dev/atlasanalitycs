@@ -35,7 +35,10 @@ export function Panel({
   rangoInicial: { desde: string; hasta: string };
 }) {
   const [widgets, setWidgets] = useState<WidgetGuardado[]>(widgetsIniciales);
-  const [editando, setEditando] = useState(false);
+  // Las tarjetas se arrastran siempre. El candado existe para quien
+  // ya dejó su panel como quiere y no desea moverlo sin querer.
+  const [bloqueado, setBloqueado] = useState(false);
+  const [renombrando, setRenombrando] = useState<string | null>(null);
   const [asistente, setAsistente] = useState(false);
   const [montado, setMontado] = useState(false);
   const [guardado, setGuardado] = useState<string | null>(null);
@@ -182,14 +185,19 @@ export function Panel({
           ) : null}
 
           <button
-            onClick={() => setEditando((v) => !v)}
+            onClick={() => setBloqueado((v) => !v)}
+            title={
+              bloqueado
+                ? "Las tarjetas están fijas"
+                : "Fijar las tarjetas para no moverlas sin querer"
+            }
             className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-              editando
+              bloqueado
                 ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_8%,transparent)]"
                 : "bg-[var(--surface-2)] hover:bg-[var(--surface-0)]"
             }`}
           >
-            {editando ? "Listo" : "Organizar"}
+            {bloqueado ? "Fijado" : "Fijar"}
           </button>
 
           <button
@@ -201,10 +209,10 @@ export function Panel({
         </div>
       </div>
 
-      {editando ? (
-        <p className="mb-3 rounded-md border border-dashed px-3 py-2 text-xs text-[var(--text-secondary)]">
-          Arrastra las tarjetas desde su título para moverlas, y tira de la
-          esquina inferior derecha para cambiarles el tamaño. Se guarda solo.
+      {!bloqueado && widgets.length > 0 ? (
+        <p className="mb-3 text-xs text-[var(--text-muted)]">
+          Arrastra cualquier tarjeta desde su cabecera para moverla, y tira de
+          la esquina inferior derecha para cambiarle el tamaño. Se guarda solo.
         </p>
       ) : null}
 
@@ -232,11 +240,11 @@ export function Panel({
           cols={{ lg: 12, md: 8, sm: 4, xs: 2 }}
           rowHeight={64}
           margin={[16, 16]}
-          isDraggable={editando}
-          isResizable={editando}
+          isDraggable={!bloqueado}
+          isResizable={!bloqueado}
           draggableHandle=".arrastrar"
           onLayoutChange={(l) => {
-            if (editando) guardarLayout(l);
+            if (!bloqueado) guardarLayout(l);
           }}
         >
           {widgets.map((w) => (
@@ -244,28 +252,47 @@ export function Panel({
               <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-[var(--surface-2)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.07)]">
                 <div
                   className={`flex items-start justify-between gap-2 px-4 pb-2 pt-3.5 ${
-                    editando ? "arrastrar cursor-move" : ""
+                    bloqueado ? "" : "arrastrar cursor-grab active:cursor-grabbing"
                   }`}
                 >
-                  {editando ? (
+                  {renombrando === w.id ? (
                     <input
+                      autoFocus
                       value={w.titulo}
                       onChange={(e) => renombrar(w.id, e.target.value)}
+                      onBlur={() => setRenombrando(null)}
+                      onKeyDown={(e) => e.key === "Enter" && setRenombrando(null)}
                       onMouseDown={(e) => e.stopPropagation()}
-                      className="w-full rounded border-transparent bg-transparent text-sm font-semibold outline-none hover:bg-[var(--surface-0)] focus:bg-[var(--surface-0)]"
+                      className="w-full rounded bg-[var(--surface-0)] px-1 text-sm font-semibold outline-none"
                     />
                   ) : (
-                    <h3 className="truncate text-sm font-semibold">{w.titulo}</h3>
+                    <h3
+                      onDoubleClick={() => setRenombrando(w.id)}
+                      title="Doble clic para renombrar"
+                      className="truncate text-sm font-semibold"
+                    >
+                      {w.titulo}
+                    </h3>
                   )}
 
-                  <button
-                    onClick={() => eliminar(w.id)}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    aria-label={`Eliminar ${w.titulo}`}
-                    className="shrink-0 rounded px-1.5 text-xs text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--critical)] focus:opacity-100 group-hover:opacity-100"
-                  >
-                    Eliminar
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                    <button
+                      onClick={() => setRenombrando(w.id)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      aria-label={`Renombrar ${w.titulo}`}
+                      className="rounded px-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    >
+                      Renombrar
+                    </button>
+                    <button
+                      onClick={() => eliminar(w.id)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      aria-label={`Eliminar ${w.titulo}`}
+                      className="rounded px-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--critical)]"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
 
                 <div className="min-h-0 flex-1 px-4 pb-4">

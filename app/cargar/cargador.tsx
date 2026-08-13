@@ -6,6 +6,7 @@ import { extraeMatriz, perfilaHoja, type PerfilHoja } from "@/lib/perfilador";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/stat";
 import { fmt } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 const ROLES = [
   { valor: "", etiqueta: "— sin usar —" },
@@ -45,7 +46,12 @@ interface RespuestaCarga {
   error?: string;
 }
 
-type EstadoArchivo = "pendiente" | "cargando" | "cargado" | "error";
+type EstadoArchivo =
+  | "pendiente"
+  | "subiendo"
+  | "cargando"
+  | "cargado"
+  | "error";
 
 interface ArchivoEnCola {
   id: string;
@@ -59,10 +65,14 @@ interface ArchivoEnCola {
   mensaje: string | null;
   /** 0 a 1; alimenta la barra de avance */
   progreso: number;
+  /** El archivo original: se sube a Storage tal cual llegó */
+  original: File;
+  cargaId?: string;
 }
 
 const ESTADO_TONO: Record<EstadoArchivo, "good" | "warning" | "critical" | "neutro"> = {
   pendiente: "neutro",
+  subiendo: "warning",
   cargando: "warning",
   cargado: "good",
   error: "critical",
@@ -70,15 +80,18 @@ const ESTADO_TONO: Record<EstadoArchivo, "good" | "warning" | "critical" | "neut
 
 const ESTADO_TEXTO: Record<EstadoArchivo, string> = {
   pendiente: "Pendiente",
-  cargando: "Cargando…",
+  subiendo: "Subiendo…",
+  cargando: "Procesando…",
   cargado: "Cargado",
   error: "Error",
 };
 
 export function Cargador({
   campanas,
+  tenantId,
 }: {
   campanas: { id: string; nombre: string }[];
+  tenantId: string;
 }) {
   const [archivos, setArchivos] = useState<ArchivoEnCola[]>([]);
   const [activo, setActivo] = useState(0);
@@ -136,6 +149,7 @@ export function Cargador({
         estado: "pendiente",
         mensaje: null,
         progreso: 0,
+        original: f,
       });
     }
 
@@ -232,14 +246,18 @@ export function Cargador({
     return extraeMatriz(matriz, hoja.filaEncabezado);
   }
 
+  /**
+   * Sube el archivo a Storage y deja que el servidor lo procese por
+   * lotes. El avance vive en la base, así que navegar a otra pantalla
+   * —o cerrar el navegador— ya no pierde el trabajo: la carga queda
+   * pendiente y se reanuda donde quedó.
+   */
   async function cargarUno(indice: number): Promise<boolean> {
     const archivo = archivos[indice];
     const hoja = archivo.hojas[archivo.hojaActiva];
     const rolesHoja = archivo.roles[archivo.hojaActiva] ?? {};
-    const filas = filasDe(archivo);
-    const largo = matrizDe(archivo);
 
-    actualizar(indice, { estado: "cargando", mensaje: null, progreso: 0 });
+    actualizar(indice, { estado: "subiendo", mensaje: null, progreso: 0 });
 
     const mapeo: Record<string, string> = {};
     for (const c of hoja.columnas) {
@@ -247,73 +265,113 @@ export function Cargador({
       if (rol) mapeo[c.nombreOriginal] = rol;
     }
 
-    const LOTE = 500;
-    let cargaId: string | null = null;
-    let insertadas = 0;
+    /* 1. El archivo original va a Storage tal cual llegó */
+    const supabase = createClient();
+    const limpio = archivo.nombre.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const ruta = `${tenantId}/${crypto.randomUUID()}-${limpio}`;
 
-    for (let i = 0; i < filas.length; i += LOTE) {
-      const res: Response = await fetch("/api/cargar", {
+    const { error: errSubida } = await supabase.storage
+      .from("cargas")
+      .upload(ruta, archivo.original, { upsert: false });
+
+    if (errSubida) {
+      actualizar(indice, {
+        estado: "error",
+        progreso: 0,
+        mensaje: `No se pudo subir el archivo: ${errSubida.message}`,
+      });
+      return false;
+    }
+
+    /* 2. Se registra la carga con la receta de procesamiento */
+    const resIniciar = await fetch("/api/carga/iniciar", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        storagePath: ruta,
+        archivo: archivo.nombre,
+        hoja: hoja.hoja,
+        modo: hoja.modo,
+        filaEncabezado: hoja.filaEncabezado,
+        metadatos: hoja.metadatos,
+        campanaId: campana || null,
+        mapeo,
+        filasTotales: hoja.filas,
+        columnas: hoja.columnas.map((c) => ({
+          posicion: c.posicion,
+          nombreOriginal: c.nombreOriginal,
+          nombreNormalizado: c.nombreNormalizado,
+          tipo: c.tipo,
+          confianza: c.confianza,
+          rol: rolesHoja[c.posicion] ?? null,
+          cardinalidad: c.cardinalidad,
+          nulos: c.nulos,
+          filas: c.filas,
+          varianzaCero: c.varianzaCero,
+          descartada: c.descartada,
+          motivoDescarte: c.motivoDescarte,
+          muestra: c.muestra,
+        })),
+      }),
+    });
+
+    const iniciado = await resIniciar.json();
+    if (!resIniciar.ok) {
+      actualizar(indice, {
+        estado: "error",
+        progreso: 0,
+        mensaje: iniciado.error ?? "No se pudo registrar la carga.",
+      });
+      return false;
+    }
+
+    /* 3. Lotes en el servidor hasta terminar */
+    actualizar(indice, { estado: "cargando", cargaId: iniciado.cargaId });
+
+    let insertadas = 0;
+    let vueltas = 0;
+
+    while (vueltas++ < 500) {
+      const res = await fetch("/api/carga/procesar", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          cargaId,
-          archivo: archivo.nombre,
-          hoja: hoja.hoja,
-          modo: hoja.modo,
-          filaEncabezado: hoja.filaEncabezado,
-          metadatos: hoja.metadatos,
-          campanaId: campana || null,
-          mapeo,
-          columnas: hoja.columnas.map((c) => ({
-            posicion: c.posicion,
-            nombreOriginal: c.nombreOriginal,
-            nombreNormalizado: c.nombreNormalizado,
-            tipo: c.tipo,
-            confianza: c.confianza,
-            rol: rolesHoja[c.posicion] ?? null,
-            cardinalidad: c.cardinalidad,
-            nulos: c.nulos,
-            filas: c.filas,
-            varianzaCero: c.varianzaCero,
-            descartada: c.descartada,
-            motivoDescarte: c.motivoDescarte,
-            muestra: c.muestra,
-          })),
-          filas: filas.slice(i, i + LOTE),
-          // El formato largo viaja completo en el primer lote: las
-          // planillas son chicas y así el unpivot es atómico.
-          filasMatriz: i === 0 ? (largo?.filas ?? undefined) : undefined,
-          desplazamiento: i,
-          ultimo: i + LOTE >= filas.length,
-        }),
+        body: JSON.stringify({ cargaId: iniciado.cargaId }),
       });
 
-      const json = (await res.json()) as RespuestaCarga;
+      const json = await res.json();
 
       if (!res.ok) {
         actualizar(indice, {
           estado: "error",
-          progreso: 0,
-          mensaje: json.error ?? "Error al cargar.",
+          mensaje: json.error ?? "Error al procesar.",
         });
         return false;
       }
 
-      cargaId = json.cargaId ?? null;
       insertadas += json.insertadas ?? 0;
       actualizar(indice, {
-        progreso: Math.min(1, (i + LOTE) / Math.max(1, filas.length)),
+        progreso: json.total > 0 ? json.procesadas / json.total : 1,
       });
+
+      if (json.terminado) {
+        actualizar(indice, {
+          estado: "cargado",
+          progreso: 1,
+          mensaje:
+            hoja.modo === "matriz"
+              ? `${fmt.entero(json.procesadas)} marcas de asistencia cargadas`
+              : `${fmt.entero(json.procesadas)} filas · ${fmt.entero(insertadas)} registros canónicos`,
+        });
+        return true;
+      }
     }
 
     actualizar(indice, {
-      estado: "cargado",
-      progreso: 1,
-      mensaje: largo
-        ? `${fmt.entero(largo.filas.length)} marcas de asistencia cargadas`
-        : `${fmt.entero(filas.length)} filas · ${fmt.entero(insertadas)} registros canónicos`,
+      estado: "error",
+      mensaje:
+        "El procesamiento se detuvo. Puedes reanudarlo desde la lista de cargas.",
     });
-    return true;
+    return false;
   }
 
   async function cargarActivo() {
@@ -385,7 +443,7 @@ export function Cargador({
                   </span>
                 ) : null}
 
-                {a.estado === "cargando" ? (
+                {a.estado === "cargando" || a.estado === "subiendo" ? (
                   <div className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-[var(--surface-0)]">
                     <div
                       className="h-full rounded-full bg-[var(--series-1)] transition-[width] duration-300"
