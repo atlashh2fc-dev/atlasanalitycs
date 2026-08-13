@@ -44,7 +44,8 @@ export async function updateSession(request: NextRequest) {
 
   const publica =
     request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/configuracion");
+    request.nextUrl.pathname.startsWith("/configuracion") ||
+    request.nextUrl.pathname.startsWith("/vista-previa");
 
   if (!usuario && !publica) {
     const url = request.nextUrl.clone();

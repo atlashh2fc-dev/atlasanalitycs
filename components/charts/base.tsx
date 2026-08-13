@@ -3,18 +3,30 @@
 /**
  * Piezas compartidas de los gráficos.
  *
- * Paleta categórica validada (CVD ΔE 9.2 all-pairs, normal-vision 24.0
- * sobre superficie #fcfcfb). El slot 3 queda bajo 3:1 de contraste, así
- * que todo gráfico que lo use lleva etiquetas visibles o vista de tabla.
+ * Paleta categórica validada en los dos modos contra su propia
+ * superficie: claro CVD ΔE 9.2 y visión normal 24.0 sobre #fcfcfb;
+ * oscuro CVD ΔE 9.4 y visión normal 20.9 sobre #1a1a19. En claro el
+ * slot 3 queda bajo 3:1 de contraste, así que todo gráfico que lo use
+ * lleva etiquetas visibles o vista de tabla; en oscuro los tres superan
+ * 3:1.
  */
 
-export const SERIES = ["#2a78d6", "#eb6834", "#1baf7a"] as const;
+/**
+ * Los colores viajan como variables CSS, no como hexadecimales: así el
+ * cambio de tema los actualiza solo, sin volver a montar los gráficos
+ * ni leer estilos computados desde JavaScript.
+ */
+export const SERIES = [
+  "var(--series-1)",
+  "var(--series-2)",
+  "var(--series-3)",
+] as const;
 
 export const ESTADO = {
-  good: "#0ca30c",
-  warning: "#fab219",
-  serious: "#ec835a",
-  critical: "#d03b3b",
+  good: "var(--good)",
+  warning: "var(--warning)",
+  serious: "var(--serious)",
+  critical: "var(--critical)",
 } as const;
 
 export const EJE = {

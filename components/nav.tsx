@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { SelectorTema } from "./tema";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -42,6 +43,7 @@ export function Nav({ email }: { email: string | null }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
+          <SelectorTema />
           {email ? (
             <span className="text-xs text-[var(--text-muted)]">{email}</span>
           ) : null}

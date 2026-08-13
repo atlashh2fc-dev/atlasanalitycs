@@ -110,7 +110,8 @@ export function GraficoCuadrantes({
             strokeWidth={2}
             label={{
               value: "mediana cierre",
-              position: "right",
+              position: "insideTopRight",
+              offset: 8,
               style: { fill: "var(--text-muted)", fontSize: 11 },
             }}
           />

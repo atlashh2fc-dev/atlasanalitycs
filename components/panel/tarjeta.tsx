@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -60,6 +60,13 @@ export function ContenidoTarjeta({
   filtros: Filtros;
   objetivo?: number;
 }) {
+  // Los degradados viven en <defs> con id propio: dos tarjetas en la
+  // misma página no pueden compartirlo o la segunda pisa a la primera.
+  const idBase = useId().replace(/:/g, "");
+  const gradVertical = `gv-${idBase}`;
+  const gradHorizontal = `gh-${idBase}`;
+  const gradArea = `ga-${idBase}`;
+
   const [datos, setDatos] = useState<Resultado | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -136,12 +143,19 @@ export function ContenidoTarjeta({
                 className="h-full rounded-full transition-[width] duration-500"
                 style={{
                   width: `${Math.min(100, (pct ?? 0) * 100)}%`,
-                  background:
+                  background: `linear-gradient(90deg, color-mix(in srgb, ${
                     (pct ?? 0) >= 1
                       ? "var(--good)"
                       : (pct ?? 0) >= 0.85
                         ? "var(--warning)"
-                        : "var(--serious)",
+                        : "var(--serious)"
+                  } 55%, transparent), ${
+                    (pct ?? 0) >= 1
+                      ? "var(--good)"
+                      : (pct ?? 0) >= 0.85
+                        ? "var(--warning)"
+                        : "var(--serious)"
+                  })`,
                 }}
               />
             </div>
@@ -182,8 +196,12 @@ export function ContenidoTarjeta({
                   <td className="py-1.5 pl-2">
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-0)]">
                       <div
-                        className="h-full rounded-full bg-[var(--series-1)]"
-                        style={{ width: `${Math.min(100, peso * 100)}%` }}
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.min(100, peso * 100)}%`,
+                          background:
+                            "linear-gradient(90deg, color-mix(in srgb, var(--series-1) 55%, transparent), var(--series-1))",
+                        }}
                       />
                     </div>
                   </td>
@@ -281,8 +299,11 @@ export function ContenidoTarjeta({
       <ResponsiveContainer width="100%" height="100%">
         <Grafico data={datos.filas} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <defs>
-            <linearGradient id="relleno" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.28} />
+            {/* Sólo varía la opacidad: el tono es el validado, así que
+                el degradado no altera las relaciones de color. */}
+            <linearGradient id={gradArea} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.55} />
+              <stop offset="55%" stopColor={SERIES[0]} stopOpacity={0.18} />
               <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.02} />
             </linearGradient>
           </defs>
@@ -310,7 +331,7 @@ export function ContenidoTarjeta({
               dataKey="valor"
               stroke={SERIES[0]}
               strokeWidth={2}
-              fill="url(#relleno)"
+              fill={`url(#${gradArea})`}
               dot={false}
               activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--surface-2)" }}
             />
@@ -338,6 +359,12 @@ export function ContenidoTarjeta({
           margin={{ top: 4, right: 44, bottom: 4, left: 4 }}
           barCategoryGap={2}
         >
+          <defs>
+            <linearGradient id={gradHorizontal} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.6} />
+              <stop offset="100%" stopColor={SERIES[0]} stopOpacity={1} />
+            </linearGradient>
+          </defs>
           <XAxis type="number" hide />
           <YAxis
             type="category"
@@ -349,7 +376,12 @@ export function ContenidoTarjeta({
             tickFormatter={(v: string) => corta(v)}
           />
           {tooltip}
-          <Bar dataKey="valor" radius={[0, 4, 4, 0]} fill={SERIES[0]} maxBarSize={20}>
+          <Bar
+            dataKey="valor"
+            radius={[0, 4, 4, 0]}
+            fill={`url(#${gradHorizontal})`}
+            maxBarSize={20}
+          >
             <LabelList
               dataKey="valor"
               position="right"
@@ -366,6 +398,12 @@ export function ContenidoTarjeta({
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={datos.filas} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id={gradVertical} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={SERIES[0]} stopOpacity={1} />
+            <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.55} />
+          </linearGradient>
+        </defs>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="clave"
@@ -388,7 +426,12 @@ export function ContenidoTarjeta({
             strokeWidth={2}
           />
         ) : null}
-        <Bar dataKey="valor" radius={[4, 4, 0, 0]} fill={SERIES[0]} maxBarSize={56} />
+        <Bar
+          dataKey="valor"
+          radius={[4, 4, 0, 0]}
+          fill={`url(#${gradVertical})`}
+          maxBarSize={56}
+        />
       </BarChart>
     </ResponsiveContainer>
   );

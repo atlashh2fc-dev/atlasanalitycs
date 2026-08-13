@@ -41,6 +41,7 @@ export function Ejecutivos({
   const [jornada, setJornada] = useState("42");
   const [asignadas, setAsignadas] = useState<string[]>([]);
   const [editando, setEditando] = useState<string | null>(null);
+  const [editandoJornada, setEditandoJornada] = useState<string | null>(null);
   const [fusionando, setFusionando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -277,7 +278,36 @@ export function Ejecutivos({
               </td>
 
               <td className="tabular py-2 text-right">
-                {e.jornada ? `${Number(e.jornada)} h` : "—"}
+                {editandoJornada === e.id ? (
+                  <input
+                    autoFocus
+                    type="number"
+                    step="0.5"
+                    min="1"
+                    max="60"
+                    defaultValue={e.jornada ?? 42}
+                    onBlur={async (ev) => {
+                      const v = Number(ev.target.value);
+                      if (v > 0 && v !== Number(e.jornada)) {
+                        await llamar("PATCH", { id: e.id, jornada: v });
+                      }
+                      setEditandoJornada(null);
+                    }}
+                    onKeyDown={(ev) => {
+                      if (ev.key === "Enter") ev.currentTarget.blur();
+                      if (ev.key === "Escape") setEditandoJornada(null);
+                    }}
+                    className="w-20 rounded border bg-[var(--surface-2)] px-1.5 py-1 text-right"
+                  />
+                ) : (
+                  <button
+                    onClick={() => setEditandoJornada(e.id)}
+                    title="Clic para editar la jornada"
+                    className="rounded px-1.5 py-0.5 hover:bg-[var(--surface-0)] hover:underline"
+                  >
+                    {e.jornada ? `${Number(e.jornada)} h` : "—"}
+                  </button>
+                )}
               </td>
 
               <td className="tabular py-2 text-right text-[var(--text-secondary)]">
@@ -354,6 +384,12 @@ export function Ejecutivos({
       </table>
 
       <p className="mt-3 border-t pt-3 text-[11px] text-[var(--text-muted)]">
+        La jornada se edita con un clic sobre el valor. Si la planilla de
+        asistencia trae la jornada contractual, la carga la actualiza sola;
+        mientras tanto, o cuando el archivo no la traiga, se corrige acá.
+      </p>
+
+      <p className="mt-2 text-[11px] text-[var(--text-muted)]">
         Un ejecutivo con historial no se elimina en silencio: o se fusiona con
         otro —que le traspasa ventas, cotizaciones y asistencia— o se
         desactiva conservando sus datos. Borrarlo dejaría ventas huérfanas y
