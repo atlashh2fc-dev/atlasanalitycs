@@ -58,29 +58,45 @@ export function Pendientes({
     setTrabajando(id);
     setError(null);
 
-    for (let i = 0; i < 500; i++) {
-      const res = await fetch("/api/carga/procesar", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ cargaId: id }),
-      });
-      const json = await res.json();
+    try {
+      for (let i = 0; i < 500; i++) {
+        const res = await fetch("/api/carga/procesar", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ cargaId: id }),
+        });
 
-      if (!res.ok) {
-        setError(json.error ?? "No se pudo reanudar.");
-        break;
+        const texto = await res.text();
+        let json: {
+          error?: string;
+          total?: number;
+          procesadas?: number;
+          terminado?: boolean;
+        } = {};
+        try {
+          json = JSON.parse(texto);
+        } catch {
+          json = { error: `El servidor respondió ${res.status}.` };
+        }
+
+        if (!res.ok) {
+          setError(json.error ?? "No se pudo reanudar.");
+          break;
+        }
+
+        setAvance((a) => ({
+          ...a,
+          [id]: (json.total ?? 0) > 0 ? json.procesadas! / json.total! : 1,
+        }));
+
+        if (json.terminado) break;
       }
-
-      setAvance((a) => ({
-        ...a,
-        [id]: json.total > 0 ? json.procesadas / json.total : 1,
-      }));
-
-      if (json.terminado) break;
+    } catch {
+      setError("Se cortó la conexión. Puedes reanudar de nuevo.");
+    } finally {
+      setTrabajando(null);
+      router.refresh();
     }
-
-    setTrabajando(null);
-    router.refresh();
   }
 
   /**
@@ -91,18 +107,32 @@ export function Pendientes({
     setTrabajando(id);
     setError(null);
 
-    const res = await fetch("/api/carga/revertir", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ cargaId: id }),
-    });
+    // Todo dentro de try/finally: si la respuesta no es JSON —una página
+    // de error, un timeout— el spinner igual se apaga. Antes la
+    // excepción se tragaba el finally y quedaba girando para siempre.
+    try {
+      const res = await fetch("/api/carga/revertir", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ cargaId: id }),
+      });
 
-    const json = await res.json();
-    if (!res.ok) setError(json.error ?? "No se pudo revertir.");
+      const texto = await res.text();
+      let json: { error?: string } = {};
+      try {
+        json = JSON.parse(texto);
+      } catch {
+        json = { error: `El servidor respondió ${res.status}.` };
+      }
 
-    setTrabajando(null);
-    setConfirmando(null);
-    router.refresh();
+      if (!res.ok) setError(json.error ?? "No se pudo revertir.");
+    } catch {
+      setError("No se pudo contactar al servidor.");
+    } finally {
+      setTrabajando(null);
+      setConfirmando(null);
+      router.refresh();
+    }
   }
 
   if (cargas.length === 0) return null;
@@ -139,12 +169,14 @@ export function Pendientes({
         </thead>
         <tbody>
           {cargas.map((c) => {
+            // Las cargas del flujo anterior no llevaban contador, así
+            // que una completa se mostraba en 0 / 83. El estado manda.
             const pct =
               avance[c.id] ??
-              (c.filasTotales && c.filasTotales > 0
-                ? c.filasProcesadas / c.filasTotales
-                : c.estado === "procesada"
-                  ? 1
+              (c.estado === "procesada"
+                ? 1
+                : c.filasTotales && c.filasTotales > 0
+                  ? c.filasProcesadas / c.filasTotales
                   : 0);
 
             return (
@@ -162,8 +194,11 @@ export function Pendientes({
                       />
                     </div>
                     <span className="tabular text-[11px] text-[var(--text-secondary)]">
-                      {fmt.entero(c.filasProcesadas)}
-                      {c.filasTotales ? ` / ${fmt.entero(c.filasTotales)}` : ""}
+                      {c.estado === "procesada"
+                        ? fmt.entero(c.filasTotales ?? c.filasProcesadas)
+                        : `${fmt.entero(c.filasProcesadas)}${
+                            c.filasTotales ? ` / ${fmt.entero(c.filasTotales)}` : ""
+                          }`}
                     </span>
                   </div>
                 </td>

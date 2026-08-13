@@ -105,6 +105,25 @@ function fecha(v: unknown): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+/** Fecha sin hora, para columnas de tipo día (agenda, asistencia). */
+function soloFecha(v: unknown): string | null {
+  const iso = fecha(v);
+  return iso ? iso.slice(0, 10) : null;
+}
+
+/**
+ * Sí/no en las formas que traen los archivos reales: la base UCC usa
+ * "Si"/"Sí"/"No", otros exports usan 1/0 o true/false.
+ */
+function booleano(v: unknown): boolean | null {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "boolean") return v;
+  const s = normalizaTexto(v);
+  if (["si", "sí", "true", "1", "verdadero", "x"].includes(s)) return true;
+  if (["no", "false", "0", "falso"].includes(s)) return false;
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Maestros                                                            */
 /* ------------------------------------------------------------------ */
@@ -326,7 +345,61 @@ export async function procesaLote(
   const inverso = invertir(cfg.mapeo);
   const tieneVenta = Boolean(inverso.fecha_venta && inverso.rut_cliente);
   const tieneCotizacion = Boolean(inverso.fecha_cotizacion && !tieneVenta);
+  // Base UCC: identifica a la persona por RUT y trae una fecha de
+  // agenda. No es una venta, es una hora médica por confirmar.
+  const tieneAgenda = Boolean(
+    !tieneVenta && !tieneCotizacion && inverso.rut_cliente &&
+      (inverso.fecha_agenda || inverso.presentado),
+  );
   let insertadas = 0;
+
+  if (tieneAgenda) {
+    for (const fila of filas) {
+      const rut = normalizaRut(fila[inverso.rut_cliente!]);
+      if (!rut || !validaRut(rut)) continue;
+
+      const edad = numero(fila[inverso.edad ?? ""]);
+
+      const { data: cliente } = await supabase
+        .from("cliente")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            rut,
+            nombre: texto(fila[inverso.nombre_cliente ?? ""]),
+            email: texto(fila[inverso.email_cliente ?? ""]),
+            telefono: texto(fila[inverso.telefono_cliente ?? ""]),
+            prevision: texto(fila[inverso.prevision ?? ""]),
+            edad: edad === null ? null : Math.round(edad),
+          },
+          { onConflict: "tenant_id,rut" },
+        )
+        .select("id")
+        .single();
+
+      if (!cliente) continue;
+
+      const { error } = await supabase.from("agendamiento").upsert(
+        {
+          tenant_id: tenantId,
+          campana_id: cfg.campanaId,
+          cliente_id: cliente.id,
+          fecha_agenda: soloFecha(fila[inverso.fecha_agenda ?? ""]),
+          presentado: booleano(fila[inverso.presentado ?? ""]),
+          centro: texto(fila[inverso.centro ?? ""]),
+          area: texto(fila[inverso.area ?? ""]),
+          especialidad: texto(fila[inverso.especialidad ?? ""]),
+          prevision: texto(fila[inverso.prevision ?? ""]),
+          equipo: texto(fila[inverso.equipo ?? ""]),
+          cluster: texto(fila[inverso.cluster ?? ""]),
+          carga_id: carga.id,
+        },
+        { onConflict: "tenant_id,cliente_id,fecha_agenda,especialidad" },
+      );
+
+      if (!error) insertadas++;
+    }
+  }
 
   if (tieneVenta || tieneCotizacion) {
     const ejecutivos = await mapaEjecutivos(supabase, tenantId);
