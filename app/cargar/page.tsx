@@ -35,10 +35,9 @@ export default async function Cargar() {
     supabase
       .from("carga")
       .select(
-        "id, archivo_nombre, hoja, estado, filas_procesadas, filas_totales, error_detalle, created_at",
+        "id, archivo_nombre, hoja, estado, filas_procesadas, filas_totales, error_detalle, created_at, dataset_id, cargado_por",
       )
-      .order("created_at", { ascending: false })
-      .limit(12),
+      .order("created_at", { ascending: false }),
     supabase.from("dataset").select("id,nombre").eq("activo", true).order("updated_at", { ascending: false }),
   ]);
 
@@ -51,6 +50,8 @@ export default async function Cargar() {
     filasTotales: c.filas_totales,
     error: c.error_detalle,
     fecha: c.created_at,
+    datasetId: c.dataset_id,
+    puedeUsar: ctx.esAdmin || c.cargado_por === ctx.userId,
   }));
 
   return (
@@ -73,7 +74,11 @@ export default async function Cargar() {
           <CardTitle hint="El archivo queda guardado y el avance vive en la base: puedes irte de la pantalla y volver a retomar.">
             Cargas registradas
           </CardTitle>
-          <Pendientes cargas={cargas} esAdmin={ctx.esAdmin} />
+          <Pendientes
+            cargas={cargas}
+            datasets={datasets ?? []}
+            esAdmin={ctx.esAdmin}
+          />
         </Card>
       </main>
     </>

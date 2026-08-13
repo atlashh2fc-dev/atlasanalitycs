@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { BarChart3, Database, FolderPlus } from "lucide-react";
 import { Badge } from "@/components/ui/stat";
 import { fmt } from "@/lib/utils";
 
@@ -14,6 +16,8 @@ export interface CargaPendiente {
   filasTotales: number | null;
   error: string | null;
   fecha: string;
+  datasetId: string | null;
+  puedeUsar: boolean;
 }
 
 const TONO: Record<string, "good" | "warning" | "critical" | "neutro"> = {
@@ -43,9 +47,11 @@ const TEXTO: Record<string, string> = {
  */
 export function Pendientes({
   cargas,
+  datasets,
   esAdmin,
 }: {
   cargas: CargaPendiente[];
+  datasets: { id: string; nombre: string }[];
   esAdmin: boolean;
 }) {
   const router = useRouter();
@@ -53,6 +59,56 @@ export function Pendientes({
   const [avance, setAvance] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set());
+  const [destino, setDestino] = useState("nuevo");
+  const [nombreBase, setNombreBase] = useState("");
+
+  function alternar(carga: CargaPendiente) {
+    if (carga.estado !== "procesada" || !carga.puedeUsar) return;
+    setSeleccionadas((actual) => {
+      const siguiente = new Set(actual);
+      if (siguiente.has(carga.id)) siguiente.delete(carga.id);
+      else siguiente.add(carga.id);
+      return siguiente;
+    });
+
+    if (!nombreBase) {
+      setNombreBase(
+        carga.archivo
+          .replace(/\.(xlsx?|csv)$/i, "")
+          .replace(/[_-]+/g, " ")
+          .trim(),
+      );
+    }
+  }
+
+  async function usarEnAnalisis() {
+    if (seleccionadas.size === 0) return;
+    setTrabajando("organizando");
+    setError(null);
+
+    try {
+      const res = await fetch("/api/carga/usar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          cargaIds: [...seleccionadas],
+          datasetId: destino === "nuevo" ? null : destino,
+          nombre: destino === "nuevo" ? nombreBase : null,
+        }),
+      });
+      const json = (await res.json()) as { datasetId?: string; error?: string };
+      if (!res.ok || !json.datasetId) {
+        setError(json.error ?? "No se pudieron preparar las cargas.");
+        return;
+      }
+      router.push(`/analisis?dataset=${json.datasetId}`);
+    } catch {
+      setError("No se pudo contactar al servidor.");
+    } finally {
+      setTrabajando(null);
+    }
+  }
 
   async function reanudar(id: string) {
     setTrabajando(id);
@@ -140,6 +196,12 @@ export function Pendientes({
   const incompletas = cargas.filter(
     (c) => c.estado !== "procesada" && c.estado !== "revertida",
   );
+  const elegibles = cargas.filter(
+    (c) => c.estado === "procesada" && c.puedeUsar,
+  );
+  const todasElegidas =
+    elegibles.length > 0 && elegibles.every((c) => seleccionadas.has(c.id));
+  const nombreDataset = new Map(datasets.map((d) => [d.id, d.nombre]));
 
   return (
     <div>
@@ -157,17 +219,97 @@ export function Pendientes({
         </p>
       ) : null}
 
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b text-left text-[var(--text-muted)]">
-            <th className="pb-1.5 font-medium">Archivo</th>
-            <th className="pb-1.5 font-medium">Hoja</th>
-            <th className="pb-1.5 font-medium">Avance</th>
-            <th className="pb-1.5 font-medium">Estado</th>
-            <th className="pb-1.5 text-right font-medium">Acción</th>
-          </tr>
-        </thead>
-        <tbody>
+      <div className="mb-4 rounded-xl border bg-[var(--surface-0)] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <Database className="size-4 text-[var(--series-1)]" />
+              Analizar datos que ya cargaste
+            </p>
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              Selecciona una o varias cargas completas y únelas en una base
+              analizable. No necesitas volver a subir los archivos.
+            </p>
+          </div>
+          {elegibles.length > 1 ? (
+            <button
+              type="button"
+              onClick={() =>
+                setSeleccionadas(
+                  todasElegidas ? new Set() : new Set(elegibles.map((c) => c.id)),
+                )
+              }
+              className="text-xs font-medium text-[var(--series-1)] hover:underline"
+            >
+              {todasElegidas ? "Quitar selección" : "Seleccionar todas"}
+            </button>
+          ) : null}
+        </div>
+
+        {seleccionadas.size > 0 ? (
+          <div className="mt-4 flex flex-wrap items-end gap-3 border-t pt-4">
+            <label className="min-w-[220px] text-xs text-[var(--text-secondary)]">
+              <span className="mb-1 block font-medium">Guardar en</span>
+              <select
+                value={destino}
+                onChange={(e) => setDestino(e.target.value)}
+                className="w-full rounded-xl border bg-[var(--vidrio-alto)] px-3 py-2 text-sm"
+              >
+                <option value="nuevo">Crear una base nueva</option>
+                {datasets.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {destino === "nuevo" ? (
+              <label className="min-w-[220px] flex-1 text-xs text-[var(--text-secondary)]">
+                <span className="mb-1 block font-medium">Nombre de la base</span>
+                <input
+                  value={nombreBase}
+                  onChange={(e) => setNombreBase(e.target.value)}
+                  placeholder="Ej. Ventas agosto"
+                  className="w-full rounded-xl border bg-[var(--vidrio-alto)] px-3 py-2 text-sm"
+                />
+              </label>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={usarEnAnalisis}
+              disabled={
+                trabajando !== null ||
+                (destino === "nuevo" && !nombreBase.trim())
+              }
+              className="inline-flex items-center gap-2 rounded-xl bg-[var(--series-1)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              <FolderPlus className="size-4" />
+              {trabajando === "organizando"
+                ? "Preparando…"
+                : `Analizar ${seleccionadas.size} carga${seleccionadas.size === 1 ? "" : "s"}`}
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[820px] text-xs">
+          <thead>
+            <tr className="border-b text-left text-[var(--text-muted)]">
+              <th className="w-9 pb-1.5 font-medium">
+                <span className="sr-only">Seleccionar</span>
+              </th>
+              <th className="pb-1.5 font-medium">Archivo</th>
+              <th className="pb-1.5 font-medium">Hoja</th>
+              <th className="pb-1.5 font-medium">Base</th>
+              <th className="pb-1.5 font-medium">Avance</th>
+              <th className="pb-1.5 font-medium">Estado</th>
+              <th className="pb-1.5 text-right font-medium">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
           {cargas.map((c) => {
             // Las cargas del flujo anterior no llevaban contador, así
             // que una completa se mostraba en 0 / 83. El estado manda.
@@ -181,10 +323,40 @@ export function Pendientes({
 
             return (
               <tr key={c.id} className="border-b last:border-0">
+                <td className="py-2">
+                  <input
+                    type="checkbox"
+                    checked={seleccionadas.has(c.id)}
+                    disabled={c.estado !== "procesada" || !c.puedeUsar}
+                    onChange={() => alternar(c)}
+                    aria-label={`Seleccionar ${c.archivo}, hoja ${c.hoja ?? "principal"}`}
+                    title={
+                      !c.puedeUsar
+                        ? "Sólo el administrador o quien realizó la carga puede organizarla"
+                        : c.estado !== "procesada"
+                          ? "Termina esta carga antes de analizarla"
+                          : "Seleccionar para análisis"
+                    }
+                    className="size-4 accent-[var(--series-1)] disabled:opacity-30"
+                  />
+                </td>
                 <td className="max-w-[220px] truncate py-2 text-[var(--text-primary)]">
                   {c.archivo}
                 </td>
                 <td className="py-2 text-[var(--text-secondary)]">{c.hoja}</td>
+                <td className="py-2 text-[var(--text-secondary)]">
+                  {c.datasetId ? (
+                    <Link
+                      href={`/analisis?dataset=${c.datasetId}`}
+                      className="inline-flex items-center gap-1 font-medium text-[var(--series-1)] hover:underline"
+                    >
+                      <BarChart3 className="size-3" />
+                      {nombreDataset.get(c.datasetId) ?? "Ver análisis"}
+                    </Link>
+                  ) : (
+                    <span className="text-[var(--text-muted)]">Sin organizar</span>
+                  )}
+                </td>
                 <td className="py-2">
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--surface-0)]">
@@ -259,8 +431,9 @@ export function Pendientes({
               </tr>
             );
           })}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
 
       {error ? (
         <p className="mt-2 text-xs" style={{ color: "var(--critical)" }}>
