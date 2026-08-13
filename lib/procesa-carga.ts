@@ -45,12 +45,45 @@ function texto(v: unknown): string | null {
   return s === "" ? null : s;
 }
 
-function numero(v: unknown): number | null {
+/**
+ * Convierte a número un valor que puede venir como número o como texto.
+ *
+ * Los exports escriben los montos como texto y el punto es ambiguo:
+ * en "25.325" separa miles, en "0.62" separa decimales. Asumir siempre
+ * miles convertía 0,62 UF en 62 —un error de dos órdenes de magnitud
+ * que no rompe nada y por eso pasa desapercibido—.
+ *
+ * Reglas, en orden:
+ *   1. Si trae punto Y coma, el ÚLTIMO en aparecer es el decimal.
+ *   2. Si trae sólo coma, es decimal (convención chilena).
+ *   3. Si trae sólo punto: en pesos separa miles —el peso no tiene
+ *      decimales—; en cualquier otro campo es decimal.
+ */
+function numero(v: unknown, formato: "clp" | "decimal" = "decimal"): number | null {
   if (v === null || v === undefined || v === "") return null;
-  const n =
-    typeof v === "number"
-      ? v
-      : Number(String(v).replace(/\./g, "").replace(",", "."));
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+
+  const limpio = String(v).trim().replace(/[^0-9.,-]/g, "");
+  if (limpio === "" || limpio === "-") return null;
+
+  const punto = limpio.lastIndexOf(".");
+  const coma = limpio.lastIndexOf(",");
+
+  let normalizado: string;
+
+  if (punto >= 0 && coma >= 0) {
+    const decimal = punto > coma ? "." : ",";
+    const miles = decimal === "." ? "," : ".";
+    normalizado = limpio.split(miles).join("").replace(decimal, ".");
+  } else if (coma >= 0) {
+    normalizado = limpio.replace(/,/g, ".");
+  } else if (punto >= 0) {
+    normalizado = formato === "clp" ? limpio.split(".").join("") : limpio;
+  } else {
+    normalizado = limpio;
+  }
+
+  const n = Number(normalizado);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -202,6 +235,7 @@ export async function procesaLote(
   if (cfg.modo === "matriz") {
     const largo = extraeMatriz(matriz, cfg.filaEncabezado);
     const ejecutivos = await mapaEjecutivos(supabase, tenantId);
+    const jornadas = new Map<string, number>();
     let insertadas = 0;
 
     for (const f of largo.filas) {
@@ -226,6 +260,16 @@ export async function procesaLote(
         { onConflict: "ejecutivo_id,fecha" },
       );
       if (!error) insertadas++;
+
+      // La jornada contractual viene en la planilla (42 hrs / 30 hrs).
+      // Sin esto todos quedaban con el 42 por defecto de la tabla.
+      if (f.jornada && !jornadas.has(ejecutivoId)) {
+        jornadas.set(ejecutivoId, f.jornada);
+        await supabase
+          .from("ejecutivo")
+          .update({ jornada_horas: f.jornada })
+          .eq("id", ejecutivoId);
+      }
     }
 
     await supabase
@@ -330,7 +374,7 @@ export async function procesaLote(
             nro_solicitud: texto(fila[inverso.nro_solicitud ?? ""]),
             fecha_solicitud: fecha(fila[inverso.fecha_venta!]),
             precio_uf: numero(fila[inverso.monto_uf ?? ""]),
-            precio_clp: numero(fila[inverso.monto_clp ?? ""]),
+            precio_clp: numero(fila[inverso.monto_clp ?? ""], "clp"),
             n_asegurados: Math.max(
               1,
               Math.round(numero(fila[inverso.n_asegurados ?? ""]) ?? 1),
@@ -352,7 +396,7 @@ export async function procesaLote(
           email: texto(fila[inverso.email_cliente ?? ""]),
           telefono: texto(fila[inverso.telefono_cliente ?? ""]),
           precio_uf: numero(fila[inverso.monto_uf ?? ""]),
-          precio_clp: numero(fila[inverso.monto_clp ?? ""]),
+          precio_clp: numero(fila[inverso.monto_clp ?? ""], "clp"),
           carga_id: carga.id,
         });
 

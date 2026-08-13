@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { agrega, getFuente, type ConfigWidget } from "@/lib/widgets";
+import type { ConfigWidget } from "@/lib/widgets";
 
 /**
  * Motor de consulta de las tarjetas.
  *
- * Recibe la especificación de un widget y devuelve los datos ya
- * agregados. Las consultas van con el cliente normal, así que el RLS
- * aplica: un supervisor sólo agrega sobre las campañas que puede ver.
+ * La agregación ocurre en Postgres, no acá: la API REST de Supabase
+ * corta en 1.000 filas, así que sumar en el servidor de Node daba
+ * totales truncados —2.064 cotizaciones se veían como 1.000—. El RPC es
+ * SECURITY INVOKER, así que el RLS del usuario sigue aplicando.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -25,32 +26,21 @@ export async function POST(request: Request) {
     campanaId?: string | null;
   };
 
-  const fuente = getFuente(body.fuente);
-  if (!fuente) {
-    return NextResponse.json({ error: "Fuente desconocida." }, { status: 400 });
-  }
-
-  let q = supabase.from(fuente.tabla).select(fuente.select).limit(50_000);
-
-  if (body.desde) q = q.gte(fuente.campoFecha, body.desde);
-  if (body.hasta) q = q.lte(fuente.campoFecha, `${body.hasta}T23:59:59`);
-
-  // 'cliente' no tiene campaña: es transversal a todas.
-  if (body.campanaId && fuente.clave !== "cliente") {
-    q = q.eq("campana_id", body.campanaId);
-  }
-
-  const { data, error } = await q;
+  const { data, error } = await supabase.rpc("consulta_widget", {
+    p_fuente: body.fuente,
+    p_metrica: body.metrica,
+    p_dimension: body.dimension ?? null,
+    p_granularidad: body.granularidad ?? "dia",
+    p_desde: body.desde ?? null,
+    p_hasta: body.hasta ?? null,
+    p_campana: body.campanaId ?? null,
+    p_limite: body.limite ?? 50,
+    p_orden: body.orden ?? "desc",
+  });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const resultado = agrega(
-    (data ?? []) as unknown as Record<string, unknown>[],
-    fuente,
-    body,
-  );
-
-  return NextResponse.json(resultado);
+  return NextResponse.json(data);
 }
