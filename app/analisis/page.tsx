@@ -88,6 +88,7 @@ export default async function Analisis({
         </div>
 
         <Panel
+          key={`dataset:${datasetId}`}
           panelId={panelId as string}
           widgetsIniciales={(widgets ?? []) as unknown as WidgetGuardado[]}
           campanas={ctx.campanas}

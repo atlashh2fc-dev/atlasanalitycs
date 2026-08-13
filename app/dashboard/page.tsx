@@ -186,6 +186,7 @@ export default async function Dashboard({
         </div>
 
         <Panel
+          key="campanas"
           panelId={panel?.id ?? ""}
           widgetsIniciales={(widgets ?? []) as unknown as WidgetGuardado[]}
           campanas={ctx.campanas}
