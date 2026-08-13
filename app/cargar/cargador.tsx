@@ -59,6 +59,8 @@ interface ArchivoEnCola {
   libro: XLSX.WorkBook;
   hojas: PerfilHoja[];
   hojaActiva: number;
+  /** Hojas útiles que Atlas cargará. El usuario sólo desmarca las que no correspondan. */
+  hojasSeleccionadas: number[];
   /** roles por hoja: clave = índice de hoja */
   roles: Record<number, Record<number, string>>;
   estado: EstadoArchivo;
@@ -88,14 +90,18 @@ const ESTADO_TEXTO: Record<EstadoArchivo, string> = {
 
 export function Cargador({
   campanas,
+  datasets,
   tenantId,
 }: {
   campanas: { id: string; nombre: string }[];
+  datasets: { id: string; nombre: string }[];
   tenantId: string;
 }) {
   const [archivos, setArchivos] = useState<ArchivoEnCola[]>([]);
   const [activo, setActivo] = useState(0);
   const [campana, setCampana] = useState(campanas[0]?.id ?? "");
+  const [datasetId, setDatasetId] = useState(datasets[0]?.id ?? "nuevo");
+  const [nuevoDataset, setNuevoDataset] = useState("");
   const [ocupado, setOcupado] = useState(false);
 
   // Cerrar la pestaña a mitad de carga deja el lote incompleto.
@@ -145,6 +151,10 @@ export function Cargador({
         libro,
         hojas,
         hojaActiva: 0,
+        hojasSeleccionadas: hojas
+          .map((h, i) => ({ h, i }))
+          .filter(({ h }) => h.filas > 0 && h.columnas.some((c) => !c.descartada))
+          .map(({ i }) => i),
         roles,
         estado: "pendiente",
         mensaje: null,
@@ -157,6 +167,9 @@ export function Cargador({
     const primeroNuevo = archivos.length;
     setArchivos([...archivos, ...nuevos]);
     setActivo(primeroNuevo);
+    if (datasetId === "nuevo" && !nuevoDataset && nuevos[0]) {
+      setNuevoDataset(nuevos[0].nombre.replace(/\.(xlsx?|csv)$/i, ""));
+    }
 
     // Permite volver a elegir el mismo archivo si el usuario lo quitó
     e.target.value = "";
@@ -252,17 +265,42 @@ export function Cargador({
    * —o cerrar el navegador— ya no pierde el trabajo: la carga queda
    * pendiente y se reanuda donde quedó.
    */
+  async function resolverDataset(): Promise<string | null> {
+    if (datasetId !== "nuevo") return datasetId || null;
+    const nombre = nuevoDataset.trim();
+    if (!nombre) return null;
+
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("dataset")
+      .upsert({ tenant_id: tenantId, nombre }, { onConflict: "tenant_id,nombre" })
+      .select("id")
+      .single();
+    if (error || !data) throw new Error(error?.message ?? "No se pudo crear la base.");
+    setDatasetId(data.id);
+    return data.id;
+  }
+
   async function cargarUno(indice: number): Promise<boolean> {
     const archivo = archivos[indice];
-    const hoja = archivo.hojas[archivo.hojaActiva];
-    const rolesHoja = archivo.roles[archivo.hojaActiva] ?? {};
+    const seleccionadas = archivo.hojasSeleccionadas;
+    if (seleccionadas.length === 0) {
+      actualizar(indice, { estado: "error", mensaje: "Selecciona al menos una hoja útil." });
+      return false;
+    }
 
     actualizar(indice, { estado: "subiendo", mensaje: null, progreso: 0 });
 
-    const mapeo: Record<string, string> = {};
-    for (const c of hoja.columnas) {
-      const rol = rolesHoja[c.posicion];
-      if (rol) mapeo[c.nombreOriginal] = rol;
+    let baseId: string | null;
+    try {
+      baseId = await resolverDataset();
+    } catch (e) {
+      actualizar(indice, { estado: "error", mensaje: e instanceof Error ? e.message : "No se pudo preparar la base." });
+      return false;
+    }
+    if (!baseId) {
+      actualizar(indice, { estado: "error", mensaje: "Ponle un nombre a la base." });
+      return false;
     }
 
     /* 1. El archivo original va a Storage tal cual llegó */
@@ -283,11 +321,25 @@ export function Cargador({
       return false;
     }
 
-    /* 2. Se registra la carga con la receta de procesamiento */
-    const resIniciar = await fetch("/api/carga/iniciar", {
+    let procesadasTotal = 0;
+    let insertadasTotal = 0;
+
+    for (let posicion = 0; posicion < seleccionadas.length; posicion++) {
+      const hojaIndice = seleccionadas[posicion];
+      const hoja = archivo.hojas[hojaIndice];
+      const rolesHoja = archivo.roles[hojaIndice] ?? {};
+      const mapeo: Record<string, string> = {};
+      for (const c of hoja.columnas) {
+        const rol = rolesHoja[c.posicion];
+        if (rol) mapeo[c.nombreOriginal] = rol;
+      }
+
+      /* Cada hoja es una carga reanudable, todas apuntan al mismo original. */
+      const resIniciar = await fetch("/api/carga/iniciar", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        datasetId: baseId,
         storagePath: ruta,
         archivo: archivo.nombre,
         hoja: hoja.hoja,
@@ -313,65 +365,68 @@ export function Cargador({
           muestra: c.muestra,
         })),
       }),
-    });
-
-    const iniciado = await resIniciar.json();
-    if (!resIniciar.ok) {
-      actualizar(indice, {
-        estado: "error",
-        progreso: 0,
-        mensaje: iniciado.error ?? "No se pudo registrar la carga.",
       });
-      return false;
-    }
 
-    /* 3. Lotes en el servidor hasta terminar */
-    actualizar(indice, { estado: "cargando", cargaId: iniciado.cargaId });
+      const iniciado = await resIniciar.json();
+      if (!resIniciar.ok) {
+        actualizar(indice, {
+          estado: "error",
+          progreso: posicion / seleccionadas.length,
+          mensaje: iniciado.error ?? `No se pudo registrar la hoja ${hoja.hoja}.`,
+        });
+        return false;
+      }
 
-    let insertadas = 0;
-    let vueltas = 0;
+      actualizar(indice, { estado: "cargando", cargaId: iniciado.cargaId });
 
-    while (vueltas++ < 500) {
-      const res = await fetch("/api/carga/procesar", {
+      let vueltas = 0;
+      let terminoHoja = false;
+
+      while (vueltas++ < 500) {
+        const res = await fetch("/api/carga/procesar", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ cargaId: iniciado.cargaId }),
       });
 
-      const json = await res.json();
+        const json = await res.json();
 
-      if (!res.ok) {
+        if (!res.ok) {
+          actualizar(indice, {
+            estado: "error",
+            mensaje: json.error ?? `Error al procesar ${hoja.hoja}.`,
+          });
+          return false;
+        }
+
+        insertadasTotal += json.insertadas ?? 0;
+        actualizar(indice, {
+          progreso:
+            (posicion + (json.total > 0 ? json.procesadas / json.total : 1)) /
+            seleccionadas.length,
+        });
+
+        if (json.terminado) {
+          procesadasTotal += json.procesadas ?? 0;
+          terminoHoja = true;
+          break;
+        }
+      }
+      if (!terminoHoja) {
         actualizar(indice, {
           estado: "error",
-          mensaje: json.error ?? "Error al procesar.",
+          mensaje: `La hoja ${hoja.hoja} quedó a medio procesar. Puedes reanudarla desde Cargas registradas.`,
         });
         return false;
-      }
-
-      insertadas += json.insertadas ?? 0;
-      actualizar(indice, {
-        progreso: json.total > 0 ? json.procesadas / json.total : 1,
-      });
-
-      if (json.terminado) {
-        actualizar(indice, {
-          estado: "cargado",
-          progreso: 1,
-          mensaje:
-            hoja.modo === "matriz"
-              ? `${fmt.entero(json.procesadas)} marcas de asistencia cargadas`
-              : `${fmt.entero(json.procesadas)} filas · ${fmt.entero(insertadas)} registros canónicos`,
-        });
-        return true;
       }
     }
 
     actualizar(indice, {
-      estado: "error",
-      mensaje:
-        "El procesamiento se detuvo. Puedes reanudarlo desde la lista de cargas.",
+      estado: "cargado",
+      progreso: 1,
+      mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}`,
     });
-    return false;
+    return true;
   }
 
   async function cargarActivo() {
@@ -397,6 +452,11 @@ export function Cargador({
   const usadas = hoja
     ? hoja.columnas.filter((c) => rolesHoja[c.posicion]).length
     : 0;
+  const columnasRevision = hoja
+    ? hoja.columnas.filter(
+        (c) => !c.descartada && (!rolesHoja[c.posicion] || c.confianza < 0.8),
+      )
+    : [];
   const pendientes = archivos.filter((a) => a.estado !== "cargado").length;
 
   return (
@@ -432,8 +492,15 @@ export function Cargador({
                     {a.nombre}
                   </span>
                   <span className="ml-2 text-xs text-[var(--text-muted)]">
-                    hoja: {a.hojas[a.hojaActiva]?.hoja} ·{" "}
-                    {fmt.entero(a.hojas[a.hojaActiva]?.filas ?? 0)} filas
+                    {a.hojasSeleccionadas.length} hoja
+                    {a.hojasSeleccionadas.length === 1 ? "" : "s"} útil
+                    {a.hojasSeleccionadas.length === 1 ? "" : "es"} ·{" "}
+                    {fmt.entero(
+                      a.hojasSeleccionadas.reduce(
+                        (total, h) => total + (a.hojas[h]?.filas ?? 0),
+                        0,
+                      ),
+                    )} filas
                   </span>
                 </button>
 
@@ -478,22 +545,40 @@ export function Cargador({
             <CardTitle hint="Ordenadas por cantidad de datos útiles. Las hojas con restos de trabajo manual quedan al final.">
               2 · Hoja de «{archivo.nombre}»
             </CardTitle>
+            <p className="mb-3 text-xs text-[var(--text-secondary)]">
+              Atlas seleccionó las hojas con datos. Desmarca portadas, notas o
+              tablas auxiliares que no quieras analizar.
+            </p>
             <div className="flex flex-wrap gap-2">
               {archivo.hojas.map((h, i) => (
-                <button
+                <div
                   key={h.hoja}
-                  onClick={() => actualizar(activo, { hojaActiva: i })}
                   className={`rounded-md border px-3 py-1.5 text-sm ${
                     i === archivo.hojaActiva
                       ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_8%,transparent)] font-medium"
                       : "bg-[var(--surface-2)] text-[var(--text-secondary)]"
                   }`}
                 >
-                  {h.hoja}
-                  <span className="ml-2 text-xs text-[var(--text-muted)]">
-                    {fmt.entero(h.filas)} filas
-                  </span>
-                </button>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={archivo.hojasSeleccionadas.includes(i)}
+                      onChange={(e) =>
+                        actualizar(activo, {
+                          hojasSeleccionadas: e.target.checked
+                            ? [...archivo.hojasSeleccionadas, i]
+                            : archivo.hojasSeleccionadas.filter((x) => x !== i),
+                        })
+                      }
+                    />
+                    <button type="button" onClick={() => actualizar(activo, { hojaActiva: i })}>
+                      {h.hoja}
+                      <span className="ml-2 text-xs text-[var(--text-muted)]">
+                        {fmt.entero(h.filas)} filas
+                      </span>
+                    </button>
+                  </label>
+                </div>
               ))}
             </div>
 
@@ -549,12 +634,22 @@ export function Cargador({
 
           <Card>
             <CardTitle
-              hint={`${usadas} de ${hoja.columnas.length} columnas mapeadas. Las descartadas tienen un solo valor o están vacías.`}
+              hint={`${usadas} de ${hoja.columnas.length} columnas interpretadas. Atlas conserva todas las columnas, incluso las que no alimentan un pack especializado.`}
             >
-              3 · Revisa el mapeo propuesto
+              3 · Confirma sólo las dudas
             </CardTitle>
 
-            <div className="overflow-x-auto">
+            {columnasRevision.length === 0 ? (
+              <div className="rounded-md border border-[var(--good)]/30 bg-[color-mix(in_srgb,var(--good)_8%,transparent)] px-3 py-2 text-sm">
+                Atlas interpretó esta hoja sin dudas. Puedes cargarla directamente.
+              </div>
+            ) : (
+              <p className="mb-3 text-xs text-[var(--text-secondary)]">
+                Sólo mostramos {columnasRevision.length} columna{columnasRevision.length === 1 ? "" : "s"} que necesita{columnasRevision.length === 1 ? "" : "n"} confirmación. Las otras {hoja.columnas.length - columnasRevision.length} ya están listas.
+              </p>
+            )}
+
+            {columnasRevision.length > 0 ? <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-[var(--text-muted)]">
@@ -566,7 +661,7 @@ export function Cargador({
                   </tr>
                 </thead>
                 <tbody>
-                  {hoja.columnas.map((c) => (
+                  {columnasRevision.map((c) => (
                     <tr
                       key={c.posicion}
                       className={`border-b last:border-0 ${c.descartada ? "opacity-45" : ""}`}
@@ -617,14 +712,38 @@ export function Cargador({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </div> : null}
           </Card>
 
           <Card>
             <CardTitle>4 · Confirma y carga</CardTitle>
             <div className="flex flex-wrap items-end gap-3">
-              <label className="text-xs text-[var(--text-secondary)]">
-                <span className="mb-1 block font-medium">Campaña</span>
+              <label className="min-w-[230px] text-xs text-[var(--text-secondary)]">
+                <span className="mb-1 block font-medium">Base de datos</span>
+                <select
+                  value={datasetId}
+                  onChange={(e) => setDatasetId(e.target.value)}
+                  className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
+                >
+                  <option value="nuevo">Crear una base nueva</option>
+                  {datasets.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                </select>
+              </label>
+
+              {datasetId === "nuevo" ? (
+                <label className="min-w-[220px] text-xs text-[var(--text-secondary)]">
+                  <span className="mb-1 block font-medium">Nombre de la base</span>
+                  <input
+                    value={nuevoDataset}
+                    onChange={(e) => setNuevoDataset(e.target.value)}
+                    placeholder="Ej. Inventario agosto"
+                    className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
+                  />
+                </label>
+              ) : null}
+
+              {campanas.length > 0 ? <label className="text-xs text-[var(--text-secondary)]">
+                <span className="mb-1 block font-medium">Campaña (opcional)</span>
                 <select
                   value={campana}
                   onChange={(e) => setCampana(e.target.value)}
@@ -637,7 +756,7 @@ export function Cargador({
                     </option>
                   ))}
                 </select>
-              </label>
+              </label> : null}
 
               <button
                 onClick={cargarActivo}

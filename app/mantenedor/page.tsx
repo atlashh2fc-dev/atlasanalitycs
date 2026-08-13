@@ -141,19 +141,39 @@ export default async function Mantenedor() {
   const nombreCampana = new Map(
     (campanasFull ?? []).map((c) => [c.id, c.nombre as string]),
   );
+  const tienePackGestion =
+    (campanasFull?.length ?? 0) > 0 ||
+    ejecutivos.length > 0 ||
+    (metas?.length ?? 0) > 0 ||
+    (productos?.length ?? 0) > 0;
 
   return (
     <>
       <Nav email={ctx.email} />
 
       <main className="mx-auto max-w-[1200px] px-6 py-6">
-        <h1 className="mb-1 text-xl font-semibold tracking-tight">Mantenedor</h1>
+        <p className="etiqueta">Configuración</p>
+        <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">Tu espacio</h1>
         <p className="mb-6 text-sm text-[var(--text-secondary)]">
-          La campaña es la unidad de gestión: define quién trabaja en ella,
-          qué se le mide y contra qué meta.
+          Administra accesos y las funciones especializadas que Atlas haya
+          detectado en tus bases.
         </p>
 
         <div className="space-y-5">
+          {!tienePackGestion ? (
+            <Card>
+              <CardTitle hint="Los campos, reglas de calidad e historial se administran dentro de cada base.">
+                Configuración adaptada a tus datos
+              </CardTitle>
+              <p className="text-sm text-[var(--text-secondary)]">
+                No detectamos campañas, productos ni equipos, por lo que esas
+                opciones no se muestran. Si una futura carga los contiene,
+                Atlas habilitará sus controles automáticamente.
+              </p>
+            </Card>
+          ) : null}
+
+          {tienePackGestion ? <>
           {/* 1 · Campañas */}
           <Card>
             <CardTitle hint="Todo cuelga de acá: ejecutivos, metas, cargas y permisos de los supervisores.">
@@ -285,6 +305,7 @@ export default async function Mantenedor() {
               </tbody>
             </table>
           </Card>
+          </> : null}
 
           {/* 5 · Usuarios */}
           {ctx.esAdmin ? (

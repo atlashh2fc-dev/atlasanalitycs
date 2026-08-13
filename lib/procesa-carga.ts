@@ -253,6 +253,31 @@ export async function procesaLote(
   /* --- Planilla: el unpivot es atómico, va todo de una --- */
   if (cfg.modo === "matriz") {
     const largo = extraeMatriz(matriz, cfg.filaEncabezado);
+    // También las planillas se conservan en su forma original. Antes se
+    // derivaban directo a asistencia y Atlas perdía las celdas que no
+    // pertenecían a ese pack especializado.
+    const encabezadoFuente = (matriz[cfg.filaEncabezado] ?? []).map((c, i) =>
+      typeof c === "string" && c.trim() !== "" ? c.trim() : `columna_${i + 1}`,
+    );
+    const filasFuente = matriz
+      .slice(cfg.filaEncabezado + 1)
+      .filter((f) => f.some((c) => c !== null && String(c).trim() !== ""))
+      .map((f, i) => {
+        const datos: Record<string, unknown> = {};
+        encabezadoFuente.forEach((nombre, posicion) => {
+          const valor = f[posicion];
+          datos[nombre] = valor instanceof Date ? valor.toISOString() : valor;
+        });
+        return { carga_id: carga.id, nro_fila: i + 1, datos };
+      });
+
+    for (let i = 0; i < filasFuente.length; i += 500) {
+      const { error } = await supabase
+        .from("fila_cruda")
+        .insert(filasFuente.slice(i, i + 500));
+      if (error) throw new Error(`No se pudo conservar la hoja: ${error.message}`);
+    }
+
     const ejecutivos = await mapaEjecutivos(supabase, tenantId);
     const jornadas = new Map<string, number>();
     let insertadas = 0;
@@ -297,7 +322,8 @@ export async function procesaLote(
         estado: "procesada",
         filas_procesadas: largo.filas.length,
         filas_totales: largo.filas.length,
-        filas_validas: insertadas,
+        filas_validas: filasFuente.length,
+        filas_rechazadas: 0,
       })
       .eq("id", carga.id);
 
@@ -333,13 +359,14 @@ export async function procesaLote(
 
   // Filas crudas: fuente de verdad, se conservan siempre
   if (filas.length > 0) {
-    await supabase.from("fila_cruda").insert(
+    const { error } = await supabase.from("fila_cruda").insert(
       filas.map((f, i) => ({
         carga_id: carga.id,
         nro_fila: desde + i + 1,
         datos: f,
       })),
     );
+    if (error) throw new Error(`No se pudieron conservar las filas: ${error.message}`);
   }
 
   const inverso = invertir(cfg.mapeo);
@@ -485,6 +512,8 @@ export async function procesaLote(
     .update({
       filas_procesadas: hasta,
       filas_totales: cuerpo.length,
+      filas_validas: cuerpo.length,
+      filas_rechazadas: 0,
       estado: terminado ? "procesada" : "mapeada",
     })
     .eq("id", carga.id);

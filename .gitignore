@@ -7,4 +7,5 @@ out
 next-env.d.ts
 .DS_Store
 pgdata
+supabase/.temp/
 __pycache__

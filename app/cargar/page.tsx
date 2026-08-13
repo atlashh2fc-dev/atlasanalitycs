@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { getContexto } from "@/lib/datos";
 import { Card, CardTitle } from "@/components/ui/card";
-import { Semilla } from "../mantenedor/formularios";
 import { Cargador } from "./cargador";
 import { Pendientes, type CargaPendiente } from "./pendientes";
 import { createClient } from "@/lib/supabase/server";
+import { PrepararEspacio } from "./preparar-espacio";
 
 export const dynamic = "force-dynamic";
 
@@ -15,42 +15,32 @@ export default async function Cargar() {
 
   const ctx = await getContexto();
 
-  // Sin organización no hay dónde guardar los datos. Se resuelve acá
-  // mismo en vez de dejar que el usuario perfile un archivo completo y
-  // recién al apretar "Cargar" descubra que le falta un paso previo.
+  // El espacio técnico se crea solo: la primera decisión del usuario es
+  // su archivo, no campañas, productos ni configuración interna.
   if (!ctx.tenantId) {
     return (
       <>
         <Nav email={ctx.email} />
 
         <main className="mx-auto max-w-[700px] px-6 py-6">
-          <h1 className="text-xl font-semibold tracking-tight">Cargar datos</h1>
-
-          <Card className="mt-6">
-            <CardTitle hint="Tu usuario todavía no está asociado a una organización. Es un paso de una sola vez y después no vuelve a aparecer.">
-              Primero, crea tu organización
-            </CardTitle>
-            <Semilla />
-            <p className="mt-4 border-t pt-3 text-xs text-[var(--text-muted)]">
-              Esto crea la organización, tu perfil de administrador, la campaña
-              «Venta Seguros», los cuatro productos y las metas del mes
-              (250 Complementario + Catastrófico, 60 Oncológico). Todo editable
-              después desde el mantenedor.
-            </p>
-          </Card>
+          <h1 className="mb-6 text-xl font-semibold tracking-tight">Cargar datos</h1>
+          <PrepararEspacio nombre={(ctx.email ?? "Mi espacio").split("@")[0] || "Mi espacio"} />
         </main>
       </>
     );
   }
 
   const supabase = await createClient();
-  const { data: filas } = await supabase
-    .from("carga")
-    .select(
-      "id, archivo_nombre, hoja, estado, filas_procesadas, filas_totales, error_detalle, created_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(12);
+  const [{ data: filas }, { data: datasets }] = await Promise.all([
+    supabase
+      .from("carga")
+      .select(
+        "id, archivo_nombre, hoja, estado, filas_procesadas, filas_totales, error_detalle, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(12),
+    supabase.from("dataset").select("id,nombre").eq("activo", true).order("updated_at", { ascending: false }),
+  ]);
 
   const cargas: CargaPendiente[] = (filas ?? []).map((c) => ({
     id: c.id,
@@ -77,7 +67,7 @@ export default async function Cargar() {
           </p>
         </div>
 
-        <Cargador campanas={ctx.campanas} tenantId={ctx.tenantId} />
+        <Cargador campanas={ctx.campanas} datasets={datasets ?? []} tenantId={ctx.tenantId} />
 
         <Card className="mt-6">
           <CardTitle hint="El archivo queda guardado y el avance vive en la base: puedes irte de la pantalla y volver a retomar.">
