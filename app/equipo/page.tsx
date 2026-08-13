@@ -1,6 +1,8 @@
 import { Card, CardTitle } from "@/components/ui/card";
 import { Nav } from "@/components/nav";
 import { MatrizTransicion, TablaMovilidad } from "@/components/charts/movilidad";
+import { redirect } from "next/navigation";
+import { hayCredenciales } from "@/lib/supabase/client";
 import { getContexto, getMovilidad } from "@/lib/datos";
 import { RecalcularPeriodo } from "./recalcular";
 
@@ -11,6 +13,8 @@ export default async function Equipo({
 }: {
   searchParams: Promise<{ campana?: string }>;
 }) {
+  if (!hayCredenciales()) redirect("/configuracion");
+
   const sp = await searchParams;
   const ctx = await getContexto();
   const campanaId = sp.campana ?? ctx.campanas[0]?.id ?? null;

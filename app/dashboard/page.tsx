@@ -5,6 +5,8 @@ import { GraficoCumplimiento } from "@/components/charts/cumplimiento";
 import { GraficoCuadrantes } from "@/components/charts/cuadrantes";
 import { GraficoRanking } from "@/components/charts/ranking";
 import { Nav } from "@/components/nav";
+import { redirect } from "next/navigation";
+import { hayCredenciales } from "@/lib/supabase/client";
 import { getContexto, getResumenVentas, rangoMes } from "@/lib/datos";
 import { fmt } from "@/lib/utils";
 
@@ -15,6 +17,8 @@ export default async function Dashboard({
 }: {
   searchParams: Promise<{ campana?: string; mes?: string }>;
 }) {
+  if (!hayCredenciales()) redirect("/configuracion");
+
   const sp = await searchParams;
   const ctx = await getContexto();
 

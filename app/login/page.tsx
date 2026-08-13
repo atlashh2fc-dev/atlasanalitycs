@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, hayCredenciales } from "@/lib/supabase/client";
 
 export default function Login() {
   const router = useRouter();
@@ -15,6 +15,14 @@ export default function Login() {
     e.preventDefault();
     setCargando(true);
     setError(null);
+
+    if (!hayCredenciales()) {
+      setError(
+        "El despliegue no tiene configuradas las variables de Supabase. Revisa /configuracion.",
+      );
+      setCargando(false);
+      return;
+    }
 
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({

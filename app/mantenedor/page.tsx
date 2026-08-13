@@ -1,6 +1,8 @@
 import { Card, CardTitle } from "@/components/ui/card";
 import { Nav } from "@/components/nav";
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { hayCredenciales } from "@/lib/supabase/client";
 import { getContexto } from "@/lib/datos";
 import { fmt } from "@/lib/utils";
 import { FormMeta, FormCampana, Semilla } from "./formularios";
@@ -8,6 +10,8 @@ import { FormMeta, FormCampana, Semilla } from "./formularios";
 export const dynamic = "force-dynamic";
 
 export default async function Mantenedor() {
+  if (!hayCredenciales()) redirect("/configuracion");
+
   const ctx = await getContexto();
   const supabase = await createClient();
 

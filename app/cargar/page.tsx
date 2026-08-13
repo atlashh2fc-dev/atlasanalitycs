@@ -1,10 +1,14 @@
 import { Nav } from "@/components/nav";
+import { redirect } from "next/navigation";
+import { hayCredenciales } from "@/lib/supabase/client";
 import { getContexto } from "@/lib/datos";
 import { Cargador } from "./cargador";
 
 export const dynamic = "force-dynamic";
 
 export default async function Cargar() {
+  if (!hayCredenciales()) redirect("/configuracion");
+
   const ctx = await getContexto();
 
   return (
