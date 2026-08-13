@@ -10,7 +10,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "superficie rounded-xl border p-5",
+        "vidrio rounded-2xl p-5",
         className,
       )}
     >

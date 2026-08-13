@@ -20,7 +20,9 @@ import {
 } from "recharts";
 import { Area, AreaChart as MiniArea } from "recharts";
 import { SERIES, Tooltip } from "@/components/charts/base";
+import { AnilloRitmo } from "@/components/ui/anillo";
 import { useConteo, usaMovimientoReducido } from "@/lib/animacion";
+import { tonoDe } from "@/lib/tonos";
 import { fmt } from "@/lib/utils";
 import type { Resultado, TipoWidget } from "@/lib/widgets";
 
@@ -64,6 +66,10 @@ export function ContenidoTarjeta({
   // Los degradados viven en <defs> con id propio: dos tarjetas en la
   // misma página no pueden compartirlo o la segunda pisa a la primera.
   const reducido = usaMovimientoReducido();
+  // El color de las marcas lo define la fuente del dato, no la posición
+  // de la tarjeta: dos gráficos de venta se ven hermanos aunque estén
+  // en esquinas opuestas del panel.
+  const tono = tonoDe(config.fuente).css;
   const idBase = useId().replace(/:/g, "");
   const gradVertical = `gv-${idBase}`;
   const gradHorizontal = `gh-${idBase}`;
@@ -166,6 +172,8 @@ export function ContenidoTarjeta({
         anterior={kpi?.anterior}
         serie={kpi?.serie ?? []}
         granularidad={kpi?.granularidad}
+        tono={tono}
+        ritmo={fraccionTranscurrida(filtros.desde, filtros.hasta)}
       />
     );
   }
@@ -223,7 +231,7 @@ export function ContenidoTarjeta({
           <Tooltip
             titulo={d.clave}
             filas={[
-              { etiqueta: "Valor", valor: formatea(d.valor, datos.unidad), color: SERIES[0] },
+              { etiqueta: "Valor", valor: formatea(d.valor, datos.unidad), color: tono },
               { etiqueta: "Del total", valor: fmt.pct(peso) },
             ]}
           />
@@ -302,16 +310,16 @@ export function ContenidoTarjeta({
             {/* Sólo varía la opacidad: el tono es el validado, así que
                 el degradado no altera las relaciones de color. */}
             <linearGradient id={gradArea} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.55} />
-              <stop offset="55%" stopColor={SERIES[0]} stopOpacity={0.18} />
-              <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.02} />
+              <stop offset="0%" stopColor={tono} stopOpacity={0.55} />
+              <stop offset="55%" stopColor={tono} stopOpacity={0.18} />
+              <stop offset="100%" stopColor={tono} stopOpacity={0.02} />
             </linearGradient>
             {/* El trazo se aclara hacia la derecha: sugiere avance en
                 el tiempo sin cambiar el tono ni inventar una segunda
                 serie. */}
             <linearGradient id={gradTrazo} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.65} />
-              <stop offset="100%" stopColor={SERIES[0]} stopOpacity={1} />
+              <stop offset="0%" stopColor={tono} stopOpacity={0.65} />
+              <stop offset="100%" stopColor={tono} stopOpacity={1} />
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} />
@@ -372,8 +380,8 @@ export function ContenidoTarjeta({
         >
           <defs>
             <linearGradient id={gradHorizontal} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.6} />
-              <stop offset="100%" stopColor={SERIES[0]} stopOpacity={1} />
+              <stop offset="0%" stopColor={tono} stopOpacity={0.6} />
+              <stop offset="100%" stopColor={tono} stopOpacity={1} />
             </linearGradient>
           </defs>
           <XAxis type="number" hide />
@@ -413,8 +421,8 @@ export function ContenidoTarjeta({
       <BarChart data={datos.filas} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id={gradVertical} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={SERIES[0]} stopOpacity={1} />
-            <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.55} />
+            <stop offset="0%" stopColor={tono} stopOpacity={1} />
+            <stop offset="100%" stopColor={tono} stopOpacity={0.55} />
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} />
@@ -478,6 +486,8 @@ export function TarjetaCifra({
   anterior,
   serie,
   granularidad = "dia",
+  tono = "var(--tono-venta)",
+  ritmo,
 }: {
   total: number;
   unidad: Resultado["unidad"];
@@ -486,6 +496,9 @@ export function TarjetaCifra({
   anterior?: number;
   serie: { clave: string; valor: number }[];
   granularidad?: "dia" | "semana" | "mes";
+  tono?: string;
+  /** Fracción del periodo ya transcurrida, para la muesca del anillo. */
+  ritmo?: number | null;
 }) {
   const reducido = usaMovimientoReducido();
   const idSpark = useId().replace(/:/g, "");
@@ -501,72 +514,63 @@ export function TarjetaCifra({
   const tonoDelta =
     delta === null ? "neutro" : delta > 0 ? "good" : delta < 0 ? "critical" : "neutro";
 
-  const colorEstado =
-    (pct ?? 0) >= 1 ? "var(--good)" : (pct ?? 0) >= 0.85 ? "var(--warning)" : "var(--serious)";
-
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-baseline gap-2.5">
-        <p className="cifra text-[clamp(1.9rem,4.2vw,2.9rem)] text-[var(--text-primary)]">
-          {formatea(mostrado, unidad)}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="cifra text-[clamp(1.9rem,4vw,2.9rem)] text-[var(--text-primary)]">
+            {formatea(mostrado, unidad)}
+          </p>
 
-        {delta !== null ? (
-          <span
-            className="tabular inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium"
-            style={{
-              color: `var(--${tonoDelta === "neutro" ? "text-muted" : tonoDelta})`,
-              background:
-                tonoDelta === "neutro"
-                  ? "transparent"
-                  : `color-mix(in srgb, var(--${tonoDelta}) 13%, transparent)`,
-            }}
-            title={`Periodo anterior: ${formatea(anterior ?? 0, unidad)}`}
-          >
-            {delta > 0 ? "▲" : delta < 0 ? "▼" : "="}{" "}
-            {fmt.pct(Math.abs(delta), 0)}
-          </span>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {delta !== null ? (
+              <span
+                className="tabular inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold"
+                style={{
+                  color: `var(--${tonoDelta === "neutro" ? "text-muted" : tonoDelta})`,
+                  background:
+                    tonoDelta === "neutro"
+                      ? "transparent"
+                      : `color-mix(in srgb, var(--${tonoDelta}) 15%, transparent)`,
+                }}
+                title={`Periodo anterior: ${formatea(anterior ?? 0, unidad)}`}
+              >
+                {delta > 0 ? "▲" : delta < 0 ? "▼" : "="} {fmt.pct(Math.abs(delta), 0)}
+              </span>
+            ) : null}
+
+            <span className="text-[11px] text-[var(--text-muted)]">
+              {objetivo
+                ? `meta ${formatea(objetivo, unidad)}`
+                : `${fmt.entero(registros)} registros`}
+              {delta !== null ? " · vs. periodo anterior" : ""}
+            </span>
+          </div>
+        </div>
+
+        {/* Donde hay meta manda el anillo: dice si vas a llegar, no sólo
+            cuánto llevas. Donde no la hay, la tarjeta queda limpia. */}
+        {pct !== null ? (
+          <AnilloRitmo avance={pct} ritmo={ritmo ?? null} tono={tono} />
         ) : null}
       </div>
-
-      {objetivo ? (
-        <>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-0)]">
-            <div
-              className="h-full rounded-full transition-[width] duration-700 ease-out"
-              style={{
-                width: `${Math.min(100, (pct ?? 0) * 100)}%`,
-                background: `linear-gradient(90deg, color-mix(in srgb, ${colorEstado} 55%, transparent), ${colorEstado})`,
-              }}
-            />
-          </div>
-          <p className="mt-1.5 text-xs text-[var(--text-secondary)]">
-            {fmt.pct(pct)} de {formatea(objetivo, unidad)}
-          </p>
-        </>
-      ) : (
-        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-          {fmt.entero(registros)} registros
-          {delta !== null ? " · vs. periodo anterior" : ""}
-        </p>
-      )}
 
       {/* La mini-serie ocupa el espacio muerto con información, no con
           decoración: muestra si la cifra viene subiendo o cayendo. */}
       {serie.length > 2 ? (
-        <div className="mt-auto -mx-1 h-12 pt-2">
+        <div className="-mx-1 mt-auto h-12 pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <MiniArea data={serie} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id={`chispa-${idSpark}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.42} />
-                  <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0} />
+                  <stop offset="0%" stopColor={tono} stopOpacity={0.45} />
+                  <stop offset="100%" stopColor={tono} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <Area
                 type="monotone"
                 dataKey="valor"
-                stroke={SERIES[0]}
+                stroke={tono}
                 strokeWidth={2}
                 fill={`url(#chispa-${idSpark})`}
                 dot={false}
@@ -579,4 +583,28 @@ export function TarjetaCifra({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Qué fracción del periodo seleccionado ya pasó.
+ *
+ * Es la referencia del anillo: con 13 de 31 días corridos, ir en 42% de
+ * la meta es ir en ritmo, no ir mal. Si el periodo ya cerró, la
+ * referencia es la meta completa.
+ */
+export function fraccionTranscurrida(desde: string, hasta: string): number | null {
+  const d = new Date(`${desde}T00:00:00`);
+  const h = new Date(`${hasta}T00:00:00`);
+  if (Number.isNaN(d.getTime()) || Number.isNaN(h.getTime()) || h < d) return null;
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const dia = 86_400_000;
+  const total = Math.round((h.getTime() - d.getTime()) / dia) + 1;
+  if (total <= 1) return null;
+  if (hoy >= h) return 1;
+  if (hoy < d) return 0;
+
+  return (Math.round((hoy.getTime() - d.getTime()) / dia) + 1) / total;
 }

@@ -30,7 +30,7 @@ export default function Configuracion() {
           variables de entorno en tu proyecto y vuelve a desplegar:
         </p>
 
-        <pre className="mt-4 overflow-x-auto rounded-md border bg-[var(--surface-2)] p-3 text-xs">
+        <pre className="mt-4 overflow-x-auto rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] p-3 text-xs">
 {`NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key>`}
         </pre>

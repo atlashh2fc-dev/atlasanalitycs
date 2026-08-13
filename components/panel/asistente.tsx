@@ -286,7 +286,7 @@ export function Asistente({
                       value={titulo}
                       onChange={(e) => setTitulo(e.target.value)}
                       placeholder={tituloAuto}
-                      className="w-full rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+                      className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
                     />
                   </label>
 
@@ -299,7 +299,7 @@ export function Asistente({
                       value={objetivo}
                       onChange={(e) => setObjetivo(e.target.value)}
                       placeholder="250"
-                      className="w-full rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+                      className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
                     />
                     <span className="mt-1 block text-[11px] text-[var(--text-muted)]">
                       Dibuja la línea de referencia y el avance.
@@ -354,7 +354,7 @@ export function Asistente({
             <button
               onClick={() => setPaso(paso + 1)}
               disabled={paso === 1 && !metrica}
-              className="rounded-md bg-[var(--series-1)] px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+              className="rounded-xl bg-[var(--series-1)] px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40"
             >
               Continuar
             </button>
@@ -362,7 +362,7 @@ export function Asistente({
             <button
               onClick={guardar}
               disabled={!tipo || guardando}
-              className="rounded-md bg-[var(--series-1)] px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+              className="rounded-xl bg-[var(--series-1)] px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40"
             >
               {guardando ? "Agregando…" : "Agregar al panel"}
             </button>

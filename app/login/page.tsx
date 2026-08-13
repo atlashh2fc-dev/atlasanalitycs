@@ -45,12 +45,22 @@ export default function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        <div className="mb-8">
+    <main className="flex min-h-screen items-center justify-center px-6 py-10">
+      <div className="vidrio w-full max-w-[380px] rounded-3xl p-8">
+        <div className="mb-7">
+          <span
+            className="mb-4 grid size-10 place-items-center rounded-xl text-base font-bold text-white"
+            style={{
+              background:
+                "linear-gradient(140deg, color-mix(in srgb, var(--tono-venta) 92%, white), color-mix(in srgb, var(--tono-cotizacion) 85%, black))",
+              boxShadow: "0 6px 22px color-mix(in srgb, var(--tono-venta) 45%, transparent)",
+            }}
+          >
+            A
+          </span>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold tracking-tight">Atlas</span>
-            <span className="text-2xl font-light text-[var(--text-secondary)]">
+            <span className="text-[22px] font-semibold tracking-tight">Atlas</span>
+            <span className="text-[22px] font-light text-[var(--text-secondary)]">
               Analytics
             </span>
           </div>
@@ -73,7 +83,7 @@ export default function Login() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--series-1)]"
+              className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--series-1)]"
             />
           </div>
 
@@ -90,14 +100,14 @@ export default function Login() {
               required
               value={clave}
               onChange={(e) => setClave(e.target.value)}
-              className="w-full rounded-md border bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--series-1)]"
+              className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--series-1)]"
             />
           </div>
 
           {error ? (
             <p
               role="alert"
-              className="rounded-md px-3 py-2 text-xs"
+              className="rounded-xl px-3 py-2 text-xs"
               style={{
                 color: "var(--critical)",
                 background: "color-mix(in srgb, var(--critical) 10%, transparent)",
@@ -110,7 +120,12 @@ export default function Login() {
           <button
             type="submit"
             disabled={cargando}
-            className="w-full rounded-md bg-[var(--series-1)] px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+            className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
+            style={{
+              background:
+                "linear-gradient(135deg, color-mix(in srgb, var(--tono-venta) 92%, white), color-mix(in srgb, var(--tono-cotizacion) 80%, black))",
+              boxShadow: "0 8px 24px color-mix(in srgb, var(--tono-venta) 38%, transparent)",
+            }}
           >
             {cargando ? "Entrando…" : "Entrar"}
           </button>

@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { ESTADO, SERIES, SinDatos, Tooltip } from "./base";
+import { useId } from "react";
 import { usaMovimientoReducido } from "@/lib/animacion";
 import { fmt } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ export interface FilaCumplimiento {
  */
 export function GraficoCumplimiento({ datos }: { datos: FilaCumplimiento[] }) {
   const reducido = usaMovimientoReducido();
+  const id = useId().replace(/:/g, "");
 
   if (datos.length === 0) {
     return <SinDatos mensaje="Carga un archivo de ventas para ver el cumplimiento por línea." />;
@@ -74,6 +76,16 @@ export function GraficoCumplimiento({ datos }: { datos: FilaCumplimiento[] }) {
     <div>
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={filas} margin={{ top: 20, right: 78, bottom: 4, left: 4 }}>
+          <defs>
+            <linearGradient id={`cu-${id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={1} />
+              <stop offset="100%" stopColor={SERIES[0]} stopOpacity={0.5} />
+            </linearGradient>
+            <linearGradient id={`cb-${id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={ESTADO.serious} stopOpacity={1} />
+              <stop offset="100%" stopColor={ESTADO.serious} stopOpacity={0.5} />
+            </linearGradient>
+          </defs>
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey="agrupacion"
@@ -157,7 +169,7 @@ export function GraficoCumplimiento({ datos }: { datos: FilaCumplimiento[] }) {
             {filas.map((d) => (
               <Cell
                 key={d.agrupacion}
-                fill={d.enRitmo ? SERIES[0] : ESTADO.serious}
+                fill={d.enRitmo ? `url(#cu-${id})` : `url(#cb-${id})`}
                 // Sobre el 100% no queda tramo gris encima: la barra
                 // cierra por arriba en vez de quedar cortada en plano.
                 {...(d.faltante === 0 ? { radius: 4 } : {})}

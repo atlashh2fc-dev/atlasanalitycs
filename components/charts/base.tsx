@@ -20,6 +20,8 @@ export const SERIES = [
   "var(--series-1)",
   "var(--series-2)",
   "var(--series-3)",
+  "var(--series-4)",
+  "var(--series-5)",
 ] as const;
 
 export const ESTADO = {
@@ -42,7 +44,7 @@ export function Tooltip({
   filas: { etiqueta: string; valor: string; color?: string }[];
 }) {
   return (
-    <div className="rounded-md border bg-[var(--surface-2)] px-3 py-2 shadow-lg">
+    <div className="rounded-xl border border-[var(--vidrio-borde-alto)] bg-[color-mix(in_srgb,var(--plano-alto)_88%,transparent)] px-3 py-2 shadow-[var(--sombra-alta)] backdrop-blur-xl">
       <p className="mb-1.5 text-xs font-semibold text-[var(--text-primary)]">
         {titulo}
       </p>
@@ -90,7 +92,7 @@ export function Leyenda({
 
 export function SinDatos({ mensaje }: { mensaje: string }) {
   return (
-    <div className="flex h-[240px] items-center justify-center rounded-md border border-dashed">
+    <div className="flex h-[240px] items-center justify-center rounded-xl border border-dashed">
       <p className="max-w-xs text-center text-sm text-[var(--text-muted)]">
         {mensaje}
       </p>

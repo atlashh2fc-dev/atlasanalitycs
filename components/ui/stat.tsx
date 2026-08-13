@@ -33,7 +33,7 @@ export function Stat({
   mostrarEstado?: boolean;
 }) {
   return (
-    <div className="superficie rounded-xl border p-5">
+    <div className="vidrio rounded-2xl p-5">
       <p className="etiqueta">{label}</p>
       <p className="cifra mt-2.5 text-[2rem] text-[var(--text-primary)]">{valor}</p>
       <div className="mt-2 flex items-center gap-2">

@@ -1,108 +1,299 @@
 @import "tailwindcss";
 
 /* =====================================================================
-   Paleta Atlas Analytics
+   Sistema de diseño Atlas Analytics
    =====================================================================
-   El modo oscuro NO es un volteo del claro: son pasos propios de las
-   mismas rampas, elegidos y validados contra la superficie oscura.
-   Ambos juegos pasan las seis comprobaciones de color —banda de
-   luminosidad, piso de croma, separación para daltonismo, piso de
-   visión normal y contraste—; en oscuro los tres slots superan 3:1
-   contra el fondo, mejor que en claro.
+   Hereda el lenguaje de Atlas 360 —vidrio esmerilado, profundidad por
+   luz y no por bordes, movimiento con resorte— y lo lleva a un producto
+   que es sobre todo datos.
+
+   Dos reglas propias de este producto:
+
+   1. El color de las marcas de datos sigue la paleta validada: banda de
+      luminosidad, piso de croma, separación para daltonismo y contraste
+      contra la superficie. Lo bonito no puede costar legibilidad.
+
+   2. El tono de cada tarjeta lo define su fuente de datos —venta,
+      cotización, gestión, asistencia, cliente—. No es decoración: de un
+      vistazo sabes de qué base viene el número que estás mirando.
    ===================================================================== */
+
 :root {
-  color-scheme: light;
-
-  --plano: #f9f9f7;
-  --surface-0: #f4f4f2;
-  --surface-1: #fcfcfb;
-  --surface-2: #ffffff;
-  --border: #e2e2dd;
-  --border-strong: #c9c9c2;
-
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-
-  --good: #0ca30c;
-  --warning: #fab219;
-  --serious: #ec835a;
-  --critical: #d03b3b;
-
-  --grid: #e1e0d9;
-  --eje: #c3c2b7;
-
-  --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --sombra-alta: 0 4px 16px rgba(0, 0, 0, 0.07);
-  --brillo-fino: none;
-  --brillo-solido: none;
-  --luz-cenital: rgba(255, 255, 255, 0.9);
-}
-
-:root[data-theme="dark"] {
   color-scheme: dark;
 
-  --plano: #0d0d0d;
-  --surface-0: #141413;
-  --surface-1: #1a1a19;
-  --surface-2: #1f1f1e;
-  --border: #2c2c2a;
-  --border-strong: #383835;
+  /* Plano: azul-noche, no negro. El negro plano apaga los colores. */
+  --plano: #080b14;
+  --plano-alto: #0d1220;
 
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
+  /* Vidrio */
+  --vidrio: rgba(255, 255, 255, 0.045);
+  --vidrio-alto: rgba(255, 255, 255, 0.07);
+  --vidrio-borde: rgba(255, 255, 255, 0.09);
+  --vidrio-borde-alto: rgba(255, 255, 255, 0.16);
+  --luz-cenital: rgba(255, 255, 255, 0.14);
+  --desenfoque: 22px;
 
-  /* Mismas rampas, pasos propios para fondo oscuro */
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
+  /* Compatibilidad con los componentes existentes */
+  --surface-0: rgba(255, 255, 255, 0.03);
+  --surface-1: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.2);
 
-  --good: #0ca30c;
-  --warning: #fab219;
-  --serious: #ec835a;
-  --critical: #d03b3b;
+  --text-primary: #f7f9fc;
+  --text-secondary: #9aa7bd;
+  --text-muted: #64718a;
 
-  --grid: #2c2c2a;
-  --eje: #383835;
+  /* Marcas de datos */
+  --series-1: #3d8bfd;
+  --series-2: #e0713a;
+  --series-3: #1eb489;
+  --series-4: #a78bfa;
+  --series-5: #22d3ee;
 
-  --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --sombra-alta: 0 8px 28px rgba(0, 0, 0, 0.55);
-  /* El halo se calibra por tipo de marca. En trazos finos da
-     profundidad; sobre superficies grandes —una dona, un área rellena—
-     sólo emborrona, así que ahí no se aplica. */
-  --brillo-fino: drop-shadow(0 0 8px color-mix(in srgb, var(--series-1) 55%, transparent));
-  --brillo-solido: drop-shadow(0 1px 5px color-mix(in srgb, var(--series-1) 26%, transparent));
-  --luz-cenital: rgba(255, 255, 255, 0.07);
+  --good: #22c55e;
+  --warning: #f5b52a;
+  --serious: #f08a5d;
+  --critical: #ef4a4a;
+
+  --grid: rgba(255, 255, 255, 0.06);
+  --eje: rgba(255, 255, 255, 0.12);
+
+  /* Tonos por fuente de dato */
+  --tono-venta: #3d8bfd;
+  --tono-cotizacion: #a78bfa;
+  --tono-agendamiento: #22d3ee;
+  --tono-asistencia: #f5b52a;
+  --tono-cliente: #1eb489;
+
+  --sombra-tarjeta: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.35);
+  --sombra-alta: 0 1px 1px rgba(0, 0, 0, 0.5), 0 20px 50px rgba(0, 0, 0, 0.5);
+  --brillo-fino: drop-shadow(0 0 9px color-mix(in srgb, var(--tono, var(--series-1)) 45%, transparent));
+  --brillo-solido: drop-shadow(0 2px 7px color-mix(in srgb, var(--tono, var(--series-1)) 28%, transparent));
+}
+
+/* ---------------------------------------------------------------
+   Claro
+   ---------------------------------------------------------------
+   No es el oscuro invertido: el vidrio pasa a ser papel sobre un
+   plano tibio, con los mismos tonos en pasos propios.
+   --------------------------------------------------------------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --plano: #eef1f7;
+  --plano-alto: #f7f9fc;
+
+  --vidrio: rgba(255, 255, 255, 0.72);
+  --vidrio-alto: rgba(255, 255, 255, 0.92);
+  --vidrio-borde: rgba(11, 22, 44, 0.09);
+  --vidrio-borde-alto: rgba(11, 22, 44, 0.16);
+  --luz-cenital: rgba(255, 255, 255, 0.95);
+
+  --surface-0: rgba(11, 22, 44, 0.04);
+  --surface-1: rgba(255, 255, 255, 0.75);
+  --surface-2: #ffffff;
+  --border: rgba(11, 22, 44, 0.1);
+  --border-strong: rgba(11, 22, 44, 0.22);
+
+  --text-primary: #0a1224;
+  --text-secondary: #4c5769;
+  --text-muted: #7c8798;
+
+  --series-1: #1f6fe0;
+  --series-2: #d4571f;
+  --series-3: #0f9a72;
+  --series-4: #7c5cf0;
+  --series-5: #0e9fbd;
+
+  --good: #128a3c;
+  --warning: #b57e05;
+  --serious: #d1622f;
+  --critical: #c8302f;
+
+  --grid: rgba(11, 22, 44, 0.07);
+  --eje: rgba(11, 22, 44, 0.14);
+
+  --tono-venta: #1f6fe0;
+  --tono-cotizacion: #7c5cf0;
+  --tono-agendamiento: #0e9fbd;
+  --tono-asistencia: #b57e05;
+  --tono-cliente: #0f9a72;
+
+  --sombra-tarjeta: 0 1px 2px rgba(11, 22, 44, 0.06), 0 10px 24px rgba(11, 22, 44, 0.06);
+  --sombra-alta: 0 2px 4px rgba(11, 22, 44, 0.08), 0 18px 40px rgba(11, 22, 44, 0.12);
+  --brillo-fino: none;
+  --brillo-solido: none;
 }
 
 * {
-  border-color: var(--border);
+  border-color: var(--vidrio-borde);
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   background: var(--plano);
   color: var(--text-primary);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 200ms ease, color 200ms ease;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1, "cv11" 1;
+}
+
+/* Profundidad del plano: dos focos fríos y uno cálido abajo. Fijos, para
+   que el fondo no se mueva con el scroll y compita con los datos. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 620px at 8% -12%, color-mix(in srgb, var(--tono-venta) 22%, transparent), transparent 70%),
+    radial-gradient(900px 520px at 94% -6%, color-mix(in srgb, var(--tono-cotizacion) 17%, transparent), transparent 70%),
+    radial-gradient(1000px 700px at 50% 118%, color-mix(in srgb, var(--tono-agendamiento) 10%, transparent), transparent 72%);
+}
+
+:root[data-theme="light"] body::before {
+  opacity: 0.55;
+}
+
+/* ---------------------------------------------------------------
+   Vidrio
+   --------------------------------------------------------------- */
+.vidrio {
+  position: relative;
+  background: var(--vidrio);
+  backdrop-filter: blur(var(--desenfoque)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--desenfoque)) saturate(150%);
+  border: 1px solid var(--vidrio-borde);
+  box-shadow: var(--sombra-tarjeta);
+  transition: box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+
+/* Luz cenital: una hebra de un píxel arriba. Es lo que hace que el
+   vidrio parezca un plano físico y no un rectángulo más claro. */
+.vidrio::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--luz-cenital) 16%,
+    var(--luz-cenital) 84%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.vidrio:hover {
+  box-shadow: var(--sombra-alta);
+  border-color: var(--vidrio-borde-alto);
+}
+
+/* Cuando la tarjeta tiene tono, el tono tiñe apenas su esquina superior
+   izquierda: suficiente para agrupar por fuente de dato de un vistazo. */
+.vidrio[data-tono]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    420px 220px at 0% 0%,
+    color-mix(in srgb, var(--tono) 15%, transparent),
+    transparent 68%
+  );
+}
+
+.vidrio > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------------------------------------------------------------
+   Tipografía
+   --------------------------------------------------------------- */
+.cifra {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+  line-height: 0.92;
+}
+
+.etiqueta {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* En oscuro, un degradado apenas perceptible da profundidad al plano
-   sin competir con los datos. */
-:root[data-theme="dark"] body {
-  background-image:
-    radial-gradient(900px 500px at 12% -8%, color-mix(in srgb, var(--series-1) 9%, transparent), transparent),
-    radial-gradient(800px 480px at 92% 4%, color-mix(in srgb, var(--series-3) 7%, transparent), transparent);
-  background-attachment: fixed;
+/* ---------------------------------------------------------------
+   Controles
+   --------------------------------------------------------------- */
+.pildora {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--vidrio-borde);
+  background: var(--vidrio);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 0.4rem 0.85rem;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.pildora:hover {
+  border-color: var(--vidrio-borde-alto);
+  background: var(--vidrio-alto);
+}
+
+.pildora input,
+.pildora select {
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: inherit;
+  font-size: 13px;
+  padding: 0;
+}
+
+input,
+select,
+textarea {
+  color: var(--text-primary);
+  background-color: var(--vidrio-alto);
+}
+
+input[type="date"],
+input[type="month"] {
+  color-scheme: inherit;
+}
+
+::placeholder {
+  color: var(--text-muted);
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--tono, var(--series-1)) 70%, transparent);
+  outline-offset: 2px;
 }
 
 /* ---------------------------------------------------------------
@@ -117,35 +308,33 @@ body {
 }
 .recharts-text {
   fill: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
-/* Trazos finos: halo pleno. Nunca sobre ejes, texto ni rellenos. */
-:root[data-theme="dark"] .recharts-line-curve,
-:root[data-theme="dark"] .recharts-scatter-symbol {
+/* El halo se calibra por tipo de marca: pleno en trazos finos, contenido
+   en barras, ninguno en dona ni áreas rellenas —sobre vidrios
+   grandes se lee como desenfoque, no como profundidad. */
+:root:not([data-theme="light"]) .recharts-line-curve,
+:root:not([data-theme="light"]) .recharts-scatter-symbol {
   filter: var(--brillo-fino);
 }
 
-/* Barras: halo contenido, lo justo para despegarlas del fondo */
-:root[data-theme="dark"] .recharts-bar-rectangle {
+:root:not([data-theme="light"]) .recharts-bar-rectangle {
   filter: var(--brillo-solido);
 }
 
-/* La dona y las áreas rellenas van limpias: el halo sobre superficies
-   grandes se lee como desenfoque, no como profundidad. */
-
 /* ---------------------------------------------------------------
-   Panel armable: retroalimentación al arrastrar y soltar
+   Panel armable
    --------------------------------------------------------------- */
 @keyframes cargando {
-  0%   { transform: translateX(-100%); }
+  0% { transform: translateX(-100%); }
   100% { transform: translateX(300%); }
 }
 
 .react-grid-item.react-grid-placeholder {
-  background: color-mix(in srgb, var(--series-1) 16%, transparent);
-  border: 2px dashed var(--series-1);
-  border-radius: 12px;
+  background: color-mix(in srgb, var(--series-1) 18%, transparent);
+  border: 1.5px dashed color-mix(in srgb, var(--series-1) 70%, transparent);
+  border-radius: 16px;
   opacity: 1;
   transition-duration: 100ms;
 }
@@ -157,7 +346,7 @@ body {
 
 .react-grid-item.react-draggable-dragging > div {
   box-shadow: var(--sombra-alta);
-  transform: scale(1.01);
+  transform: scale(1.012);
 }
 
 .react-grid-item > .react-resizable-handle {
@@ -166,11 +355,11 @@ body {
   right: 4px;
   bottom: 4px;
   opacity: 0;
-  transition: opacity 120ms ease;
+  transition: opacity 140ms ease;
 }
 
 .react-grid-item:hover > .react-resizable-handle {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .react-grid-item > .react-resizable-handle::after {
@@ -178,92 +367,26 @@ body {
   height: 7px;
   right: 5px;
   bottom: 5px;
-  border-right: 2px solid var(--text-muted);
-  border-bottom: 2px solid var(--text-muted);
+  border-right: 2px solid var(--text-secondary);
+  border-bottom: 2px solid var(--text-secondary);
 }
 
 /* ---------------------------------------------------------------
-   Controles: que el modo oscuro no deje campos blancos
+   Barras de desplazamiento discretas
    --------------------------------------------------------------- */
-input,
-select,
-textarea {
-  color: var(--text-primary);
-  background-color: var(--surface-2);
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
 }
-
-input[type="date"],
-input[type="month"] {
-  color-scheme: inherit;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
-
-::placeholder {
-  color: var(--text-muted);
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 40%, transparent);
+  border-radius: 999px;
 }
-
-
-/* ---------------------------------------------------------------
-   Materialidad
-   ---------------------------------------------------------------
-   Lo que separa un modo oscuro diseñado de uno invertido es la luz:
-   un degradado muy leve en la superficie y una línea de un píxel
-   arriba que simula iluminación cenital. Sin eso, las tarjetas son
-   rectángulos planos apenas más claros que el fondo.
-   --------------------------------------------------------------- */
-.superficie {
-  position: relative;
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-2) 92%, white),
-    var(--surface-2) 42%
-  );
-  box-shadow: var(--sombra-tarjeta);
-  transition: box-shadow 180ms ease, transform 180ms ease;
-}
-
-:root[data-theme="dark"] .superficie {
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-2) 88%, white),
-    var(--surface-1) 46%
-  );
-}
-
-.superficie::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--luz-cenital) 18%,
-    var(--luz-cenital) 82%,
-    transparent
-  );
-  pointer-events: none;
-}
-
-.superficie:hover {
-  box-shadow: var(--sombra-alta);
-}
-
-/* Cifras: tabulares, apretadas y grandes. Una métrica se lee de un
-   vistazo o no sirve. */
-.cifra {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.03em;
-  font-weight: 600;
-  line-height: 0.95;
-}
-
-.etiqueta {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-muted) 70%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

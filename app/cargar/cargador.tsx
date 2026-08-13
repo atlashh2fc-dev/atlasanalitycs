@@ -507,7 +507,7 @@ export function Cargador({
                       modo: e.target.value as "tabular" | "matriz",
                     })
                   }
-                  className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+                  className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
                 >
                   <option value="tabular">Tabla (una fila por registro)</option>
                   <option value="matriz">Planilla (fechas en columnas)</option>
@@ -525,7 +525,7 @@ export function Cargador({
                       filaEncabezado: Math.max(0, Number(e.target.value) - 1),
                     })
                   }
-                  className="w-24 rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+                  className="w-24 rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
                 />
               </label>
 
@@ -628,7 +628,7 @@ export function Cargador({
                 <select
                   value={campana}
                   onChange={(e) => setCampana(e.target.value)}
-                  className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+                  className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
                 >
                   <option value="">Sin campaña</option>
                   {campanas.map((c) => (
@@ -642,7 +642,7 @@ export function Cargador({
               <button
                 onClick={cargarActivo}
                 disabled={ocupado}
-                className="rounded-md bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className="rounded-xl bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
                 {ocupado ? "Cargando…" : "Cargar esta hoja"}
               </button>

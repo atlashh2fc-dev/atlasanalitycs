@@ -4,8 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Responsive, WidthProvider, type Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
+import { motion } from "framer-motion";
+import { CalendarRange, Check, Lock, LockOpen, Plus, Target } from "lucide-react";
 import { Asistente } from "./asistente";
 import { ContenidoTarjeta, type Filtros } from "./tarjeta";
+import { usaMovimientoReducido } from "@/lib/animacion";
+import { tonoDe } from "@/lib/tonos";
 import type { ConfigWidget, TipoWidget } from "@/lib/widgets";
 
 const Grid = WidthProvider(Responsive);
@@ -42,6 +46,7 @@ export function Panel({
   const [asistente, setAsistente] = useState(false);
   const [montado, setMontado] = useState(false);
   const [guardado, setGuardado] = useState<string | null>(null);
+  const reducido = usaMovimientoReducido();
   const [filtros, setFiltros] = useState<Filtros>({
     desde: rangoInicial.desde,
     hasta: rangoInicial.hasta,
@@ -143,36 +148,39 @@ export function Panel({
 
   return (
     <div>
-      {/* Barra de filtros y acciones */}
-      <div className="mb-5 flex flex-wrap items-end gap-3">
-        <label className="text-xs text-[var(--text-secondary)]">
-          <span className="mb-1 block font-medium">Desde</span>
+      {/* Barra de filtros: píldoras de vidrio, no formularios sueltos.
+          Lo que está filtrado se lee de un vistazo. */}
+      <div className="mb-6 flex flex-wrap items-center gap-2.5">
+        <label className="pildora cursor-pointer">
+          <CalendarRange className="size-3.5 text-[var(--text-muted)]" />
           <input
             type="date"
             value={filtros.desde}
             onChange={(e) => setFiltros({ ...filtros, desde: e.target.value })}
-            className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+            aria-label="Desde"
+            className="tabular"
           />
-        </label>
-        <label className="text-xs text-[var(--text-secondary)]">
-          <span className="mb-1 block font-medium">Hasta</span>
+          <span className="text-[var(--text-muted)]">→</span>
           <input
             type="date"
             value={filtros.hasta}
             onChange={(e) => setFiltros({ ...filtros, hasta: e.target.value })}
-            className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+            aria-label="Hasta"
+            className="tabular"
           />
         </label>
-        <label className="text-xs text-[var(--text-secondary)]">
-          <span className="mb-1 block font-medium">Campaña</span>
+
+        <label className="pildora cursor-pointer">
+          <Target className="size-3.5 text-[var(--text-muted)]" />
           <select
             value={filtros.campanaId ?? ""}
             onChange={(e) =>
               setFiltros({ ...filtros, campanaId: e.target.value || null })
             }
-            className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+            aria-label="Campaña"
+            className="cursor-pointer"
           >
-            <option value="">Todas</option>
+            <option value="">Todas las campañas</option>
             {campanas.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre}
@@ -183,7 +191,9 @@ export function Panel({
 
         <div className="ml-auto flex items-center gap-2">
           {guardado ? (
-            <span className="text-xs text-[var(--good)]">{guardado}</span>
+            <span className="flex items-center gap-1 text-xs text-[var(--good)]">
+              <Check className="size-3.5" /> {guardado}
+            </span>
           ) : null}
 
           <button
@@ -193,42 +203,51 @@ export function Panel({
                 ? "Las tarjetas están fijas"
                 : "Fijar las tarjetas para no moverlas sin querer"
             }
-            className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+            className="pildora"
+            style={
               bloqueado
-                ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_8%,transparent)]"
-                : "bg-[var(--surface-2)] hover:bg-[var(--surface-0)]"
-            }`}
+                ? {
+                    borderColor: "color-mix(in srgb, var(--tono-venta) 55%, transparent)",
+                    color: "var(--tono-venta)",
+                  }
+                : undefined
+            }
           >
+            {bloqueado ? <Lock className="size-3.5" /> : <LockOpen className="size-3.5" />}
             {bloqueado ? "Fijado" : "Fijar"}
           </button>
 
           <button
             onClick={() => setAsistente(true)}
-            className="rounded-md bg-[var(--series-1)] px-3 py-1.5 text-sm font-medium text-white"
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white transition-transform active:scale-[0.98]"
+            style={{
+              background:
+                "linear-gradient(135deg, color-mix(in srgb, var(--tono-venta) 92%, white), color-mix(in srgb, var(--tono-cotizacion) 80%, black))",
+              boxShadow: "0 6px 20px color-mix(in srgb, var(--tono-venta) 40%, transparent)",
+            }}
           >
+            <Plus className="size-4" strokeWidth={2.5} />
             Nueva tarjeta
           </button>
         </div>
       </div>
 
-      {!bloqueado && widgets.length > 0 ? (
-        <p className="mb-3 text-xs text-[var(--text-muted)]">
-          Arrastra cualquier tarjeta desde su cabecera para moverla, y tira de
-          la esquina inferior derecha para cambiarle el tamaño. Se guarda solo.
-        </p>
-      ) : null}
-
       {widgets.length === 0 ? (
-        <div className="superficie rounded-xl border border-dashed py-16 text-center">
-          <p className="text-sm font-medium">Tu panel está vacío</p>
+        <div className="vidrio rounded-2xl border-dashed py-16 text-center">
+          <p className="text-sm font-semibold">Tu panel está vacío</p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-[var(--text-secondary)]">
             Crea tu primera tarjeta: eliges qué medir, cómo desglosarlo y
             Atlas te propone la mejor forma de verlo.
           </p>
           <button
             onClick={() => setAsistente(true)}
-            className="mt-4 rounded-md bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white"
+            style={{
+              background:
+                "linear-gradient(135deg, color-mix(in srgb, var(--tono-venta) 92%, white), color-mix(in srgb, var(--tono-cotizacion) 80%, black))",
+            }}
           >
+            <Plus className="size-4" strokeWidth={2.5} />
             Crear tarjeta
           </button>
         </div>
@@ -241,7 +260,7 @@ export function Panel({
           breakpoints={{ lg: 1200, md: 900, sm: 640, xs: 0 }}
           cols={{ lg: 12, md: 8, sm: 4, xs: 2 }}
           rowHeight={64}
-          margin={[16, 16]}
+          margin={[18, 18]}
           isDraggable={!bloqueado}
           isResizable={!bloqueado}
           draggableHandle=".arrastrar"
@@ -249,65 +268,99 @@ export function Panel({
             if (!bloqueado) guardarLayout(l);
           }}
         >
-          {widgets.map((w) => (
-            <div key={w.id} className="group">
-              <div className="superficie flex h-full flex-col overflow-hidden rounded-xl border">
-                <div
-                  className={`flex items-start justify-between gap-2 px-4 pb-2 pt-3.5 ${
-                    bloqueado ? "" : "arrastrar cursor-grab active:cursor-grabbing"
-                  }`}
+          {widgets.map((w, i) => {
+            const t = tonoDe((w.config as { fuente?: string })?.fuente);
+            const Icono = t.icono;
+            return (
+              <div key={w.id} className="group">
+                {/* La animación va en un hijo y no en el elemento de la
+                    grilla: react-grid-layout escribe transform ahí, y dos
+                    dueños del mismo transform se pisan. */}
+                <motion.div
+                  initial={reducido ? false : { opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    delay: reducido ? 0 : Math.min(i * 0.045, 0.4),
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 26,
+                  }}
+                  data-tono
+                  style={{ "--tono": t.css } as React.CSSProperties}
+                  className="vidrio flex h-full flex-col overflow-hidden rounded-2xl"
                 >
-                  {renombrando === w.id ? (
-                    <input
-                      autoFocus
-                      value={w.titulo}
-                      onChange={(e) => renombrar(w.id, e.target.value)}
-                      onBlur={() => setRenombrando(null)}
-                      onKeyDown={(e) => e.key === "Enter" && setRenombrando(null)}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className="w-full rounded bg-[var(--surface-0)] px-1 text-sm font-semibold outline-none"
-                    />
-                  ) : (
-                    <h3
-                      onDoubleClick={() => setRenombrando(w.id)}
-                      title="Doble clic para renombrar"
-                      className="text-sm font-semibold leading-tight [overflow-wrap:anywhere]"
-                    >
-                      {w.titulo}
-                    </h3>
-                  )}
+                  <div
+                    className={`flex items-start justify-between gap-2 px-4 pb-2 pt-3.5 ${
+                      bloqueado ? "" : "arrastrar cursor-grab active:cursor-grabbing"
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        aria-hidden
+                        className="grid size-6 shrink-0 place-items-center rounded-lg"
+                        style={{
+                          background: "color-mix(in srgb, var(--tono) 18%, transparent)",
+                          border: "1px solid color-mix(in srgb, var(--tono) 38%, transparent)",
+                          color: "var(--tono)",
+                        }}
+                        title={t.nombre}
+                      >
+                        <Icono className="size-3.5" strokeWidth={2.2} />
+                      </span>
 
-                  <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                    <button
-                      onClick={() => setRenombrando(w.id)}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      aria-label={`Renombrar ${w.titulo}`}
-                      className="rounded px-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                    >
-                      Renombrar
-                    </button>
-                    <button
-                      onClick={() => eliminar(w.id)}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      aria-label={`Eliminar ${w.titulo}`}
-                      className="rounded px-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--critical)]"
-                    >
-                      Eliminar
-                    </button>
+                      {renombrando === w.id ? (
+                        <input
+                          autoFocus
+                          value={w.titulo}
+                          onChange={(e) => renombrar(w.id, e.target.value)}
+                          onBlur={() => setRenombrando(null)}
+                          onKeyDown={(e) => e.key === "Enter" && setRenombrando(null)}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="w-full rounded bg-[var(--vidrio-alto)] px-1 text-[13px] font-semibold outline-none"
+                        />
+                      ) : (
+                        <h3
+                          onDoubleClick={() => setRenombrando(w.id)}
+                          title={w.titulo}
+                          className="truncate text-[13px] font-semibold leading-tight"
+                        >
+                          {w.titulo}
+                        </h3>
+                      )}
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                      <button
+                        onClick={() => setRenombrando(w.id)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        aria-label={`Renombrar ${w.titulo}`}
+                        className="rounded px-1.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      >
+                        Renombrar
+                      </button>
+                      <button
+                        onClick={() => eliminar(w.id)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        aria-label={`Eliminar ${w.titulo}`}
+                        className="rounded px-1.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--critical)]"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div className="min-h-0 flex-1 px-4 pb-4">
-                  <ContenidoTarjeta
-                    tipo={w.tipo}
-                    config={w.config as unknown as Record<string, unknown>}
-                    filtros={filtros}
-                    objetivo={w.config?.objetivo}
-                  />
-                </div>
+                  <div className="min-h-0 flex-1 px-4 pb-4">
+                    <ContenidoTarjeta
+                      tipo={w.tipo}
+                      config={w.config as unknown as Record<string, unknown>}
+                      filtros={filtros}
+                      objetivo={w.config?.objetivo}
+                    />
+                  </div>
+                </motion.div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </Grid>
       ) : null}
 

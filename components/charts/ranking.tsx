@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useId } from "react";
 import { ESTADO, SERIES, SinDatos, Tooltip } from "./base";
 import { fmt } from "@/lib/utils";
 
@@ -40,6 +41,8 @@ export function GraficoRanking({
   datos: FilaRanking[];
   mediana: number;
 }) {
+  const id = useId().replace(/:/g, "");
+
   if (datos.length === 0) {
     return <SinDatos mensaje="Sin datos de ejecutivos en el periodo." />;
   }
@@ -55,6 +58,18 @@ export function GraficoRanking({
           margin={{ top: 18, right: 44, bottom: 24, left: 8 }}
           barCategoryGap={2}
         >
+          <defs>
+            {/* La barra se aclara hacia el origen: da volumen sin
+                inventar una segunda serie ni tocar el tono validado. */}
+            <linearGradient id={`rk-${id}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.55} />
+              <stop offset="100%" stopColor={SERIES[0]} stopOpacity={1} />
+            </linearGradient>
+            <linearGradient id={`rb-${id}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={ESTADO.serious} stopOpacity={0.55} />
+              <stop offset="100%" stopColor={ESTADO.serious} stopOpacity={1} />
+            </linearGradient>
+          </defs>
           <XAxis
             type="number"
             tickLine={false}
@@ -107,11 +122,11 @@ export function GraficoRanking({
               },
             }}
           />
-          <Bar dataKey="asegurados" radius={[0, 4, 4, 0]} maxBarSize={18}>
+          <Bar dataKey="asegurados" radius={[0, 5, 5, 0]} maxBarSize={18}>
             {orden.map((d) => (
               <Cell
                 key={d.ejecutivo}
-                fill={d.cuartil === 1 ? ESTADO.serious : SERIES[0]}
+                fill={d.cuartil === 1 ? `url(#rb-${id})` : `url(#rk-${id})`}
               />
             ))}
             <LabelList

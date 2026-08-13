@@ -86,7 +86,7 @@ export default async function Dashboard() {
       <>
         <Nav email={ctx.email} />
         <main className="mx-auto max-w-[700px] px-6 py-10">
-          <div className="rounded-xl border border-dashed p-8 text-center">
+          <div className="vidrio rounded-2xl border-dashed p-8 text-center">
             <p className="text-sm font-medium">Falta crear tu organización</p>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
               Es un paso de una sola vez.
@@ -162,13 +162,12 @@ export default async function Dashboard() {
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1500px] px-6 py-6">
-        <div className="mb-5">
-          <h1 className="text-xl font-semibold tracking-tight">Mi panel</h1>
-          <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
-            Arma tu vista: agrega las tarjetas que te sirven, muévelas y
-            dales el tamaño que necesites.
-          </p>
+      <main className="mx-auto max-w-[1560px] px-6 py-7">
+        <div className="mb-6">
+          <p className="etiqueta">Gestión de venta</p>
+          <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">
+            Mi panel
+          </h1>
         </div>
 
         <Panel

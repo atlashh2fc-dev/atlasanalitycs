@@ -14,9 +14,9 @@ export interface UsuarioFila {
 }
 
 const input =
-  "w-full rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--series-1)]";
+  "w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--series-1)]";
 const boton =
-  "rounded-md bg-[var(--series-1)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60";
+  "rounded-xl bg-[var(--series-1)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60";
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (

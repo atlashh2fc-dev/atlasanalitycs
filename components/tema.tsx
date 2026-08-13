@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import { Monitor, Moon, Sun } from "lucide-react";
 
 const OPCIONES = [
-  { valor: "light", etiqueta: "Claro" },
-  { valor: "dark", etiqueta: "Oscuro" },
-  { valor: "system", etiqueta: "Sistema" },
+  { valor: "light", etiqueta: "Claro", icono: Sun },
+  { valor: "dark", etiqueta: "Oscuro", icono: Moon },
+  { valor: "system", etiqueta: "Sistema", icono: Monitor },
 ] as const;
 
 /**
@@ -23,21 +24,24 @@ export function SelectorTema() {
   useEffect(() => setMontado(true), []);
 
   return (
-    <div className="flex items-center rounded-md border bg-[var(--surface-2)] p-0.5">
+    <div className="flex items-center gap-0.5 rounded-full border border-[var(--vidrio-borde)] bg-[var(--vidrio)] p-0.5">
       {OPCIONES.map((o) => {
         const activo = montado && theme === o.valor;
+        const Icono = o.icono;
         return (
           <button
             key={o.valor}
             onClick={() => setTheme(o.valor)}
             aria-pressed={activo}
-            className={`rounded px-2 py-0.5 text-[11px] transition-colors ${
+            aria-label={`Tema ${o.etiqueta.toLowerCase()}`}
+            title={o.etiqueta}
+            className={`rounded-full p-1.5 transition-colors ${
               activo
-                ? "bg-[var(--surface-0)] font-medium text-[var(--text-primary)]"
+                ? "bg-[var(--vidrio-alto)] text-[var(--text-primary)]"
                 : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             }`}
           >
-            {o.etiqueta}
+            <Icono className="size-3.5" strokeWidth={2} />
           </button>
         );
       })}

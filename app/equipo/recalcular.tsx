@@ -39,13 +39,13 @@ export function RecalcularPeriodo() {
           type="month"
           value={mes}
           onChange={(e) => setMes(e.target.value)}
-          className="rounded-md border bg-[var(--surface-2)] px-2.5 py-1.5 text-sm"
+          className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
         />
       </label>
       <button
         onClick={recalcular}
         disabled={cargando}
-        className="rounded-md bg-[var(--series-1)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+        className="rounded-xl bg-[var(--series-1)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
       >
         {cargando ? "Calculando…" : "Calcular KPI"}
       </button>
