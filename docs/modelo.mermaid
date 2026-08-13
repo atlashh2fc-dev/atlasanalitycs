@@ -1,0 +1,40 @@
+erDiagram
+    TENANT ||--o{ PERFIL : "usuarios"
+    TENANT ||--o{ CAMPANA : "campañas"
+    PERFIL }o--o{ CAMPANA : "perfil_campana (supervisor ve las suyas)"
+
+    CAMPANA ||--o{ META : "metas con vigencia"
+    CAMPANA ||--o{ EJECUTIVO_CAMPANA : ""
+    EJECUTIVO ||--o{ EJECUTIVO_CAMPANA : ""
+    EJECUTIVO ||--o{ EJECUTIVO_ALIAS : "concilia nombres sucios"
+    PRODUCTO ||--o{ META : "agrupacion_meta"
+
+    DATASET ||--o{ CARGA : "cada archivo+hoja"
+    CARGA ||--o{ CARGA_COLUMNA : "perfilado por contenido"
+    CARGA ||--o{ FILA_CRUDA : "JSONB, fuente de verdad"
+    CARGA ||--o{ CARGA_REVERSION : "reversible"
+    DATASET ||--o{ PLANTILLA_MAPEO : "firma de columnas"
+    SINONIMO_COLUMNA }o--|| PLANTILLA_MAPEO : "aprende de cada confirmación"
+
+    CLIENTE ||--o{ GESTION : "N contactos en el tiempo"
+    CLIENTE ||--o{ VENTA : ""
+    CLIENTE ||--o{ AGENDAMIENTO : "UCC salud"
+    TIPIFICACION ||--o{ GESTION : ""
+
+    EJECUTIVO ||--o{ COTIZACION : ""
+    EJECUTIVO ||--o{ VENTA : ""
+    EJECUTIVO ||--o{ ASISTENCIA : "unpivot de hoja matriz"
+
+    COTIZACION ||--o{ ENLACE_COTIZACION_VENTA : "match probabilístico + score"
+    VENTA ||--o{ ENLACE_COTIZACION_VENTA : ""
+    VENTA ||--o{ VENTA_ASEGURADO : "titular + cargas = unidad de meta"
+    VENTA ||--o{ ANULACION : "descuenta en periodo de anulación"
+    VENTA_ASEGURADO ||--o{ VENTA_PREEXISTENCIA : ""
+    CATALOGO_DPS ||--o{ VENTA_PREEXISTENCIA : ""
+    GES_PROBLEMA ||--o{ CATALOGO_DPS : ""
+    GES_CATEGORIA ||--o{ GES_PROBLEMA : "10 categorías / 90 problemas"
+
+    PERIODO ||--o{ KPI_EJECUTIVO : "snapshot congelado"
+    PERIODO ||--o{ KPI_EQUIPO : ""
+    EJECUTIVO ||--o{ KPI_EJECUTIVO : "IP-D, IP-C, IP-V, cuartil"
+    ASISTENCIA ||--o{ KPI_EJECUTIVO : "días gestionados"

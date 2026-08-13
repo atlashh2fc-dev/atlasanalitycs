@@ -1,0 +1,382 @@
+/**
+ * Perfilador de columnas.
+ *
+ * Regla de diseño: se clasifica por CONTENIDO, no por nombre de columna.
+ * Los archivos reales tenían columnas llamadas `dede`, `deded` y `DEDED`
+ * que contenían el tramo etario, y la columna de RUT aparecía con cinco
+ * nombres distintos entre hojas. Un perfilador que confíe en el
+ * encabezado bota datos útiles y se cae cada mes.
+ *
+ * El nombre sólo se usa DESPUÉS, como desempate, vía el diccionario de
+ * sinónimos que aprende de cada mapeo confirmado.
+ */
+
+import { validaRut } from "./rut";
+
+export type TipoColumna =
+  | "rut"
+  | "fecha"
+  | "hora"
+  | "duracion"
+  | "monto"
+  | "uf"
+  | "telefono"
+  | "email"
+  | "entero"
+  | "decimal"
+  | "booleano"
+  | "categoria"
+  | "texto"
+  | "desconocido";
+
+export interface PerfilColumna {
+  posicion: number;
+  nombreOriginal: string;
+  nombreNormalizado: string;
+  tipo: TipoColumna;
+  confianza: number;
+  rolSugerido: string | null;
+  filas: number;
+  nulos: number;
+  cardinalidad: number;
+  varianzaCero: boolean;
+  descartada: boolean;
+  motivoDescarte: string | null;
+  muestra: string[];
+}
+
+export interface PerfilHoja {
+  hoja: string;
+  filaEncabezado: number;
+  modo: "tabular" | "matriz";
+  filas: number;
+  columnas: PerfilColumna[];
+  puntaje: number;
+  metadatos: Record<string, string | number>;
+}
+
+/* ------------------------------------------------------------------ */
+/* Normalización                                                       */
+/* ------------------------------------------------------------------ */
+
+export function normalizaTexto(v: unknown): string {
+  return String(v ?? "")
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+export function normalizaNombreColumna(v: unknown): string {
+  return normalizaTexto(v)
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+/* ------------------------------------------------------------------ */
+/* Detectores por contenido                                            */
+/* ------------------------------------------------------------------ */
+
+const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const RE_FECHA = /^\d{1,4}[-/]\d{1,2}[-/]\d{1,4}([ T]\d{1,2}:\d{2}(:\d{2})?)?$/;
+const RE_HORA = /^\d{1,2}:\d{2}(:\d{2})?$/;
+const RE_SOLO_DIGITOS = /^\d+$/;
+
+const VERDADEROS = new Set(["si", "sí", "true", "1", "verdadero", "x"]);
+const FALSOS = new Set(["no", "false", "0", "falso"]);
+
+function esFecha(v: unknown): boolean {
+  if (v instanceof Date) return !isNaN(v.getTime());
+  const s = String(v).trim();
+  return RE_FECHA.test(s);
+}
+
+function esTelefono(v: unknown): boolean {
+  const d = String(v).replace(/[^0-9]/g, "");
+  if (!RE_SOLO_DIGITOS.test(String(v).replace(/[\s+()-]/g, ""))) return false;
+  // Chile: 8 (fijo sin código), 9 (móvil), 11 (56 + móvil)
+  return d.length === 8 || d.length === 9 || d.length === 11;
+}
+
+function esNumero(v: unknown): boolean {
+  if (typeof v === "number") return Number.isFinite(v);
+  const s = String(v).trim().replace(/\./g, "").replace(",", ".");
+  return s !== "" && !isNaN(Number(s));
+}
+
+function aNumero(v: unknown): number {
+  if (typeof v === "number") return v;
+  return Number(String(v).trim().replace(/\./g, "").replace(",", "."));
+}
+
+/** Proporción de valores no nulos que cumplen el predicado. */
+function tasa(valores: unknown[], pred: (v: unknown) => boolean): number {
+  if (valores.length === 0) return 0;
+  return valores.filter(pred).length / valores.length;
+}
+
+const UMBRAL = 0.9;
+
+export function detectaTipo(valores: unknown[]): {
+  tipo: TipoColumna;
+  confianza: number;
+} {
+  const v = valores.filter((x) => x !== null && x !== undefined && String(x).trim() !== "");
+  if (v.length === 0) return { tipo: "desconocido", confianza: 0 };
+
+  // RUT primero: es el detector más específico y define la llave maestra
+  const tRut = tasa(v, validaRut);
+  if (tRut >= UMBRAL) return { tipo: "rut", confianza: tRut };
+
+  const tEmail = tasa(v, (x) => RE_EMAIL.test(String(x).trim()));
+  if (tEmail >= UMBRAL) return { tipo: "email", confianza: tEmail };
+
+  const tFecha = tasa(v, esFecha);
+  if (tFecha >= UMBRAL) return { tipo: "fecha", confianza: tFecha };
+
+  const tHora = tasa(v, (x) => RE_HORA.test(String(x).trim()));
+  if (tHora >= UMBRAL) return { tipo: "hora", confianza: tHora };
+
+  const tTel = tasa(v, esTelefono);
+  if (tTel >= UMBRAL) return { tipo: "telefono", confianza: tTel };
+
+  const bool = tasa(v, (x) => {
+    const s = normalizaTexto(x);
+    return VERDADEROS.has(s) || FALSOS.has(s);
+  });
+  if (bool >= UMBRAL) return { tipo: "booleano", confianza: bool };
+
+  const tNum = tasa(v, esNumero);
+  if (tNum >= UMBRAL) {
+    const nums = v.filter(esNumero).map(aNumero);
+    const todosEnteros = nums.every((n) => Number.isInteger(n));
+    if (todosEnteros) {
+      const max = Math.max(...nums.map(Math.abs));
+      // montos en pesos: enteros grandes
+      if (max > 100000) return { tipo: "monto", confianza: tNum };
+      return { tipo: "entero", confianza: tNum };
+    }
+    const max = Math.max(...nums.map(Math.abs));
+    // UF: decimales pequeños; monto: decimales grandes
+    if (max < 5000) return { tipo: "uf", confianza: tNum * 0.85 };
+    return { tipo: "monto", confianza: tNum };
+  }
+
+  const unicos = new Set(v.map((x) => normalizaTexto(x)));
+  const ratio = unicos.size / v.length;
+  if (unicos.size <= 50 && ratio < 0.5) {
+    return { tipo: "categoria", confianza: 1 - ratio };
+  }
+
+  return { tipo: "texto", confianza: 0.5 };
+}
+
+/* ------------------------------------------------------------------ */
+/* Roles semánticos                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Diccionario base. Se complementa en runtime con la tabla
+ * `sinonimo_columna`, que aprende de cada mapeo que un humano confirma.
+ */
+const SINONIMOS: Record<string, string> = {
+  rut_beneficiario: "rut_cliente",
+  rut_contratante: "rut_cliente",
+  rut: "rut_cliente",
+  rut_pagador: "rut_pagador",
+  paciente: "nombre_cliente",
+  nombre_contratante: "nombre_cliente",
+  nombre_cotizante: "nombre_cliente",
+  e_mail_paciente: "email_cliente",
+  email_contratante: "email_cliente",
+  email_cotizante: "email_cliente",
+  tel_principal_paciente: "telefono_cliente",
+  telefono_contratante: "telefono_cliente",
+  telefono_cotizante: "telefono_cliente",
+  fecha_solicitud: "fecha_venta",
+  fecha_cotizacion: "fecha_cotizacion",
+  ultima_agenda: "fecha_agenda",
+  agenda: "fecha_agenda",
+  ejecutivo_venta: "ejecutivo",
+  usuario: "ejecutivo",
+  plan: "producto",
+  producto_cotizado: "producto",
+  numero_beneficiarios: "n_asegurados",
+  precio_uf: "monto_uf",
+  precio: "monto_clp",
+  presentado: "presentado",
+  especialidad: "especialidad",
+  centro: "centro",
+  area: "area",
+  area_1: "area",
+  prevision: "prevision",
+  sistema_salud: "prevision",
+  sistema_salud_cotizante: "prevision",
+  edad_beneficiario: "edad",
+  cluster: "cluster",
+  equipo: "equipo",
+};
+
+/** Roles que se pueden inferir sólo del tipo, sin mirar el nombre. */
+const ROL_POR_TIPO: Partial<Record<TipoColumna, string>> = {
+  rut: "rut_cliente",
+  email: "email_cliente",
+  telefono: "telefono_cliente",
+};
+
+function sugiereRol(
+  nombreNorm: string,
+  tipo: TipoColumna,
+  valores: unknown[],
+  extra: Record<string, string> = {},
+): string | null {
+  const dicc = { ...SINONIMOS, ...extra };
+  if (dicc[nombreNorm]) return dicc[nombreNorm];
+
+  // Contenido de tramo etario, sin importar el nombre de la columna.
+  // Caso real: columnas 'dede' / 'deded' / 'DEDED'.
+  if (tipo === "categoria") {
+    const muestra = new Set(valores.slice(0, 200).map(normalizaTexto));
+    const patronTramo = /^(\d{2}[-_]\d{2}|mde|\d{2}\+)$/;
+    const coinciden = [...muestra].filter((s) => patronTramo.test(s)).length;
+    if (muestra.size > 0 && coinciden / muestra.size > 0.6) return "tramo_etario";
+  }
+
+  return ROL_POR_TIPO[tipo] ?? null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Perfilado de una hoja                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Busca la fila de encabezado: la primera con al menos 3 celdas de texto
+ * no vacías y sin repetidos. Las planillas reales traían el encabezado
+ * en la fila 3, con títulos y celdas combinadas encima.
+ */
+export function detectaFilaEncabezado(matriz: unknown[][]): number {
+  const limite = Math.min(10, matriz.length);
+  let mejor = 0;
+  let mejorPuntaje = -1;
+
+  for (let i = 0; i < limite; i++) {
+    const fila = matriz[i] ?? [];
+    const textos = fila.filter(
+      (c) => typeof c === "string" && c.trim() !== "" && !/^unnamed/i.test(c),
+    );
+    const unicos = new Set(textos.map(normalizaTexto));
+    const puntaje = unicos.size === textos.length ? textos.length : textos.length - 2;
+    if (puntaje > mejorPuntaje) {
+      mejorPuntaje = puntaje;
+      mejor = i;
+    }
+  }
+
+  return mejor;
+}
+
+/**
+ * Detecta el formato matriz: una fila con varias fechas consecutivas es
+ * un reporte de planilla (entidades en filas, días en columnas), no una
+ * base de datos. Requiere unpivot antes de poder analizarse.
+ */
+export function detectaMatriz(matriz: unknown[][]): {
+  esMatriz: boolean;
+  filaFechas: number;
+} {
+  const limite = Math.min(8, matriz.length);
+
+  for (let i = 0; i < limite; i++) {
+    const fila = matriz[i] ?? [];
+    const fechas = fila.filter((c) => c instanceof Date || esFecha(c)).length;
+    if (fechas >= 4) return { esMatriz: true, filaFechas: i };
+  }
+
+  return { esMatriz: false, filaFechas: -1 };
+}
+
+export function perfilaHoja(
+  hoja: string,
+  matriz: unknown[][],
+  sinonimosExtra: Record<string, string> = {},
+): PerfilHoja {
+  const { esMatriz, filaFechas } = detectaMatriz(matriz);
+  const filaEncabezado = esMatriz ? filaFechas : detectaFilaEncabezado(matriz);
+
+  const encabezado = (matriz[filaEncabezado] ?? []).map((c, i) =>
+    typeof c === "string" && c.trim() !== "" ? c.trim() : `columna_${i + 1}`,
+  );
+  const cuerpo = matriz.slice(filaEncabezado + 1).filter((f) => f.some((c) => c !== null && c !== undefined && String(c).trim() !== ""));
+
+  const columnas: PerfilColumna[] = encabezado.map((nombre, i) => {
+    const valores = cuerpo.map((f) => f[i]);
+    const noNulos = valores.filter(
+      (x) => x !== null && x !== undefined && String(x).trim() !== "",
+    );
+    const unicos = new Set(noNulos.map((x) => normalizaTexto(x)));
+    const { tipo, confianza } = detectaTipo(valores);
+    const nombreNormalizado = normalizaNombreColumna(nombre);
+
+    const varianzaCero = noNulos.length > 0 && unicos.size === 1;
+    const vacia = noNulos.length === 0;
+
+    return {
+      posicion: i,
+      nombreOriginal: String(nombre),
+      nombreNormalizado,
+      tipo,
+      confianza: Number(confianza.toFixed(3)),
+      rolSugerido: sugiereRol(nombreNormalizado, tipo, noNulos, sinonimosExtra),
+      filas: valores.length,
+      nulos: valores.length - noNulos.length,
+      cardinalidad: unicos.size,
+      varianzaCero,
+      descartada: vacia || varianzaCero,
+      motivoDescarte: vacia
+        ? "columna vacía"
+        : varianzaCero
+          ? "un solo valor distinto en toda la columna"
+          : null,
+      muestra: [...unicos].slice(0, 5).map((s) => s.slice(0, 40)),
+    };
+  });
+
+  const utiles = columnas.filter((c) => !c.descartada).length;
+
+  return {
+    hoja,
+    filaEncabezado,
+    modo: esMatriz ? "matriz" : "tabular",
+    filas: cuerpo.length,
+    columnas,
+    // Puntaje para ordenar hojas: las residuales (Hoja3, Hoja4) quedan al final
+    puntaje: cuerpo.length > 0 ? utiles * Math.log10(cuerpo.length + 10) : 0,
+    metadatos: metadatosDesdeNombre(hoja),
+  };
+}
+
+/**
+ * Los nombres de hoja cargan información: "CM 5" y "Onco 13" codifican
+ * línea de negocio y día de carga. Se captura como metadato en vez de
+ * perderse.
+ */
+export function metadatosDesdeNombre(nombre: string): Record<string, string | number> {
+  const meta: Record<string, string | number> = {};
+  const n = normalizaTexto(nombre);
+
+  const linea = n.match(/\b(cm|onco|oncologico|complementario|catastrofico)\b/);
+  if (linea) meta.linea = linea[1].toUpperCase();
+
+  const numero = n.match(/\b(\d{1,2})\b/);
+  if (numero) meta.dia = Number(numero[1]);
+
+  const meses = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  ];
+  const mes = meses.findIndex((m) => n.includes(m));
+  if (mes >= 0) meta.mes = mes + 1;
+
+  return meta;
+}
