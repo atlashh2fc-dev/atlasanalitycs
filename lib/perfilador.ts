@@ -451,3 +451,148 @@ export function metadatosDesdeNombre(nombre: string): Record<string, string | nu
 
   return meta;
 }
+
+/* ------------------------------------------------------------------ */
+/* Unpivot de planillas                                                */
+/* ------------------------------------------------------------------ */
+
+export interface FilaMatriz {
+  entidad: string;
+  fecha: string;
+  marca: string;
+  jornada: number | null;
+}
+
+/**
+ * Marcas de asistencia. Las planillas reales usaban dos convenciones en
+ * el mismo archivo: letras en las hojas mensuales (P presente, A
+ * ausente, V vacaciones, L licencia, B baja) y números en la hoja de
+ * ranking (1 = trabajó, a = ausente). Se aceptan las dos.
+ */
+const MARCAS: Record<string, string> = {
+  p: "P", presente: "P", "1": "P", si: "P", x: "P",
+  a: "A", ausente: "A", falta: "A", "0": "A",
+  v: "V", vacaciones: "V",
+  l: "L", licencia: "L",
+  b: "B", baja: "B",
+  f: "F", feriado: "F",
+  s: "S", sabado: "S",
+};
+
+export function normalizaMarca(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const s = normalizaTexto(v);
+  if (s === "") return null;
+  return MARCAS[s] ?? null;
+}
+
+/**
+ * Convierte una hoja en formato planilla a formato largo.
+ *
+ * La cabecera trae las fechas en columnas y cada fila es una persona.
+ * Se devuelve un registro por par (persona, fecha), que es lo que la
+ * base necesita para calcular días gestionados.
+ */
+export function extraeMatriz(
+  matriz: unknown[][],
+  filaFechas: number,
+  columnaEntidadForzada?: number,
+): {
+  columnaEntidad: number;
+  columnaJornada: number | null;
+  columnasFecha: number[];
+  filas: FilaMatriz[];
+  marcasDesconocidas: string[];
+} {
+  const cabecera = matriz[filaFechas] ?? [];
+
+  const columnasFecha: number[] = [];
+  cabecera.forEach((c, j) => {
+    if (c instanceof Date) columnasFecha.push(j);
+    else if (typeof c === "string" && esFecha(c)) columnasFecha.push(j);
+  });
+
+  const cuerpo = matriz.slice(filaFechas + 1);
+  const primeraFecha = columnasFecha.length > 0 ? Math.min(...columnasFecha) : cabecera.length;
+
+  // La columna de la persona es, entre las que están a la izquierda de
+  // las fechas, la que trae más texto largo: la otra suele ser la
+  // jornada ("42 hrs") o un número de orden.
+  let columnaEntidad = columnaEntidadForzada ?? 0;
+  if (columnaEntidadForzada === undefined) {
+    let mejor = -1;
+    for (let j = 0; j < primeraFecha; j++) {
+      const puntaje = cuerpo.filter((f) => {
+        const v = f?.[j];
+        return typeof v === "string" && v.trim().length > 4 && !/hrs?\b/i.test(v);
+      }).length;
+      if (puntaje > mejor) {
+        mejor = puntaje;
+        columnaEntidad = j;
+      }
+    }
+  }
+
+  let columnaJornada: number | null = null;
+  for (let j = 0; j < primeraFecha; j++) {
+    const tiene = cuerpo.some(
+      (f) => typeof f?.[j] === "string" && /\d+\s*hrs?\b/i.test(String(f[j])),
+    );
+    if (tiene) {
+      columnaJornada = j;
+      break;
+    }
+  }
+
+  // Un mismo par persona+fecha puede venir dos veces si la planilla
+  // repite el bloque más abajo. Gana el último.
+  const porClave = new Map<string, FilaMatriz>();
+  const desconocidas = new Set<string>();
+
+  for (const f of cuerpo) {
+    const entidad = f?.[columnaEntidad];
+    if (typeof entidad !== "string" || entidad.trim() === "") continue;
+
+    let jornada: number | null = null;
+    if (columnaJornada !== null) {
+      const m = String(f[columnaJornada] ?? "").match(/(\d+(?:[.,]\d+)?)\s*hrs?\b/i);
+      if (m) jornada = Number(m[1].replace(",", "."));
+    }
+
+    for (const j of columnasFecha) {
+      const bruta = f?.[j];
+      if (bruta === null || bruta === undefined || String(bruta).trim() === "") continue;
+
+      // Las planillas repiten el bloque de cabecera más abajo. Esas
+      // celdas son fechas, no marcas mal escritas: se saltan calladas.
+      if (bruta instanceof Date || esFecha(bruta)) continue;
+
+      const marca = normalizaMarca(bruta);
+      if (!marca) {
+        desconocidas.add(String(bruta).slice(0, 12));
+        continue;
+      }
+
+      const celda = cabecera[j];
+      const fecha = celda instanceof Date ? celda : new Date(String(celda));
+      if (isNaN(fecha.getTime())) continue;
+
+      porClave.set(`${entidad.replace(/\s+/g, " ").trim()}|${fecha.toISOString().slice(0, 10)}`, {
+        entidad: entidad.replace(/\s+/g, " ").trim(),
+        fecha: fecha.toISOString().slice(0, 10),
+        marca,
+        jornada,
+      });
+    }
+  }
+
+  const filas = [...porClave.values()];
+
+  return {
+    columnaEntidad,
+    columnaJornada,
+    columnasFecha,
+    filas,
+    marcasDesconocidas: [...desconocidas].slice(0, 8),
+  };
+}

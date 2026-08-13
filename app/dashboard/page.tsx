@@ -148,10 +148,11 @@ export default async function Dashboard() {
     .order("orden");
 
   // Sólo se ofrecen en el asistente las fuentes que tienen datos.
-  const [venta, cotizacion, agendamiento, cliente] = await Promise.all([
+  const [venta, cotizacion, agendamiento, asistencia, cliente] = await Promise.all([
     supabase.from("venta").select("id", { count: "exact", head: true }),
     supabase.from("cotizacion").select("id", { count: "exact", head: true }),
     supabase.from("agendamiento").select("id", { count: "exact", head: true }),
+    supabase.from("asistencia").select("id", { count: "exact", head: true }),
     supabase.from("cliente").select("id", { count: "exact", head: true }),
   ]);
 
@@ -178,6 +179,7 @@ export default async function Dashboard() {
             venta: venta.count ?? 0,
             cotizacion: cotizacion.count ?? 0,
             agendamiento: agendamiento.count ?? 0,
+            asistencia: asistencia.count ?? 0,
             cliente: cliente.count ?? 0,
           }}
           rangoInicial={{ desde: rango.desde, hasta: rango.hasta }}

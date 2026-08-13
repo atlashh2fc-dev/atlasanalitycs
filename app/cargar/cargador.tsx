@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
-import { perfilaHoja, type PerfilHoja } from "@/lib/perfilador";
+import { extraeMatriz, perfilaHoja, type PerfilHoja } from "@/lib/perfilador";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/stat";
 import { fmt } from "@/lib/utils";
@@ -57,6 +57,8 @@ interface ArchivoEnCola {
   roles: Record<number, Record<number, string>>;
   estado: EstadoArchivo;
   mensaje: string | null;
+  /** 0 a 1; alimenta la barra de avance */
+  progreso: number;
 }
 
 const ESTADO_TONO: Record<EstadoArchivo, "good" | "warning" | "critical" | "neutro"> = {
@@ -82,6 +84,14 @@ export function Cargador({
   const [activo, setActivo] = useState(0);
   const [campana, setCampana] = useState(campanas[0]?.id ?? "");
   const [ocupado, setOcupado] = useState(false);
+
+  // Cerrar la pestaña a mitad de carga deja el lote incompleto.
+  useEffect(() => {
+    if (!ocupado) return;
+    const avisar = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [ocupado]);
 
   /**
    * Los archivos se SUMAN a la cola, no la reemplazan. Así se pueden
@@ -125,6 +135,7 @@ export function Cargador({
         roles,
         estado: "pendiente",
         mensaje: null,
+        progreso: 0,
       });
     }
 
@@ -209,13 +220,26 @@ export function Cargador({
       });
   }
 
+  /** Formato largo de una hoja leída como planilla. */
+  function matrizDe(archivo: ArchivoEnCola) {
+    const hoja = archivo.hojas[archivo.hojaActiva];
+    if (hoja.modo !== "matriz") return null;
+
+    const matriz = XLSX.utils.sheet_to_json<unknown[]>(
+      archivo.libro.Sheets[hoja.hoja],
+      { header: 1, defval: null, raw: true },
+    );
+    return extraeMatriz(matriz, hoja.filaEncabezado);
+  }
+
   async function cargarUno(indice: number): Promise<boolean> {
     const archivo = archivos[indice];
     const hoja = archivo.hojas[archivo.hojaActiva];
     const rolesHoja = archivo.roles[archivo.hojaActiva] ?? {};
     const filas = filasDe(archivo);
+    const largo = matrizDe(archivo);
 
-    actualizar(indice, { estado: "cargando", mensaje: null });
+    actualizar(indice, { estado: "cargando", mensaje: null, progreso: 0 });
 
     const mapeo: Record<string, string> = {};
     for (const c of hoja.columnas) {
@@ -256,6 +280,9 @@ export function Cargador({
             muestra: c.muestra,
           })),
           filas: filas.slice(i, i + LOTE),
+          // El formato largo viaja completo en el primer lote: las
+          // planillas son chicas y así el unpivot es atómico.
+          filasMatriz: i === 0 ? (largo?.filas ?? undefined) : undefined,
           desplazamiento: i,
           ultimo: i + LOTE >= filas.length,
         }),
@@ -266,6 +293,7 @@ export function Cargador({
       if (!res.ok) {
         actualizar(indice, {
           estado: "error",
+          progreso: 0,
           mensaje: json.error ?? "Error al cargar.",
         });
         return false;
@@ -273,11 +301,17 @@ export function Cargador({
 
       cargaId = json.cargaId ?? null;
       insertadas += json.insertadas ?? 0;
+      actualizar(indice, {
+        progreso: Math.min(1, (i + LOTE) / Math.max(1, filas.length)),
+      });
     }
 
     actualizar(indice, {
       estado: "cargado",
-      mensaje: `${fmt.entero(filas.length)} filas · ${fmt.entero(insertadas)} registros canónicos`,
+      progreso: 1,
+      mensaje: largo
+        ? `${fmt.entero(largo.filas.length)} marcas de asistencia cargadas`
+        : `${fmt.entero(filas.length)} filas · ${fmt.entero(insertadas)} registros canónicos`,
     });
     return true;
   }
@@ -351,8 +385,19 @@ export function Cargador({
                   </span>
                 ) : null}
 
+                {a.estado === "cargando" ? (
+                  <div className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-[var(--surface-0)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--series-1)] transition-[width] duration-300"
+                      style={{ width: `${Math.round(a.progreso * 100)}%` }}
+                    />
+                  </div>
+                ) : null}
+
                 <Badge tono={ESTADO_TONO[a.estado]}>
-                  {ESTADO_TEXTO[a.estado]}
+                  {a.estado === "cargando"
+                    ? `${Math.round(a.progreso * 100)}%`
+                    : ESTADO_TEXTO[a.estado]}
                 </Badge>
 
                 <button
@@ -432,20 +477,7 @@ export function Cargador({
               </p>
             </div>
 
-            {hoja.modo === "matriz" ? (
-              <p
-                className="mt-3 rounded-md px-3 py-2 text-xs"
-                style={{
-                  color: "var(--serious)",
-                  background: "color-mix(in srgb, var(--serious) 10%, transparent)",
-                }}
-              >
-                Leída como planilla: las fechas están en la fila{" "}
-                {hoja.filaEncabezado + 1} y las entidades en las filas. Las
-                filas se guardan crudas y quedan disponibles para el unpivot;
-                todavía no alimentan los indicadores de venta.
-              </p>
-            ) : null}
+            {hoja.modo === "matriz" ? <VistaPreviaMatriz archivo={archivo} /> : null}
 
             {Object.keys(hoja.metadatos).length > 0 ? (
               <p className="mt-3 text-xs text-[var(--text-secondary)]">
@@ -591,6 +623,86 @@ export function Cargador({
             </p>
           </Card>
         </>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Vista previa del unpivot: muestra en qué se convierte la planilla
+ * antes de cargarla. Sin esto el usuario tiene que confiar a ciegas en
+ * que el sistema entendió su formato.
+ */
+function VistaPreviaMatriz({ archivo }: { archivo: ArchivoEnCola }) {
+  const hoja = archivo.hojas[archivo.hojaActiva];
+
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(
+    archivo.libro.Sheets[hoja.hoja],
+    { header: 1, defval: null, raw: true },
+  );
+  const r = extraeMatriz(matriz, hoja.filaEncabezado);
+
+  const personas = new Set(r.filas.map((f) => f.entidad)).size;
+  const porMarca = r.filas.reduce<Record<string, number>>((acc, f) => {
+    acc[f.marca] = (acc[f.marca] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const NOMBRE_MARCA: Record<string, string> = {
+    P: "presente", A: "ausente", V: "vacaciones",
+    L: "licencia", B: "baja", F: "feriado", S: "sábado",
+  };
+
+  return (
+    <div className="mt-3 rounded-md border bg-[var(--surface-1)] p-3">
+      <p className="text-xs font-medium">Se convertirá en asistencia diaria</p>
+      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+        {fmt.entero(r.filas.length)} marcas · {personas} personas ·{" "}
+        {r.columnasFecha.length} días. Sólo los días presentes cuentan como
+        días gestionados para el IP-D.
+      </p>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {Object.entries(porMarca).map(([m, n]) => (
+          <span
+            key={m}
+            className="rounded border bg-[var(--surface-2)] px-2 py-0.5 text-[11px]"
+          >
+            {NOMBRE_MARCA[m] ?? m}: <span className="tabular font-medium">{n}</span>
+          </span>
+        ))}
+      </div>
+
+      {r.filas.length > 0 ? (
+        <table className="mt-3 w-full text-[11px]">
+          <thead>
+            <tr className="border-b text-left text-[var(--text-muted)]">
+              <th className="pb-1 font-medium">Persona</th>
+              <th className="pb-1 font-medium">Fecha</th>
+              <th className="pb-1 font-medium">Marca</th>
+              <th className="pb-1 text-right font-medium">Jornada</th>
+            </tr>
+          </thead>
+          <tbody className="tabular">
+            {r.filas.slice(0, 4).map((f, i) => (
+              <tr key={i} className="border-b last:border-0">
+                <td className="py-1">{f.entidad}</td>
+                <td className="py-1">{f.fecha}</td>
+                <td className="py-1">{NOMBRE_MARCA[f.marca] ?? f.marca}</td>
+                <td className="py-1 text-right">
+                  {f.jornada ? `${f.jornada} h` : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+
+      {r.marcasDesconocidas.length > 0 ? (
+        <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+          Se ignoran valores que no son marcas de asistencia:{" "}
+          {r.marcasDesconocidas.join(", ")}.
+        </p>
       ) : null}
     </div>
   );

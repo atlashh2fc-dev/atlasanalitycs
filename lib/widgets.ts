@@ -17,7 +17,12 @@ export type TipoWidget =
   | "tabla"
   | "dispersion";
 
-export type Fuente = "venta" | "cotizacion" | "agendamiento" | "cliente";
+export type Fuente =
+  | "venta"
+  | "cotizacion"
+  | "agendamiento"
+  | "asistencia"
+  | "cliente";
 
 export type Agregacion = "suma" | "conteo" | "promedio" | "distintos" | "razon";
 
@@ -157,6 +162,40 @@ export const FUENTES: DefinicionFuente[] = [
       { clave: "linea", nombre: "Línea", campo: "linea" },
       { clave: "cluster", nombre: "Clúster", campo: "cluster" },
       { clave: "fecha", nombre: "Fecha de agenda", campo: "fecha_agenda", temporal: true },
+    ],
+  },
+  {
+    clave: "asistencia",
+    nombre: "Asistencia",
+    descripcion: "Días trabajados por ejecutivo. Alimenta el IP-D.",
+    tabla: "asistencia",
+    campoFecha: "fecha",
+    select:
+      "id, fecha, marca, jornada_horas, campana_id, ejecutivo:ejecutivo_id (nombre_canonico)",
+    metricas: [
+      {
+        clave: "dias_gestionados",
+        nombre: "Días gestionados",
+        agregacion: "conteo",
+        filtro: { campo: "marca", valor: "P" },
+        unidad: "entero",
+        descripcion: "Sólo los días presentes.",
+      },
+      { clave: "dias_registrados", nombre: "Días registrados", agregacion: "conteo", unidad: "entero" },
+      {
+        clave: "adherencia",
+        nombre: "Adherencia",
+        agregacion: "razon",
+        filtro: { campo: "marca", valor: "P" },
+        unidad: "porcentaje",
+        descripcion: "Días presentes sobre días registrados.",
+      },
+      { clave: "jornada", nombre: "Jornada promedio", agregacion: "promedio", campo: "jornada_horas", unidad: "decimal" },
+    ],
+    dimensiones: [
+      { clave: "ejecutivo", nombre: "Ejecutivo", campo: "ejecutivo.nombre_canonico" },
+      { clave: "marca", nombre: "Tipo de marca", campo: "marca" },
+      { clave: "fecha", nombre: "Fecha", campo: "fecha", temporal: true },
     ],
   },
   {

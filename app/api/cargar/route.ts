@@ -28,6 +28,8 @@ interface Payload {
     muestra: string[];
   }[];
   filas: Record<string, unknown>[];
+  /** Formato largo, sólo para hojas leídas como planilla. */
+  filasMatriz?: { entidad: string; fecha: string; marca: string; jornada: number | null }[];
   desplazamiento: number;
   ultimo: boolean;
 }
@@ -133,6 +135,49 @@ export async function POST(request: Request) {
   /* ---------- 3. Derivación al modelo canónico ---------------------- */
   const inverso = invertir(p.mapeo);
   let insertadas = 0;
+
+  /* --- 3a. Planillas de asistencia: formato largo -> tabla ----------- */
+  if (p.modo === "matriz" && p.filasMatriz?.length) {
+    const ejecutivos = await mapaEjecutivos(supabase, tenantId);
+
+    for (const f of p.filasMatriz) {
+      const ejecutivoId = await resuelveEjecutivo(
+        supabase,
+        tenantId,
+        f.entidad,
+        ejecutivos,
+      );
+      if (!ejecutivoId) continue;
+
+      // Recargar el mismo mes corrige las marcas en vez de duplicarlas.
+      const { error } = await supabase.from("asistencia").upsert(
+        {
+          tenant_id: tenantId,
+          ejecutivo_id: ejecutivoId,
+          campana_id: p.campanaId,
+          fecha: f.fecha,
+          marca: f.marca,
+          jornada_horas: f.jornada,
+          carga_id: cargaId,
+        },
+        { onConflict: "ejecutivo_id,fecha" },
+      );
+
+      if (!error) insertadas++;
+    }
+
+    if (p.ultimo) {
+      await supabase
+        .from("carga")
+        .update({
+          estado: "procesada",
+          filas_totales: p.desplazamiento + p.filas.length,
+        })
+        .eq("id", cargaId);
+    }
+
+    return NextResponse.json({ cargaId, insertadas });
+  }
 
   const tieneVenta = inverso.fecha_venta && inverso.rut_cliente;
   const tieneCotizacion = inverso.fecha_cotizacion && !tieneVenta;
