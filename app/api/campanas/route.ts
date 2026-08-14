@@ -72,5 +72,20 @@ export async function POST(request: Request) {
     );
   }
 
+  // `dataset` es un detalle técnico: cada campaña recibe uno de forma
+  // automática para que el usuario nunca tenga que crear una "base" aparte.
+  const { error: errorDataset } = await supabase.from("dataset").insert({
+    tenant_id: perfil.tenant_id,
+    campana_id: campana.id,
+    nombre: campana.nombre,
+  });
+  if (errorDataset) {
+    await supabase.from("campana").delete().eq("id", campana.id);
+    return NextResponse.json(
+      { error: "No se pudo preparar el espacio de datos de la campaña." },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({ campana }, { status: 201 });
 }

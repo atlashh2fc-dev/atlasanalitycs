@@ -1,7 +1,7 @@
 # Atlas Analytics
 
-Motor de **"sube tu Excel y obtén un dashboard"**. Cada archivo pasa a una base
-analítica con campos, métricas, dimensiones y fechas detectadas; los packs de
+Motor de **"sube tu Excel y obtén un dashboard"**. Cada archivo se suma a su
+campaña con campos, métricas, dimensiones y fechas detectadas; los packs de
 negocio, como contact center, se activan sólo cuando corresponden.
 
 Next.js 15 (App Router) · TypeScript · Node 22 · Tailwind 4 · Recharts ·
@@ -11,8 +11,8 @@ Supabase · Vercel.
 
 ## Cómo funciona
 
-**Capa genérica.** El usuario sube cualquier Excel. Atlas crea o actualiza una
-base, perfila cada hoja en
+**Capa genérica.** El usuario elige una campaña y sube cualquier Excel. Atlas
+acumula todas sus cargas en un único historial, perfila cada hoja en
 el navegador, clasifica las columnas **por su contenido y no por su nombre**,
 pregunta sólo por las ambiguas y conserva todas las filas originales. Un catálogo
 estable de campos alimenta consultas dinámicas y un primer dashboard automático.
@@ -43,8 +43,8 @@ línea CM, día 5).
 
 ```
 app/
-  inicio/           entrada basada en las bases reales del usuario
-  datos/            catálogo, campos, calidad e historial por base
+  inicio/           entrada basada en las campañas reales del usuario
+  datos/            cargas, campos, calidad e historial por campaña
   analisis/         dashboard automático de métricas y dimensiones detectadas
   login/            autenticación con Supabase
   dashboard/        pack especializado de ventas (ruta compatible)
@@ -63,7 +63,7 @@ lib/
   rut.ts            normalización y módulo 11
   datos.ts          consultas del dashboard
   supabase/         clientes browser / server / middleware
-supabase/migrations/  9 migraciones SQL
+supabase/migrations/  historial SQL canónico del proyecto
 scripts/etl_prueba.py prueba de extremo a extremo con datos reales
 ```
 
@@ -114,7 +114,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key>
 
 ### 2. Base de datos
 
-Las 9 migraciones ya están aplicadas en el proyecto Supabase `atlas-analytics`.
+Las migraciones versionadas ya están aplicadas en el proyecto Supabase
+`atlas-analytics`.
 Para un entorno nuevo:
 
 ```bash
@@ -140,7 +141,7 @@ configuración adicional: el build de Next detecta el App Router.
 2. Entrar a la app e ir a **Mantenedor → Inicializar**. Eso crea la organización,
    el perfil admin, la campaña base, los cuatro productos y las metas del mes
    (250 CM+CAT / 60 Oncológico).
-3. **Cargar datos** con el Excel de ventas y el de cotizaciones.
+3. Entrar a la campaña y **cargar datos** con todos sus archivos diarios.
 4. El dashboard se arma solo.
 
 ---

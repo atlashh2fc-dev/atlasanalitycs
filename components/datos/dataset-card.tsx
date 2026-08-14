@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Database, Rows3 } from "lucide-react";
+import { ArrowRight, BarChart3, Rows3, Settings2, Tags, Upload } from "lucide-react";
 
-export interface DatasetResumen {
+export interface CampanaResumen {
   id: string;
   nombre: string;
+  tipo: string;
   descripcion: string | null;
+  datasetId: string | null;
   cargas: number;
   filas: number;
   ultimaCarga: string | null;
@@ -18,45 +20,65 @@ const fecha = new Intl.DateTimeFormat("es-CL", {
 });
 const numero = new Intl.NumberFormat("es-CL");
 
-export function DatasetCard({ dataset }: { dataset: DatasetResumen }) {
+export function CampanaCard({ campana }: { campana: CampanaResumen }) {
   return (
-    <Link
-      href={`/datos/${dataset.id}`}
-      className="vidrio group rounded-2xl p-5"
-    >
+    <article className="vidrio rounded-2xl p-5">
       <div className="flex items-start gap-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--series-1)_14%,transparent)] text-[var(--series-1)]">
-          <Database className="size-4" />
+          <Tags className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-sm font-semibold">{dataset.nombre}</h2>
-            {dataset.estado ? (
-              <span className="rounded-full border px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-                {dataset.estado}
-              </span>
-            ) : null}
+            <h2 className="truncate text-sm font-semibold">{campana.nombre}</h2>
+            <span className="rounded-full border px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+              {campana.tipo}
+            </span>
           </div>
           <p className="mt-1 line-clamp-2 min-h-8 text-xs text-[var(--text-secondary)]">
-            {dataset.descripcion || "Base lista para explorar y actualizar."}
+            {campana.descripcion ||
+              "Todas las cargas, usuarios e indicadores quedan reunidos en esta campaña."}
           </p>
         </div>
-        <ArrowRight className="mt-1 size-4 text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5" />
       </div>
+
       <div className="mt-4 flex items-center gap-4 border-t pt-3 text-xs text-[var(--text-muted)]">
         <span className="flex items-center gap-1.5">
           <Rows3 className="size-3.5" />
-          {numero.format(dataset.filas)} filas
+          {numero.format(campana.filas)} filas
         </span>
         <span>
-          {dataset.cargas} {dataset.cargas === 1 ? "carga" : "cargas"}
+          {campana.cargas} {campana.cargas === 1 ? "carga" : "cargas"}
         </span>
         <span className="ml-auto">
-          {dataset.ultimaCarga
-            ? fecha.format(new Date(dataset.ultimaCarga))
+          {campana.ultimaCarga
+            ? fecha.format(new Date(campana.ultimaCarga))
             : "Sin cargas"}
         </span>
       </div>
-    </Link>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href={`/cargar?campana=${campana.id}`}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--series-1)] px-3 py-1.5 text-xs font-semibold text-white"
+        >
+          <Upload className="size-3.5" /> Cargar archivo
+        </Link>
+        {campana.datasetId ? (
+          <Link
+            href={`/datos/${campana.datasetId}`}
+            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
+          >
+            <BarChart3 className="size-3.5" /> Datos y análisis
+          </Link>
+        ) : null}
+        <Link
+          href={`/mantenedor?campana=${campana.id}`}
+          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
+        >
+          <Settings2 className="size-3.5" /> Configurar
+          <ArrowRight className="size-3" />
+        </Link>
+      </div>
+    </article>
   );
 }

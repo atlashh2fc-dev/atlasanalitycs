@@ -8,10 +8,10 @@ import {
   Upload,
 } from "lucide-react";
 import { Nav } from "@/components/nav";
-import { DatasetCard } from "@/components/datos/dataset-card";
+import { CampanaCard } from "@/components/datos/dataset-card";
 import { EstadoVacioDatos } from "@/components/datos/estado-vacio";
 import { getContexto } from "@/lib/datos";
-import { obtenerResumenDatasets } from "@/lib/datasets-ui";
+import { obtenerResumenCampanas } from "@/lib/datasets-ui";
 import { hayCredenciales } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +20,8 @@ export default async function Inicio() {
   if (!hayCredenciales()) redirect("/configuracion");
 
   const ctx = await getContexto();
-  const datasets = ctx.tenantId ? await obtenerResumenDatasets() : [];
-  const filas = datasets.reduce((total, dataset) => total + dataset.filas, 0);
+  const campanas = ctx.tenantId ? await obtenerResumenCampanas() : [];
+  const filas = campanas.reduce((total, campana) => total + campana.filas, 0);
 
   return (
     <>
@@ -34,11 +34,11 @@ export default async function Inicio() {
               Tus datos, primero
             </h1>
             <p className="mt-2 max-w-xl text-sm text-[var(--text-secondary)]">
-              Carga una base y Atlas adapta sus campos, indicadores y vistas al
-              contenido real.
+              Trabaja por campaña: cada archivo diario se suma al mismo historial
+              y alimenta sus indicadores sin crear contenedores separados.
             </p>
           </div>
-          {datasets.length > 0 ? (
+          {campanas.length > 0 ? (
             <Link
               href="/cargar"
               className="inline-flex items-center gap-2 rounded-full bg-[var(--series-1)] px-4 py-2 text-sm font-semibold text-white"
@@ -48,7 +48,7 @@ export default async function Inicio() {
           ) : null}
         </div>
 
-        {datasets.length === 0 ? (
+        {campanas.length === 0 ? (
           <div className="mt-8">
             <EstadoVacioDatos />
           </div>
@@ -57,8 +57,8 @@ export default async function Inicio() {
             <section className="mt-7 grid gap-3 sm:grid-cols-3">
               <Resumen
                 icono={Database}
-                etiqueta="Bases activas"
-                valor={String(datasets.length)}
+                etiqueta="Campañas activas"
+                valor={String(campanas.length)}
               />
               <Resumen
                 icono={BarChart3}
@@ -74,7 +74,7 @@ export default async function Inicio() {
 
             <section className="mt-8">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Bases recientes</h2>
+                <h2 className="text-sm font-semibold">Campañas</h2>
                 <Link
                   href="/datos"
                   className="flex items-center gap-1 text-xs font-medium text-[var(--series-1)]"
@@ -83,8 +83,8 @@ export default async function Inicio() {
                 </Link>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                {datasets.slice(0, 4).map((dataset) => (
-                  <DatasetCard key={dataset.id} dataset={dataset} />
+                {campanas.slice(0, 4).map((campana) => (
+                  <CampanaCard key={campana.id} campana={campana} />
                 ))}
               </div>
             </section>

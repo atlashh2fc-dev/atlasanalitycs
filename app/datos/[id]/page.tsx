@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { Card } from "@/components/ui/card";
-import { AsignarCampana } from "@/components/datos/asignar-campana";
 import { getContexto } from "@/lib/datos";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
@@ -118,7 +117,7 @@ export default async function DetalleDataset({
           href="/datos"
           className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
-          <ArrowLeft className="size-3.5" /> Todas las bases
+          <ArrowLeft className="size-3.5" /> Todas las campañas
         </Link>
 
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
@@ -149,10 +148,10 @@ export default async function DetalleDataset({
               <BarChart3 className="size-4" /> Ver análisis
             </Link>
             <Link
-              href="/cargar"
+              href={`/cargar?campana=${dataset.campana_id ?? ""}`}
               className="inline-flex items-center gap-2 rounded-full bg-[var(--series-1)] px-4 py-2 text-sm font-semibold text-white"
             >
-              <Upload className="size-4" /> Actualizar base
+              <Upload className="size-4" /> Nueva carga
             </Link>
           </div>
         </div>
@@ -182,7 +181,7 @@ export default async function DetalleDataset({
           ) : null}
           {tieneMetas ? (
             <Link
-              href="/mantenedor"
+              href={`/mantenedor?campana=${dataset.campana_id ?? ""}`}
               className="shrink-0 rounded-full px-3 py-1.5 font-medium text-[var(--text-secondary)] hover:bg-[var(--vidrio)] hover:text-[var(--text-primary)]"
             >
               Metas
@@ -219,33 +218,6 @@ export default async function DetalleDataset({
                 />
               </div>
 
-              {ctx.esAdmin ? (
-                <Card className="mt-4">
-                  <p className="etiqueta">Organización</p>
-                  <h2 className="mb-3 mt-1 text-sm font-semibold">
-                    Campaña de esta base
-                  </h2>
-                  {ctx.campanas.length > 0 ? (
-                    <AsignarCampana
-                      datasetId={id}
-                      campanas={ctx.campanas}
-                      campanaInicial={dataset.campana_id}
-                    />
-                  ) : (
-                    <div className="rounded-xl border border-dashed p-4 text-xs text-[var(--text-secondary)]">
-                      Todavía no hay campañas. Crea una desde{" "}
-                      <Link
-                        href="/mantenedor"
-                        className="font-medium text-[var(--series-1)] hover:underline"
-                      >
-                        Configuración
-                      </Link>{" "}
-                      y vuelve para asociarla.
-                    </div>
-                  )}
-                </Card>
-              ) : null}
-
               {tieneEquipo || tieneMetas ? (
                 <Card className="mt-4">
                   <p className="etiqueta">Funciones detectadas</p>
@@ -263,7 +235,7 @@ export default async function DetalleDataset({
                         icono={Settings2}
                         titulo="Metas"
                         detalle="Hay métricas numéricas atribuibles al equipo."
-                        href="/mantenedor"
+                        href={`/mantenedor?campana=${dataset.campana_id ?? ""}`}
                       />
                     ) : null}
                   </div>

@@ -1,4 +1,5 @@
 import { Nav } from "@/components/nav";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { getContexto } from "@/lib/datos";
@@ -10,10 +11,18 @@ import { PrepararEspacio } from "./preparar-espacio";
 
 export const dynamic = "force-dynamic";
 
-export default async function Cargar() {
+export default async function Cargar({
+  searchParams,
+}: {
+  searchParams: Promise<{ campana?: string }>;
+}) {
   if (!hayCredenciales()) redirect("/configuracion");
 
   const ctx = await getContexto();
+  const { campana: campanaSolicitada } = await searchParams;
+  const campanaInicial = ctx.campanas.some((c) => c.id === campanaSolicitada)
+    ? campanaSolicitada
+    : ctx.campanas[0]?.id;
 
   // El espacio técnico se crea solo: la primera decisión del usuario es
   // su archivo, no campañas, productos ni configuración interna.
@@ -38,7 +47,12 @@ export default async function Cargar() {
         "id, archivo_nombre, hoja, estado, filas_procesadas, filas_totales, error_detalle, created_at, dataset_id, cargado_por",
       )
       .order("created_at", { ascending: false }),
-    supabase.from("dataset").select("id,nombre").eq("activo", true).order("updated_at", { ascending: false }),
+    supabase
+      .from("dataset")
+      .select("id,nombre,campana_id")
+      .eq("activo", true)
+      .not("campana_id", "is", null)
+      .order("updated_at", { ascending: false }),
   ]);
 
   const cargas: CargaPendiente[] = (filas ?? []).map((c) => ({
@@ -62,13 +76,36 @@ export default async function Cargar() {
         <div className="mb-6">
           <h1 className="text-xl font-semibold tracking-tight">Cargar datos</h1>
           <p className="mt-0.5 max-w-2xl text-sm text-[var(--text-secondary)]">
-            Sube cualquier Excel. Atlas perfila las columnas por su contenido
+            Sube los archivos diarios de una campaña. Atlas perfila las columnas por su contenido
             —no por su nombre—, propone el mapeo y tú lo confirmas una vez. La
-            próxima carga con la misma estructura se procesa sola.
+            próxima carga se suma al mismo historial y reutiliza esa estructura.
           </p>
         </div>
 
-        <Cargador campanas={ctx.campanas} datasets={datasets ?? []} tenantId={ctx.tenantId} />
+        {ctx.campanas.length > 0 ? (
+          <Cargador
+            campanas={ctx.campanas}
+            datasets={datasets ?? []}
+            tenantId={ctx.tenantId}
+            campanaInicial={campanaInicial}
+          />
+        ) : (
+          <Card>
+            <CardTitle hint="Toda carga debe quedar asociada desde el inicio.">
+              Primero crea una campaña
+            </CardTitle>
+            <p className="text-sm text-[var(--text-secondary)]">
+              La campaña reunirá todos los archivos diarios, su configuración
+              y sus indicadores.
+            </p>
+            <Link
+              href="/mantenedor"
+              className="mt-4 inline-flex rounded-full bg-[var(--series-1)] px-4 py-2 text-sm font-semibold text-white"
+            >
+              Ir a Configuración
+            </Link>
+          </Card>
+        )}
 
         <Card className="mt-6">
           <CardTitle hint="El archivo queda guardado y el avance vive en la base: puedes irte de la pantalla y volver a retomar.">
@@ -76,7 +113,6 @@ export default async function Cargar() {
           </CardTitle>
           <Pendientes
             cargas={cargas}
-            datasets={datasets ?? []}
             esAdmin={ctx.esAdmin}
           />
         </Card>

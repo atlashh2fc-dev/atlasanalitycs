@@ -157,16 +157,20 @@ export function Cargador({
   campanas,
   datasets,
   tenantId,
+  campanaInicial,
 }: {
   campanas: { id: string; nombre: string }[];
-  datasets: { id: string; nombre: string }[];
+  datasets: { id: string; nombre: string; campana_id: string | null }[];
   tenantId: string;
+  campanaInicial?: string;
 }) {
   const [archivos, setArchivos] = useState<ArchivoEnCola[]>([]);
   const [activo, setActivo] = useState(0);
-  const [campana, setCampana] = useState(campanas[0]?.id ?? "");
-  const [datasetId, setDatasetId] = useState(datasets[0]?.id ?? "nuevo");
-  const [nuevoDataset, setNuevoDataset] = useState("");
+  const [campana, setCampana] = useState(
+    campanas.some((c) => c.id === campanaInicial)
+      ? campanaInicial!
+      : (campanas[0]?.id ?? ""),
+  );
   const [ocupado, setOcupado] = useState(false);
 
   // Cerrar la pestaña a mitad de carga deja el lote incompleto.
@@ -233,10 +237,6 @@ export function Cargador({
     const primeroNuevo = archivos.length;
     setArchivos([...archivos, ...nuevos]);
     setActivo(primeroNuevo);
-    if (datasetId === "nuevo" && !nuevoDataset && nuevos[0]) {
-      setNuevoDataset(nuevos[0].nombre.replace(/\.(xlsx?|csv)$/i, ""));
-    }
-
     // Permite volver a elegir el mismo archivo si el usuario lo quitó
     e.target.value = "";
   }
@@ -332,19 +332,12 @@ export function Cargador({
    * pendiente y se reanuda donde quedó.
    */
   async function resolverDataset(): Promise<string | null> {
-    if (datasetId !== "nuevo") return datasetId || null;
-    const nombre = nuevoDataset.trim();
-    if (!nombre) return null;
-
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("dataset")
-      .upsert({ tenant_id: tenantId, nombre }, { onConflict: "tenant_id,nombre" })
-      .select("id")
-      .single();
-    if (error || !data) throw new Error(error?.message ?? "No se pudo crear la base.");
-    setDatasetId(data.id);
-    return data.id;
+    if (!campana) return null;
+    const existente = datasets.find((d) => d.campana_id === campana);
+    if (existente) return existente.id;
+    throw new Error(
+      "La campaña no tiene su espacio de datos preparado. Recarga la página.",
+    );
   }
 
   async function cargarUno(indice: number): Promise<boolean> {
@@ -358,7 +351,7 @@ export function Cargador({
     actualizar(indice, {
       estado: "subiendo",
       mensaje: null,
-      etapa: "Preparando la base…",
+      etapa: "Preparando la campaña…",
       progreso: 0,
     });
 
@@ -366,11 +359,11 @@ export function Cargador({
     try {
       baseId = await resolverDataset();
     } catch (e) {
-      actualizar(indice, { estado: "error", mensaje: e instanceof Error ? e.message : "No se pudo preparar la base." });
+      actualizar(indice, { estado: "error", mensaje: e instanceof Error ? e.message : "No se pudo preparar la campaña." });
       return false;
     }
     if (!baseId) {
-      actualizar(indice, { estado: "error", mensaje: "Ponle un nombre a la base." });
+      actualizar(indice, { estado: "error", mensaje: "Selecciona una campaña." });
       return false;
     }
 
@@ -429,7 +422,6 @@ export function Cargador({
         modo: hoja.modo,
         filaEncabezado: hoja.filaEncabezado,
         metadatos: hoja.metadatos,
-        campanaId: campana || null,
         mapeo,
         filasTotales: hoja.filas,
         columnas: hoja.columnas.map((c) => ({
@@ -807,51 +799,30 @@ export function Cargador({
           </Card>
 
           <Card>
-            <CardTitle>4 · Confirma y carga</CardTitle>
+            <CardTitle>4 · Confirma la campaña y carga</CardTitle>
             <div className="flex flex-wrap items-end gap-3">
-              <label className="min-w-[230px] text-xs text-[var(--text-secondary)]">
-                <span className="mb-1 block font-medium">Base de datos</span>
-                <select
-                  value={datasetId}
-                  onChange={(e) => setDatasetId(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
-                >
-                  <option value="nuevo">Crear una base nueva</option>
-                  {datasets.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                </select>
-              </label>
-
-              {datasetId === "nuevo" ? (
-                <label className="min-w-[220px] text-xs text-[var(--text-secondary)]">
-                  <span className="mb-1 block font-medium">Nombre de la base</span>
-                  <input
-                    value={nuevoDataset}
-                    onChange={(e) => setNuevoDataset(e.target.value)}
-                    placeholder="Ej. Inventario agosto"
-                    className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
-                  />
-                </label>
-              ) : null}
-
-              {campanas.length > 0 ? <label className="text-xs text-[var(--text-secondary)]">
-                <span className="mb-1 block font-medium">Campaña (opcional)</span>
+              {campanas.length > 0 ? <label className="min-w-[260px] text-xs text-[var(--text-secondary)]">
+                <span className="mb-1 block font-medium">Campaña de destino</span>
                 <select
                   value={campana}
                   onChange={(e) => setCampana(e.target.value)}
-                  className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
+                  className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
                 >
-                  <option value="">Sin campaña</option>
                   {campanas.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nombre}
                     </option>
                   ))}
                 </select>
-              </label> : null}
+              </label> : (
+                <p className="rounded-xl border border-dashed px-3 py-2 text-xs text-[var(--critical)]">
+                  Crea una campaña antes de cargar archivos.
+                </p>
+              )}
 
               <button
                 onClick={cargarActivo}
-                disabled={ocupado}
+                disabled={ocupado || !campana}
                 className="rounded-xl bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
                 {ocupado ? `${Math.round(archivo.progreso * 100)}%` : "Cargar esta hoja"}
@@ -931,6 +902,8 @@ export function Cargador({
             ) : null}
 
             <p className="mt-4 border-t pt-3 text-xs text-[var(--text-muted)]">
+              Esta carga y las siguientes quedarán en el historial de la
+              campaña seleccionada. No se creará una base separada por archivo.{" "}
               Los archivos se cargan de a uno en orden, no en paralelo: si dos
               traen al mismo ejecutivo escrito distinto, la conciliación de
               alias necesita que el primero termine antes de que empiece el

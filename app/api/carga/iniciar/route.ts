@@ -39,7 +39,6 @@ export async function POST(request: Request) {
     modo: "tabular" | "matriz";
     filaEncabezado: number;
     metadatos: Record<string, unknown>;
-    campanaId: string | null;
     mapeo: Record<string, string>;
     columnas: Record<string, unknown>[];
     filasTotales: number;
@@ -51,12 +50,33 @@ export async function POST(request: Request) {
 
   const { data: dataset } = await supabase
     .from("dataset")
-    .select("id")
+    .select("id, campana_id")
     .eq("id", body.datasetId)
     .eq("tenant_id", perfil.tenant_id)
     .maybeSingle();
   if (!dataset) {
-    return NextResponse.json({ error: "La base seleccionada no existe." }, { status: 404 });
+    return NextResponse.json({ error: "La campaña seleccionada no existe." }, { status: 404 });
+  }
+  if (!dataset.campana_id) {
+    return NextResponse.json(
+      { error: "Esta carga debe pertenecer a una campaña." },
+      { status: 400 },
+    );
+  }
+
+  // `campana` sí está protegida por las campañas visibles del perfil.
+  // No basta con validar el tenant del dataset: un supervisor no debe poder
+  // cargar en otra campaña del mismo espacio adivinando su UUID.
+  const { data: campanaVisible } = await supabase
+    .from("campana")
+    .select("id")
+    .eq("id", dataset.campana_id)
+    .maybeSingle();
+  if (!campanaVisible) {
+    return NextResponse.json(
+      { error: "No tienes acceso a esta campaña." },
+      { status: 403 },
+    );
   }
 
   const { data: carga, error } = await supabase
@@ -64,7 +84,7 @@ export async function POST(request: Request) {
     .insert({
       tenant_id: perfil.tenant_id,
       dataset_id: body.datasetId,
-      campana_id: body.campanaId,
+      campana_id: dataset.campana_id,
       archivo_nombre: body.archivo,
       hoja: body.hoja,
       storage_path: body.storagePath,
@@ -79,7 +99,7 @@ export async function POST(request: Request) {
         mapeo: body.mapeo,
         modo: body.modo,
         filaEncabezado: body.filaEncabezado,
-        campanaId: body.campanaId,
+        campanaId: dataset.campana_id,
       },
     })
     .select("id")

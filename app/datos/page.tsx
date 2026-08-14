@@ -2,10 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Upload } from "lucide-react";
 import { Nav } from "@/components/nav";
-import { DatasetCard } from "@/components/datos/dataset-card";
+import { CampanaCard } from "@/components/datos/dataset-card";
 import { EstadoVacioDatos } from "@/components/datos/estado-vacio";
 import { getContexto } from "@/lib/datos";
-import { obtenerResumenDatasets } from "@/lib/datasets-ui";
+import { obtenerResumenCampanas } from "@/lib/datasets-ui";
 import { hayCredenciales } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export default async function Datos() {
   if (!hayCredenciales()) redirect("/configuracion");
 
   const ctx = await getContexto();
-  const datasets = ctx.tenantId ? await obtenerResumenDatasets() : [];
+  const campanas = ctx.tenantId ? await obtenerResumenCampanas() : [];
 
   return (
     <>
@@ -24,31 +24,32 @@ export default async function Datos() {
           <div>
             <p className="etiqueta">Datos</p>
             <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">
-              Tus bases
+              Tus campañas
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Cada base reúne su estructura, calidad, historial de cargas y
-              análisis. Puedes actualizarla sin volver a configurar sus campos.
+              Cada campaña reúne sus archivos diarios, equipo, usuarios,
+              configuración e indicadores. Las nuevas cargas se acumulan en la
+              misma campaña.
             </p>
           </div>
-          {datasets.length > 0 ? (
+          {campanas.length > 0 ? (
             <Link
               href="/cargar"
               className="inline-flex items-center gap-2 rounded-full bg-[var(--series-1)] px-4 py-2 text-sm font-semibold text-white"
             >
-              <Upload className="size-4" /> Cargar una base
+              <Upload className="size-4" /> Nueva carga
             </Link>
           ) : null}
         </div>
 
-        {datasets.length === 0 ? (
+        {campanas.length === 0 ? (
           <div className="mt-8">
             <EstadoVacioDatos />
           </div>
         ) : (
           <div className="mt-7 grid gap-4 md:grid-cols-2">
-            {datasets.map((dataset) => (
-              <DatasetCard key={dataset.id} dataset={dataset} />
+            {campanas.map((campana) => (
+              <CampanaCard key={campana.id} campana={campana} />
             ))}
           </div>
         )}
