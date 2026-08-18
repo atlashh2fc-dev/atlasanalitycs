@@ -1,0 +1,81 @@
+import type { Indicador } from "@/components/bsc/tablero";
+import { fmt } from "@/lib/utils";
+
+export interface SemanaComparacion {
+  etiqueta: string;
+  desde: string;
+  hasta: string;
+  indicadores: Indicador[];
+}
+
+const METRICAS = [
+  "Gestiones",
+  "Contactabilidad",
+  "Conversión gestión a venta",
+  "Ejecutivos con venta",
+  "Margen",
+] as const;
+
+function valor(semana: SemanaComparacion, indicador: string) {
+  return semana.indicadores.find((i) => i.indicador === indicador) ?? null;
+}
+
+function formatea(indicador: Indicador | null) {
+  if (!indicador || indicador.valor === null) return "—";
+  if (indicador.unidad === "pct") return `${fmt.decimal(indicador.valor, 1)}%`;
+  if (indicador.unidad === "clp") return fmt.clp(indicador.valor);
+  if (indicador.unidad === "decimal") return fmt.decimal(indicador.valor, 1);
+  return fmt.entero(indicador.valor);
+}
+
+function fechaCorta(fecha: string) {
+  return new Intl.DateTimeFormat("es-CL", { day: "2-digit", month: "short" })
+    .format(new Date(`${fecha}T12:00:00`))
+    .replace(".", "");
+}
+
+export function ComparacionSemanal({ semanas }: { semanas: SemanaComparacion[] }) {
+  if (semanas.length === 0) return null;
+
+  return (
+    <section className="mt-8 space-y-4">
+      <div className="flex items-baseline gap-3">
+        <h2 className="text-[15px] font-semibold tracking-tight">Comparación semanal</h2>
+        <span className="text-xs text-[var(--text-muted)]">
+          Evolución dentro del mes seleccionado
+        </span>
+        <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
+      </div>
+
+      <div className="vidrio overflow-x-auto rounded-2xl p-5">
+        <table className="w-full min-w-[760px] text-xs">
+          <thead>
+            <tr className="border-b border-[var(--vidrio-borde)] text-[var(--text-muted)]">
+              <th className="pb-3 text-left font-medium">Indicador</th>
+              {semanas.map((semana) => (
+                <th key={semana.desde} className="pb-3 text-right font-medium">
+                  <span className="block text-[var(--text-secondary)]">{semana.etiqueta}</span>
+                  <span className="text-[10px] font-normal">
+                    {fechaCorta(semana.desde)}–{fechaCorta(semana.hasta)}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {METRICAS.map((metrica) => (
+              <tr key={metrica} className="border-b border-[var(--vidrio-borde)] last:border-0">
+                <th className="py-3 text-left font-medium text-[var(--text-secondary)]">{metrica}</th>
+                {semanas.map((semana) => (
+                  <td key={semana.desde} className="tabular py-3 text-right font-semibold">
+                    {formatea(valor(semana, metrica))}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}

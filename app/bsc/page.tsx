@@ -11,6 +11,10 @@ import {
 import { Control, type FilaControl } from "@/components/bsc/control";
 import { type EtapaEmbudo } from "@/components/bsc/embudo";
 import { type PuntoProyeccion } from "@/components/bsc/proyeccion";
+import {
+  ComparacionSemanal,
+  type SemanaComparacion,
+} from "@/components/bsc/semanas";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
 import { getContexto, rangoMes } from "@/lib/datos";
@@ -21,18 +25,43 @@ function isoUTC(fecha: Date) {
   return fecha.toISOString().slice(0, 10);
 }
 
-function periodoAnterior(desde: string, hasta: string) {
-  const inicio = new Date(`${desde}T12:00:00Z`);
-  const fin = new Date(`${hasta}T12:00:00Z`);
-  const dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / 86_400_000) + 1);
-  const finAnterior = new Date(inicio.getTime() - 86_400_000);
-  const inicioAnterior = new Date(finAnterior.getTime() - (dias - 1) * 86_400_000);
-  return { desde: isoUTC(inicioAnterior), hasta: isoUTC(finAnterior) };
-}
-
 function cierreDelMes(fecha: string) {
   const base = new Date(`${fecha}T12:00:00Z`);
   return isoUTC(new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0, 12)));
+}
+
+function rangoDeMes(mes: string, hoy = new Date()) {
+  const [anio, numeroMes] = mes.split("-").map(Number);
+  const desde = isoUTC(new Date(Date.UTC(anio, numeroMes - 1, 1, 12)));
+  const cierre = isoUTC(new Date(Date.UTC(anio, numeroMes, 0, 12)));
+  const hoyIso = isoUTC(hoy);
+  return { desde, hasta: hoyIso >= desde && hoyIso <= cierre ? hoyIso : cierre, cierre };
+}
+
+function mesAnterior(mes: string) {
+  const [anio, numeroMes] = mes.split("-").map(Number);
+  const fecha = new Date(Date.UTC(anio, numeroMes - 2, 1, 12));
+  return rangoDeMes(fecha.toISOString().slice(0, 7), new Date("9999-12-31T12:00:00Z"));
+}
+
+function semanasDelRango(desde: string, hasta: string) {
+  const semanas: { desde: string; hasta: string; etiqueta: string }[] = [];
+  let cursor = new Date(`${desde}T12:00:00Z`);
+  const fin = new Date(`${hasta}T12:00:00Z`);
+  let numero = 1;
+  while (cursor <= fin) {
+    const finSemana = new Date(Math.min(
+      fin.getTime(),
+      cursor.getTime() + (7 - (cursor.getUTCDay() || 7)) * 86_400_000,
+    ));
+    semanas.push({
+      desde: isoUTC(cursor),
+      hasta: isoUTC(finSemana),
+      etiqueta: `Semana ${numero++}`,
+    });
+    cursor = new Date(finSemana.getTime() + 86_400_000);
+  }
+  return semanas;
 }
 
 /**
@@ -48,7 +77,7 @@ function cierreDelMes(fecha: string) {
 export default async function CuadroDeMando({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string; campana?: string; comparar?: string }>;
+  searchParams: Promise<{ mes?: string; desde?: string; hasta?: string; campana?: string; comparar?: string }>;
 }) {
   if (!hayCredenciales()) redirect("/configuracion");
 
@@ -57,16 +86,25 @@ export default async function CuadroDeMando({
 
   const sp = await searchParams;
   const rango = rangoMes();
-  const desde = sp.desde ?? rango.desde;
-  const hasta = sp.hasta ?? rango.hasta;
+  const mes = /^\d{4}-\d{2}$/.test(sp.mes ?? "") ? sp.mes! : rango.desde.slice(0, 7);
+  const rangoSeleccionado = rangoDeMes(mes);
+  const desde = sp.mes ? rangoSeleccionado.desde : sp.desde ?? rangoSeleccionado.desde;
+  const hasta = sp.mes ? rangoSeleccionado.hasta : sp.hasta ?? rangoSeleccionado.hasta;
   const campana = sp.campana ?? null;
   const comparar = sp.comparar !== "no";
-  const anterior = periodoAnterior(desde, hasta);
+  const anterior = mesAnterior(mes);
   const cierre = cierreDelMes(hasta);
+  const semanas = semanasDelRango(desde, hasta);
   const contextoAnalisis = new URLSearchParams({ desde, hasta });
   if (campana) contextoAnalisis.set("campana", campana);
 
   const supabase = await createClient();
+
+  const { data: periodosDisponibles } = await supabase
+    .from("periodo")
+    .select("fecha_inicio, etiqueta")
+    .eq("tipo", "mes")
+    .order("fecha_inicio", { ascending: false });
 
   const [
     { data: indicadores },
@@ -128,6 +166,20 @@ export default async function CuadroDeMando({
       }),
     ]);
 
+  const resultadosSemanales = await Promise.all(
+    semanas.map((semana) =>
+      supabase.rpc("bsc_periodo", {
+        p_desde: semana.desde,
+        p_hasta: semana.hasta,
+        p_campana: campana,
+      }),
+    ),
+  );
+  const comparacionSemanal: SemanaComparacion[] = semanas.map((semana, indice) => ({
+    ...semana,
+    indicadores: (resultadosSemanales[indice].data ?? []) as unknown as Indicador[],
+  }));
+
   return (
     <>
       <Nav email={ctx.email} />
@@ -143,21 +195,17 @@ export default async function CuadroDeMando({
 
           <form className="flex flex-wrap items-center gap-2.5">
             <label className="pildora cursor-pointer">
-              <input
-                type="date"
-                name="desde"
-                defaultValue={desde}
-                aria-label="Desde"
-                className="tabular"
-              />
-              <span className="text-[var(--text-muted)]">→</span>
-              <input
-                type="date"
-                name="hasta"
-                defaultValue={hasta}
-                aria-label="Hasta"
-                className="tabular"
-              />
+              <span className="text-[var(--text-muted)]">Mes</span>
+              <select name="mes" defaultValue={mes} aria-label="Mes del dashboard">
+                {!(periodosDisponibles ?? []).some((p) => p.fecha_inicio?.slice(0, 7) === mes) ? (
+                  <option value={mes}>{mes}</option>
+                ) : null}
+                {(periodosDisponibles ?? []).map((p) => (
+                  <option key={p.fecha_inicio} value={p.fecha_inicio.slice(0, 7)}>
+                    {p.etiqueta}
+                  </option>
+                ))}
+              </select>
             </label>
 
             {ctx.campanas.length > 1 ? (
@@ -206,6 +254,8 @@ export default async function CuadroDeMando({
           analysisQuery={contextoAnalisis.toString()}
           costosCierre={(costosCierre ?? []) as unknown as CostoCierre[]}
         />
+
+        <ComparacionSemanal semanas={comparacionSemanal} />
 
         <section className="mt-8 space-y-4">
           <div className="flex items-baseline gap-3">
