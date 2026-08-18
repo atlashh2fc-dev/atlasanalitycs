@@ -3,23 +3,13 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Bar,
-  BarChart,
-  Cell,
-  LabelList,
-  ResponsiveContainer,
-  Tooltip as RTooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   Banknote,
   Cog,
   HeartHandshake,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { ESTADO, SERIES, Tooltip } from "@/components/charts/base";
+import { ESTADO } from "@/components/charts/base";
 import { Embudo, type EtapaEmbudo } from "@/components/bsc/embudo";
 import { Proyeccion, type PuntoProyeccion } from "@/components/bsc/proyeccion";
 import { usaMovimientoReducido } from "@/lib/animacion";
@@ -35,18 +25,6 @@ export interface Indicador {
   cumplimiento: number | null;
   sentido: string;
   detalle: string;
-}
-
-export interface FilaEconomia {
-  ejecutivo: string;
-  contratos: number;
-  asegurados: number;
-  gestiones: number;
-  ingreso_uf: number;
-  ingreso_clp: number;
-  costo_empresa_clp: number;
-  margen_clp: number;
-  margen_pct: number | null;
 }
 
 export interface Equilibrio {
@@ -75,31 +53,31 @@ const PERSPECTIVAS: {
   nombre: string;
   icono: LucideIcon;
   tono: string;
-  pregunta: string;
+  enfoque: string;
 }[] = [
   {
     nombre: "Financiera",
     icono: Banknote,
     tono: "var(--tono-venta)",
-    pregunta: "¿El negocio deja plata?",
+    enfoque: "Rentabilidad y sostenibilidad",
   },
   {
     nombre: "Cliente",
     icono: HeartHandshake,
     tono: "var(--tono-cliente)",
-    pregunta: "¿Cómo nos recibe la base?",
+    enfoque: "Calidad y respuesta de la base",
   },
   {
     nombre: "Procesos",
     icono: Cog,
     tono: "var(--tono-agendamiento)",
-    pregunta: "¿Trabajamos bien por dentro?",
+    enfoque: "Volumen, eficiencia y conversión",
   },
   {
     nombre: "Personas",
     icono: Users,
     tono: "var(--tono-cotizacion)",
-    pregunta: "¿El equipo puede sostenerlo?",
+    enfoque: "Capacidad y cumplimiento",
   },
 ];
 
@@ -132,18 +110,76 @@ function colorEstado(i: Indicador): string | null {
 function Titulo({
   numero,
   titulo,
-  pregunta,
+  subtitulo,
 }: {
   numero: string;
   titulo: string;
-  pregunta: string;
+  subtitulo: string;
 }) {
   return (
     <div className="flex items-baseline gap-3">
       <span className="etiqueta shrink-0 text-[var(--text-muted)]">{numero}</span>
       <h2 className="text-[15px] font-semibold tracking-tight">{titulo}</h2>
-      <span className="text-xs text-[var(--text-muted)]">{pregunta}</span>
+      <span className="text-xs text-[var(--text-muted)]">{subtitulo}</span>
       <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
+    </div>
+  );
+}
+
+function ResumenPerspectivas({
+  porPerspectiva,
+  abierto,
+  setAbierto,
+  reducido,
+}: {
+  porPerspectiva: Map<string, Indicador[]>;
+  abierto: string | null;
+  setAbierto: (clave: string | null) => void;
+  reducido: boolean;
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {PERSPECTIVAS.map((p, k) => {
+        const lista = porPerspectiva.get(p.nombre) ?? [];
+        const Icono = p.icono;
+        return (
+          <motion.div
+            key={p.nombre}
+            initial={reducido ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: k * 0.05, type: "spring", stiffness: 260, damping: 26 }}
+            data-tono
+            style={{ "--tono": p.tono } as React.CSSProperties}
+            className="vidrio flex flex-col rounded-2xl p-4"
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <span className="grid size-7 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, var(--tono) 18%, transparent)", border: "1px solid color-mix(in srgb, var(--tono) 38%, transparent)", color: "var(--tono)" }}>
+                <Icono className="size-4" strokeWidth={2.2} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-[13px] font-semibold leading-tight">{p.nombre}</h3>
+                <p className="text-[11px] text-[var(--text-muted)]">{p.enfoque}</p>
+              </div>
+            </div>
+            <ul className="flex-1 space-y-0.5">
+              {lista.map((i) => {
+                const color = colorEstado(i);
+                const clave = `${i.perspectiva}-${i.indicador}`;
+                const activo = abierto === clave;
+                return (
+                  <li key={clave} className="border-b last:border-0">
+                    <button onClick={() => setAbierto(activo ? null : clave)} className="flex w-full items-baseline justify-between gap-2 py-1.5 text-left" aria-expanded={activo}>
+                      <span className="text-xs text-[var(--text-secondary)]">{i.indicador}</span>
+                      <span className="tabular shrink-0 text-[13px] font-semibold tracking-tight" style={color ? { color } : undefined}>{formatea(i.valor, i.unidad)}</span>
+                    </button>
+                    {activo ? <p className="pb-2 text-[11px] leading-relaxed text-[var(--text-muted)]">{i.detalle}</p> : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -152,24 +188,18 @@ function Titulo({
 
 export function Tablero({
   indicadores,
-  economia,
   lineas,
   equilibrio,
   proyeccion,
   embudo,
-  periodo,
   indicadoresAnteriores = [],
-  periodoAnterior = null,
 }: {
   indicadores: Indicador[];
-  economia: FilaEconomia[];
   lineas: FilaLinea[];
   equilibrio: Equilibrio | null;
   proyeccion: PuntoProyeccion[];
   embudo: EtapaEmbudo[];
-  periodo: { desde: string; hasta: string };
   indicadoresAnteriores?: Indicador[];
-  periodoAnterior?: { desde: string; hasta: string } | null;
 }) {
   const reducido = usaMovimientoReducido();
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -204,14 +234,17 @@ export function Tablero({
       ? Math.ceil(onco.meta - onco.asegurados)
       : null;
 
-  const topEconomia = economia.filter((e) => e.asegurados > 0).slice(0, 12);
-
   const ultimoProyectado = proyeccion.at(-1)?.proyectado ?? null;
 
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <Titulo numero="1" titulo="El resultado" pregunta="¿Qué dejó el periodo?" />
+        <Titulo numero="1" titulo="Resumen ejecutivo BSC" subtitulo="Financiera · Cliente · Procesos · Personas" />
+        <ResumenPerspectivas porPerspectiva={porPerspectiva} abierto={abierto} setAbierto={setAbierto} reducido={reducido} />
+      </section>
+
+      <section className="space-y-4">
+        <Titulo numero="2" titulo="Resultado financiero y forecast" subtitulo="Real al corte, cierre esperado, meta y sostenibilidad" />
         <div className="grid gap-4 lg:grid-cols-3">
         {[
           { t: "Ingreso del periodo", i: ingreso, tono: "var(--tono-venta)", mejorAlSubir: true },
@@ -263,6 +296,8 @@ export function Tablero({
           para que este tablero diga algo sobre rentabilidad.
         </p>
         ) : null}
+
+        <Proyeccion puntos={proyeccion} />
 
         {brecha !== null && brecha > 0 ? (
         <p
@@ -359,195 +394,10 @@ export function Tablero({
       </section>
 
       <section className="space-y-4">
-        <Titulo numero="2" titulo="La trayectoria" pregunta="¿A dónde llegaremos si no cambia el ritmo?" />
-        <Proyeccion puntos={proyeccion} />
-      </section>
-
-      <section className="space-y-4">
-        <Titulo numero="3" titulo="Las causas" pregunta="¿Dónde se rompe el resultado?" />
+        <Titulo numero="3" titulo="Diagnóstico operativo" subtitulo="Volumen y eficiencia desde la gestión hasta la venta" />
         <Embudo etapas={embudo} />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {PERSPECTIVAS.map((p, k) => {
-          const lista = porPerspectiva.get(p.nombre) ?? [];
-          const Icono = p.icono;
-          return (
-            <motion.div
-              key={p.nombre}
-              initial={reducido ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                delay: 0.15 + k * 0.05,
-                type: "spring",
-                stiffness: 260,
-                damping: 26,
-              }}
-              data-tono
-              style={{ "--tono": p.tono } as React.CSSProperties}
-              className="vidrio flex flex-col rounded-2xl p-4"
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <span
-                  className="grid size-7 place-items-center rounded-lg"
-                  style={{
-                    background: "color-mix(in srgb, var(--tono) 18%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--tono) 38%, transparent)",
-                    color: "var(--tono)",
-                  }}
-                >
-                  <Icono className="size-4" strokeWidth={2.2} />
-                </span>
-                <div className="min-w-0">
-                  <h3 className="text-[13px] font-semibold leading-tight">
-                    {p.nombre}
-                  </h3>
-                  <p className="text-[11px] text-[var(--text-muted)]">
-                    {p.pregunta}
-                  </p>
-                </div>
-              </div>
-
-              <ul className="flex-1 space-y-0.5">
-                {lista.map((i) => {
-                  const color = colorEstado(i);
-                  const clave = `${i.perspectiva}-${i.indicador}`;
-                  const activo = abierto === clave;
-                  return (
-                    <li key={clave} className="border-b last:border-0">
-                      <button
-                        onClick={() => setAbierto(activo ? null : clave)}
-                        className="flex w-full items-baseline justify-between gap-2 py-1.5 text-left"
-                        aria-expanded={activo}
-                      >
-                        <span className="text-xs text-[var(--text-secondary)]">
-                          {i.indicador}
-                        </span>
-                        <span
-                          className="tabular shrink-0 text-[13px] font-semibold tracking-tight"
-                          style={color ? { color } : undefined}
-                        >
-                          {formatea(i.valor, i.unidad)}
-                        </span>
-                      </button>
-                      {activo ? (
-                        <p className="pb-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-                          {i.detalle}
-                        </p>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </motion.div>
-          );
-        })}
-        </div>
-
-        <div
-        data-tono
-        style={{ "--tono": "var(--tono-venta)" } as React.CSSProperties}
-        className="vidrio rounded-2xl p-5"
-      >
-        <h3 className="text-[13px] font-semibold">Aporte por ejecutivo</h3>
-        <p className="mb-4 text-xs text-[var(--text-secondary)]">
-          Ingreso que genera cada uno según la tarifa, contra lo que cuesta
-          a la empresa. La barra es el ingreso; el número de la derecha, el
-          margen. Del {periodo.desde} al {periodo.hasta}.
-          {periodoAnterior ? ` Comparado con ${periodoAnterior.desde} al ${periodoAnterior.hasta}.` : ""}
-        </p>
-
-        {topEconomia.length === 0 ? (
-          <p className="py-6 text-center text-xs text-[var(--text-muted)]">
-            Sin ventas en el periodo.
-          </p>
-        ) : (
-          <>
-            <ResponsiveContainer
-              width="100%"
-              height={Math.max(240, topEconomia.length * 30)}
-            >
-              <BarChart
-                data={topEconomia}
-                layout="vertical"
-                margin={{ top: 4, right: 110, bottom: 4, left: 4 }}
-                barCategoryGap={3}
-              >
-                <defs>
-                  <linearGradient id="bscIngreso" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.5} />
-                    <stop offset="100%" stopColor={SERIES[0]} stopOpacity={1} />
-                  </linearGradient>
-                </defs>
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="ejecutivo"
-                  width={150}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-                />
-                <RTooltip
-                  cursor={{ fill: "color-mix(in srgb, var(--text-primary) 4%, transparent)" }}
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const d = payload[0].payload as FilaEconomia;
-                    return (
-                      <Tooltip
-                        titulo={d.ejecutivo}
-                        filas={[
-                          {
-                            etiqueta: "Ingreso generado",
-                            valor: fmt.clp(d.ingreso_clp),
-                            color: SERIES[0],
-                          },
-                          { etiqueta: "En UF", valor: `${fmt.decimal(d.ingreso_uf, 2)} UF` },
-                          { etiqueta: "Costo empresa", valor: fmt.clp(d.costo_empresa_clp) },
-                          { etiqueta: "Margen", valor: fmt.clp(d.margen_clp) },
-                          { etiqueta: "Contratos", valor: fmt.entero(d.contratos) },
-                          { etiqueta: "Asegurados", valor: fmt.entero(d.asegurados) },
-                          { etiqueta: "Gestiones", valor: fmt.entero(d.gestiones) },
-                        ]}
-                      />
-                    );
-                  }}
-                />
-                <Bar
-                  dataKey="ingreso_clp"
-                  radius={[0, 5, 5, 0]}
-                  maxBarSize={20}
-                  isAnimationActive={!reducido}
-                >
-                  {topEconomia.map((d) => (
-                    <Cell
-                      key={d.ejecutivo}
-                      fill={
-                        d.margen_clp < 0 ? ESTADO.serious : "url(#bscIngreso)"
-                      }
-                    />
-                  ))}
-                  <LabelList
-                    dataKey="margen_clp"
-                    position="right"
-                    offset={8}
-                    formatter={(v: unknown) => fmt.clp(Number(v ?? 0))}
-                    style={{
-                      fill: "var(--text-primary)",
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Con la remuneración cargada, el margen deja de ser igual al
-              ingreso y aparece quién se paga solo y quién todavía no.
-            </p>
-          </>
-        )}
-        </div>
       </section>
+
     </div>
   );
 }

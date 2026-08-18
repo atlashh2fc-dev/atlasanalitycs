@@ -3,12 +3,10 @@ import { Nav } from "@/components/nav";
 import {
   Tablero,
   type Equilibrio,
-  type FilaEconomia,
   type FilaLinea,
   type Indicador,
 } from "@/components/bsc/tablero";
 import { Control, type FilaControl } from "@/components/bsc/control";
-import { Decisiones, type ControlCalidad } from "@/components/bsc/decisiones";
 import { type EtapaEmbudo } from "@/components/bsc/embudo";
 import { type PuntoProyeccion } from "@/components/bsc/proyeccion";
 import { hayCredenciales } from "@/lib/supabase/client";
@@ -28,6 +26,11 @@ function periodoAnterior(desde: string, hasta: string) {
   const finAnterior = new Date(inicio.getTime() - 86_400_000);
   const inicioAnterior = new Date(finAnterior.getTime() - (dias - 1) * 86_400_000);
   return { desde: isoUTC(inicioAnterior), hasta: isoUTC(finAnterior) };
+}
+
+function cierreDelMes(fecha: string) {
+  const base = new Date(`${fecha}T12:00:00Z`);
+  return isoUTC(new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0, 12)));
 }
 
 /**
@@ -57,26 +60,20 @@ export default async function CuadroDeMando({
   const campana = sp.campana ?? null;
   const comparar = sp.comparar !== "no";
   const anterior = periodoAnterior(desde, hasta);
+  const cierre = cierreDelMes(hasta);
 
   const supabase = await createClient();
 
   const [
     { data: indicadores },
-    { data: economia },
     { data: lineas },
     { data: equilibrio },
     { data: control },
     { data: proyeccion },
     { data: embudo },
     { data: indicadoresAnteriores },
-    { data: calidad },
   ] = await Promise.all([
       supabase.rpc("bsc_periodo", {
-        p_desde: desde,
-        p_hasta: hasta,
-        p_campana: campana,
-      }),
-      supabase.rpc("economia_ejecutivo", {
         p_desde: desde,
         p_hasta: hasta,
         p_campana: campana,
@@ -93,12 +90,13 @@ export default async function CuadroDeMando({
       }),
       supabase.rpc("control_ejecutivo", {
         p_desde: desde,
-        p_hasta: hasta,
+        p_hasta: cierre,
         p_campana: campana,
       }),
       supabase.rpc("proyeccion_cierre", {
         p_desde: desde,
-        p_hasta: hasta,
+        p_corte: hasta,
+        p_cierre: cierre,
         p_campana: campana,
       }),
       supabase.rpc("embudo_periodo", {
@@ -109,11 +107,6 @@ export default async function CuadroDeMando({
       supabase.rpc("bsc_periodo", {
         p_desde: anterior.desde,
         p_hasta: anterior.hasta,
-        p_campana: campana,
-      }),
-      supabase.rpc("calidad_bsc", {
-        p_desde: desde,
-        p_hasta: hasta,
         p_campana: campana,
       }),
     ]);
@@ -185,46 +178,25 @@ export default async function CuadroDeMando({
 
         <Tablero
           indicadores={(indicadores ?? []) as unknown as Indicador[]}
-          economia={(economia ?? []) as unknown as FilaEconomia[]}
           lineas={(lineas ?? []) as unknown as FilaLinea[]}
           equilibrio={
             ((equilibrio ?? [])[0] as unknown as Equilibrio | undefined) ?? null
           }
           proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
           embudo={(embudo ?? []) as unknown as EtapaEmbudo[]}
-          periodo={{ desde, hasta }}
           indicadoresAnteriores={comparar ? (indicadoresAnteriores ?? []) as unknown as Indicador[] : []}
-          periodoAnterior={comparar ? anterior : null}
         />
 
         <section className="mt-8 space-y-4">
           <div className="flex items-baseline gap-3">
             <span className="etiqueta shrink-0 text-[var(--text-muted)]">4</span>
-            <h2 className="text-[15px] font-semibold tracking-tight">
-              Gestión del equipo
-            </h2>
-            <span className="text-xs text-[var(--text-muted)]">
-              ¿Dónde intervenir primero?
-            </span>
+            <h2 className="text-[15px] font-semibold tracking-tight">Gestión del equipo</h2>
+            <span className="text-xs text-[var(--text-muted)]">Meta, ritmo, forecast y equilibrio en una sola vista</span>
             <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
           </div>
           <Control filas={(control ?? []) as unknown as FilaControl[]} />
         </section>
 
-        <section className="mt-8 space-y-4">
-          <div className="flex items-baseline gap-3">
-            <span className="etiqueta shrink-0 text-[var(--text-muted)]">5</span>
-            <h2 className="text-[15px] font-semibold tracking-tight">Decisiones y seguimiento</h2>
-            <span className="text-xs text-[var(--text-muted)]">¿Qué hacemos ahora y quién lo toma?</span>
-            <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
-          </div>
-          <Decisiones
-            calidad={(calidad ?? []) as unknown as ControlCalidad[]}
-            control={(control ?? []) as unknown as FilaControl[]}
-            proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
-            campanaId={campana}
-          />
-        </section>
       </main>
     </>
   );

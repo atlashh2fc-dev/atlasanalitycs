@@ -244,6 +244,7 @@ export function Control({ filas }: { filas: FilaControl[] }) {
               <th className="px-2 pb-1.5 text-right font-medium">Aseg.</th>
               <th className="w-[24%] px-3 pb-1.5 font-medium">Avance sobre su meta</th>
               <th className="px-2 pb-1.5 text-right font-medium">Meta</th>
+              <th className="px-2 pb-1.5 text-right font-medium">Proy.</th>
               <th className="px-2 pb-1.5 text-right font-medium">Equilibrio</th>
               <th className="px-2 pb-1.5 text-right font-medium">Margen</th>
               <th className="pl-2 pb-1.5 font-medium">Estado</th>
@@ -285,6 +286,9 @@ export function Control({ filas }: { filas: FilaControl[] }) {
                       *
                     </span>
                   )}
+                </td>
+                <td className="px-2 py-2 text-right font-semibold" style={{ color: (f.proyeccion ?? 0) >= f.meta_asignada ? ESTADO.good : ESTADO.serious }}>
+                  {f.proyeccion === null ? "—" : fmt.decimal(f.proyeccion, 1)}
                 </td>
                 <td className="px-2 py-2 text-right text-[var(--text-secondary)]">
                   {f.equilibrio_aseg === null

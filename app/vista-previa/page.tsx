@@ -6,7 +6,6 @@ import { Nav } from "@/components/nav";
 import {
   Tablero,
   type Equilibrio,
-  type FilaEconomia,
   type FilaLinea,
   type Indicador,
 } from "@/components/bsc/tablero";
@@ -61,32 +60,6 @@ const IND: Indicador[] = [
   cumplimiento: cumplimiento as number | null,
   sentido: "mas_mejor",
   detalle: detalle as string,
-}));
-
-const ECONOMIA: FilaEconomia[] = [
-  ["Marjorie Venegas Gonzalez", 15, 0, 20, 30.0, 1225407, 738474],
-  ["Marta Orellana Leiva", 10, 2, 13, 20.0, 816938, 582474],
-  ["Millaray Guzman Gajardo", 9, 4, 13, 19.5, 796514, 614874],
-  ["Francisca Valenzuela", 10, 302, 14, 19.5, 796514, 664264],
-  ["Isabel Tarifeño", 8, 861, 9, 14.55, 594322, 664264],
-  ["Daniela Guzman Contreras", 6, 0, 9, 13.5, 551433, 571674],
-  ["Jacqueline López", 7, 551, 8, 12.75, 520798, 664264],
-  ["Marisela Landeros", 7, 639, 7, 12.3, 502417, 664264],
-  ["Veronica Muñoz Montes", 4, 0, 7, 10.5, 428892, 550074],
-  ["Camila Marchant", 5, 470, 5, 8.55, 349241, 664264],
-  ["José Zuñiga", 5, 275, 5, 8.5, 347199, 664264],
-  ["Rommy Gormaz", 5, 542, 5, 8.0, 326775, 474474],
-].map(([ejecutivo, contratos, asegurados, ingreso_uf, ingreso_clp, costo]) => ({
-  ejecutivo: ejecutivo as string,
-  contratos: contratos as number,
-  asegurados: asegurados as number,
-  gestiones: 0,
-  ingreso_uf: ingreso_uf as number,
-  ingreso_clp: ingreso_clp as number,
-  costo_empresa_clp: costo as number,
-  margen_clp: (ingreso_clp as number) - (costo as number),
-  margen_pct:
-    Math.round((((ingreso_clp as number) - (costo as number)) / (ingreso_clp as number)) * 1000) / 10,
 }));
 
 const LINEAS: FilaLinea[] = [
@@ -223,7 +196,6 @@ export default function VistaPrevia() {
 
         <Tablero
           indicadores={IND}
-          economia={ECONOMIA}
           lineas={LINEAS}
           equilibrio={{
             asegurados_equilibrio: 181.9,
@@ -234,14 +206,13 @@ export default function VistaPrevia() {
           }}
           proyeccion={PROYECCION}
           embudo={EMBUDO}
-          periodo={{ desde: "2026-08-01", hasta: "2026-08-31" }}
         />
 
         <section className="mt-8 space-y-4">
           <div className="flex items-baseline gap-3">
             <span className="etiqueta shrink-0 text-[var(--text-muted)]">4</span>
             <h2 className="text-[15px] font-semibold tracking-tight">Gestión del equipo</h2>
-            <span className="text-xs text-[var(--text-muted)]">¿Dónde intervenir primero?</span>
+            <span className="text-xs text-[var(--text-muted)]">Meta, ritmo, forecast y equilibrio en una sola vista</span>
             <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
           </div>
           <Control filas={CONTROL} />

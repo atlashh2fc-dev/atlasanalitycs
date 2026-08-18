@@ -56,6 +56,7 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
           ? Math.max(0, (meta - (corte?.acumulado ?? 0)) / habilesRestantes)
           : null,
       fechaCorte: corte?.fecha ?? null,
+      fechaCierre: ultimo?.fecha ?? null,
     };
   }, [puntos]);
 
@@ -91,8 +92,7 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
         <div>
           <h3 className="text-[13px] font-semibold">Trayectoria de cierre</h3>
           <p className="mt-0.5 max-w-2xl text-xs text-[var(--text-secondary)]">
-            La línea continua es producción real; la discontinua prolonga el ritmo
-            observado sólo por los días hábiles que quedan.
+            Datos reales hasta {resumen.fechaCorte ? diaMes(resumen.fechaCorte) : "el corte"}; horizonte de cierre {resumen.fechaCierre ? diaMes(resumen.fechaCierre) : "—"}.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-right lg:grid-cols-4">
@@ -135,7 +135,13 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
         </div>
       </div>
 
-      <div className="mt-4 h-[290px]" role="img" aria-label="Asegurados acumulados, proyección y trayectoria de meta por día">
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-[var(--text-secondary)]">
+        <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 rounded" style={{ background: SERIES[0] }} /> Real hasta el corte</span>
+        <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 border-t-2 border-dashed" style={{ borderColor: "var(--tono-cotizacion)" }} /> Proyección lineal al cierre</span>
+        <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 border-t border-dashed border-[var(--text-muted)]" /> Ideal/meta acumulada</span>
+      </div>
+
+      <div className="mt-2 h-[290px]" role="img" aria-label="Asegurados acumulados, proyección y trayectoria de meta por día">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={datosGrafico} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--vidrio-borde)" strokeDasharray="3 4" />
@@ -163,7 +169,7 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
                   <Tooltip
                     titulo={diaMes(d.fecha)}
                     filas={[
-                      { etiqueta: "Acumulado real", valor: fmt.entero(d.acumulado), color: SERIES[0] },
+                      { etiqueta: "Acumulado real", valor: d.es_futuro ? "—" : fmt.entero(d.acumulado), color: SERIES[0] },
                       { etiqueta: "Proyección", valor: fmt.decimal(d.proyectado, 1), color: "var(--tono-cotizacion)" },
                       { etiqueta: "Meta a la fecha", valor: d.linea_meta === null ? "—" : fmt.decimal(d.linea_meta, 1) },
                       { etiqueta: "Venta del día", valor: fmt.entero(d.asegurados_dia) },
