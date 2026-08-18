@@ -541,11 +541,49 @@ export function Cargador({
       )
     : [];
   const pendientes = archivos.filter((a) => a.estado !== "cargado").length;
+  const campanaSeleccionada = campanas.find((c) => c.id === campana);
 
   return (
     <div className="space-y-5">
+      <Card className="border border-[color-mix(in_srgb,var(--series-1)_38%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--series-1)_7%,var(--surface-0))]">
+        <CardTitle
+          impacto="Control y Análisis operativo"
+          hint="Todos los archivos de este lote se agregan al historial de la campaña elegida. No reemplazan cargas anteriores."
+        >
+          Destino de la carga
+        </CardTitle>
+        {campanas.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-[minmax(240px,1fr)_1.5fr] sm:items-end">
+            <label className="text-xs text-[var(--text-secondary)]">
+              <span className="mb-1 block font-medium">Agregar información a</span>
+              <select
+                value={campana}
+                onChange={(e) => setCampana(e.target.value)}
+                disabled={ocupado}
+                className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-3 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                {campanas.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
+            </label>
+            <p className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--surface-0)] px-3 py-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+              <strong className="text-[var(--text-primary)]">{campanaSeleccionada?.nombre}</strong>{" "}
+              conservará sus reglas, equipo, metas y costos. Esta carga sólo suma registros y recalcula sus KPI.
+            </p>
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed px-3 py-2 text-xs text-[var(--critical)]">
+            No existe una campaña de destino. Créala en Administración antes de cargar archivos.
+          </p>
+        )}
+      </Card>
+
       <Card>
-        <CardTitle hint="Puedes elegir varios de una vez, o ir sumando de a uno: la cola no se borra al agregar otro archivo.">
+        <CardTitle
+          impacto={campanaSeleccionada ? `Campaña ${campanaSeleccionada.nombre}` : "Ninguna campaña seleccionada"}
+          hint="Puedes elegir varios de una vez, o ir sumando de a uno: la cola no se borra al agregar otro archivo."
+        >
           1 · Elige los archivos
         </CardTitle>
         <input
@@ -799,26 +837,18 @@ export function Cargador({
           </Card>
 
           <Card>
-            <CardTitle>4 · Confirma la campaña y carga</CardTitle>
+            <CardTitle
+              impacto="KPI de la campaña"
+              hint={`Destino confirmado: ${campanaSeleccionada?.nombre ?? "sin campaña"}. Los registros se suman al historial existente.`}
+            >
+              4 · Carga en {campanaSeleccionada?.nombre ?? "una campaña"}
+            </CardTitle>
             <div className="flex flex-wrap items-end gap-3">
-              {campanas.length > 0 ? <label className="min-w-[260px] text-xs text-[var(--text-secondary)]">
-                <span className="mb-1 block font-medium">Campaña de destino</span>
-                <select
-                  value={campana}
-                  onChange={(e) => setCampana(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
-                >
-                  {campanas.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </label> : (
+              {campanas.length === 0 ? (
                 <p className="rounded-xl border border-dashed px-3 py-2 text-xs text-[var(--critical)]">
                   Crea una campaña antes de cargar archivos.
                 </p>
-              )}
+              ) : null}
 
               <button
                 onClick={cargarActivo}

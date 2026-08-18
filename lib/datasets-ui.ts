@@ -23,6 +23,14 @@ type CargaFila = {
   created_at: string;
 };
 
+type CoberturaFila = {
+  campana_id: string;
+  fuente: string;
+  ultima_fecha: string | null;
+  fecha_esperada: string;
+  dias_atraso: number | null;
+};
+
 /**
  * Resumen operativo por campaña.
  *
@@ -32,7 +40,7 @@ type CargaFila = {
  */
 export async function obtenerResumenCampanas(): Promise<CampanaResumen[]> {
   const supabase = await createClient();
-  const [{ data: campanas }, { data: datasets }, { data: cargas }] =
+  const [{ data: campanas }, { data: datasets }, { data: cargas }, { data: cobertura }] =
     await Promise.all([
       supabase
         .from("campana")
@@ -52,6 +60,7 @@ export async function obtenerResumenCampanas(): Promise<CampanaResumen[]> {
         )
         .not("campana_id", "is", null)
         .order("created_at", { ascending: false }),
+      supabase.rpc("cobertura_datos_campanas"),
     ]);
 
   const datasetPorCampana = new Map<string, string>();
@@ -69,6 +78,13 @@ export async function obtenerResumenCampanas(): Promise<CampanaResumen[]> {
     cargasPorCampana.set(carga.campana_id, lista);
   }
 
+  const coberturaPorCampana = new Map<string, CoberturaFila[]>();
+  for (const fila of (cobertura ?? []) as CoberturaFila[]) {
+    const lista = coberturaPorCampana.get(fila.campana_id) ?? [];
+    lista.push(fila);
+    coberturaPorCampana.set(fila.campana_id, lista);
+  }
+
   return ((campanas ?? []) as CampanaFila[]).map((campana) => {
     const historial = cargasPorCampana.get(campana.id) ?? [];
     const ultima = historial[0];
@@ -83,6 +99,12 @@ export async function obtenerResumenCampanas(): Promise<CampanaResumen[]> {
       ),
       ultimaCarga: ultima?.created_at ?? null,
       estado: ultima?.estado ?? null,
+      cobertura: (coberturaPorCampana.get(campana.id) ?? []).map((fila) => ({
+        fuente: fila.fuente,
+        ultimaFecha: fila.ultima_fecha,
+        fechaEsperada: fila.fecha_esperada,
+        diasAtraso: fila.dias_atraso,
+      })),
     };
   });
 }

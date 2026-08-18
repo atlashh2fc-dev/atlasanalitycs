@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
 import {
   Tablero,
+  type CostoCierre,
   type Equilibrio,
   type FilaLinea,
   type Indicador,
@@ -74,6 +75,7 @@ export default async function CuadroDeMando({
     { data: proyeccion },
     { data: embudo },
     { data: indicadoresAnteriores },
+    { data: costosCierre },
   ] = await Promise.all([
       supabase.rpc("bsc_periodo", {
         p_desde: desde,
@@ -109,6 +111,11 @@ export default async function CuadroDeMando({
       supabase.rpc("bsc_periodo", {
         p_desde: anterior.desde,
         p_hasta: anterior.hasta,
+        p_campana: campana,
+      }),
+      supabase.rpc("costos_periodo", {
+        p_desde: desde,
+        p_hasta: cierre,
         p_campana: campana,
       }),
     ]);
@@ -188,6 +195,7 @@ export default async function CuadroDeMando({
           embudo={(embudo ?? []) as unknown as EtapaEmbudo[]}
           indicadoresAnteriores={comparar ? (indicadoresAnteriores ?? []) as unknown as Indicador[] : []}
           analysisQuery={contextoAnalisis.toString()}
+          costosCierre={(costosCierre ?? []) as unknown as CostoCierre[]}
         />
 
         <section className="mt-8 space-y-4">

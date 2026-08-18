@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileSpreadsheet, Settings2, Tags, Upload, Users } from "lucide-react";
+import { BarChart3, Database, FileSpreadsheet, Settings2, Tags, Upload, Users } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Nav } from "@/components/nav";
 import { createClient } from "@/lib/supabase/server";
@@ -261,21 +261,43 @@ export default async function Mantenedor({
         </div>
 
         {campanas.length > 1 ? (
-          <nav className="mt-5 flex flex-wrap gap-2" aria-label="Elegir campaña">
-            {campanas.map((campana) => (
-              <Link
-                key={campana.id}
-                href={`/administracion?campana=${campana.id}`}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                  campana.id === seleccionada?.id
-                    ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_9%,transparent)]"
-                    : "text-[var(--text-secondary)]"
-                }`}
-              >
-                {campana.nombre}
-              </Link>
-            ))}
-          </nav>
+          <div className="mt-5">
+            <p className="mb-2 text-[11px] font-medium text-[var(--text-muted)]">CAMPAÑA QUE ESTÁS ADMINISTRANDO</p>
+            <nav className="flex flex-wrap gap-2" aria-label="Elegir campaña">
+              {campanas.map((campana) => (
+                <Link
+                  key={campana.id}
+                  href={`/administracion?campana=${campana.id}`}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    campana.id === seleccionada?.id
+                      ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_9%,transparent)]"
+                      : "text-[var(--text-secondary)]"
+                  }`}
+                >
+                  {campana.nombre}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        ) : null}
+
+        {seleccionada ? (
+          <section className="mt-5 rounded-2xl border border-[color-mix(in_srgb,var(--series-1)_35%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--series-1)_7%,var(--surface-0))] p-4">
+            <div className="flex flex-wrap items-start gap-4">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--series-1)_16%,transparent)] text-[var(--series-1)]"><Tags className="size-5" /></span>
+              <div className="min-w-[240px] flex-1">
+                <h2 className="text-sm font-semibold">Todo lo de esta pantalla afecta sólo a {seleccionada.nombre}</h2>
+                <div className="mt-2 grid gap-2 text-[11px] leading-relaxed text-[var(--text-secondary)] md:grid-cols-2">
+                  <p><strong>Agregar datos</strong> acumula registros en esta campaña y actualiza Control y Análisis.</p>
+                  <p><strong>Cambiar reglas</strong> modifica cómo se calculan metas, costos, margen y quién puede verlos; no modifica los archivos cargados.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/datos`} className="pildora text-xs"><Database className="size-3.5" /> Ver datos</Link>
+                <Link href={`/bsc?campana=${seleccionada.id}`} className="pildora text-xs"><BarChart3 className="size-3.5" /> Ver impacto en Control</Link>
+              </div>
+            </div>
+          </section>
         ) : null}
 
         {!seleccionada ? (
@@ -294,8 +316,8 @@ export default async function Mantenedor({
         ) : (
           <div className="mt-6 space-y-5">
             <Card>
-              <CardTitle hint="Los archivos nuevos se acumulan aquí; no crean otra base ni otra campaña.">
-                1 · Campaña y cargas
+              <CardTitle hint="Confirma que estás trabajando en el contenedor correcto antes de cargar o cambiar parámetros." impacto="alcance de todos los datos y reglas">
+                1 · Resumen de la campaña
               </CardTitle>
               <div className="grid gap-3 sm:grid-cols-4">
                 <Resumen icono={Tags} etiqueta="Tipo" valor={seleccionada.tipo} />
@@ -318,14 +340,14 @@ export default async function Mantenedor({
             </Card>
 
             <Card>
-              <CardTitle hint="Sólo se muestran y editan ejecutivos de esta campaña.">
+              <CardTitle hint="Asigna aquí las personas que participan y su jornada. No carga sus resultados: esos llegan desde Datos." impacto="metas individuales, productividad y costos">
                 2 · Ejecutivos de {seleccionada.nombre}
               </CardTitle>
               <Ejecutivos ejecutivos={ejecutivos} campanas={campanaUnica} />
             </Card>
 
             <Card>
-              <CardTitle hint="Las metas y su vigencia pertenecen exclusivamente a esta campaña.">
+              <CardTitle hint="Define el objetivo y su vigencia. Las ventas reales no cambian; cambia la referencia contra la que se evalúan." impacto="cumplimiento, ideal y forecast">
                 3 · Metas de {seleccionada.nombre}
               </CardTitle>
               {ctx.esAdmin ? <FormMeta campanas={campanaUnica} /> : null}
@@ -364,7 +386,7 @@ export default async function Mantenedor({
 
             {ctx.esAdmin ? (
               <Card>
-                <CardTitle hint="Lo que entra por cada venta, lo que cuesta el equipo y los costos de operación. De acá salen el ingreso y el margen del cuadro de mando.">
+                <CardTitle hint="Configura tarifas, comisiones, remuneraciones y costos. No modifica ventas; les asigna valor económico." impacto="ingreso, costo, margen y equilibrio">
                   4 · Economía de {seleccionada.nombre}
                 </CardTitle>
                 <Economia
@@ -379,7 +401,7 @@ export default async function Mantenedor({
 
             {ctx.esAdmin ? (
               <Card>
-                <CardTitle hint="Aquí defines qué supervisores pueden ver esta campaña; los administradores ven todas.">
+                <CardTitle hint="Define quién puede entrar a esta campaña. Los administradores conservan visibilidad total." impacto="acceso y visibilidad, no KPI">
                   5 · Usuarios de {seleccionada.nombre}
                 </CardTitle>
                 <Usuarios
@@ -393,7 +415,7 @@ export default async function Mantenedor({
 
             {ctx.esAdmin ? (
               <Card>
-                <CardTitle hint="Crea otra sólo cuando sea una operación realmente independiente.">
+                <CardTitle hint="Crea otra sólo cuando los datos, equipo, metas y economía no deban mezclarse con esta operación." impacto="crea un contenedor independiente">
                   Otra campaña
                 </CardTitle>
                 <FormCampana />

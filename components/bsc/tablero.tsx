@@ -46,6 +46,13 @@ export interface FilaLinea {
   ingreso_clp: number;
 }
 
+export interface CostoCierre {
+  concepto: string;
+  base: string;
+  cantidad: number | null;
+  monto_clp: number;
+}
+
 /**
  * Las cuatro perspectivas de Kaplan y Norton, en el orden en que se leen:
  * la financiera es el resultado, y las tres de abajo son las causas.
@@ -203,6 +210,7 @@ export function Tablero({
   embudo,
   indicadoresAnteriores = [],
   analysisQuery = "",
+  costosCierre = [],
 }: {
   indicadores: Indicador[];
   lineas: FilaLinea[];
@@ -211,6 +219,7 @@ export function Tablero({
   embudo: EtapaEmbudo[];
   indicadoresAnteriores?: Indicador[];
   analysisQuery?: string;
+  costosCierre?: CostoCierre[];
 }) {
   const reducido = usaMovimientoReducido();
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -235,6 +244,55 @@ export function Tablero({
   const costo = financiera.find((i) => i.indicador === "Costo total");
   const margen = financiera.find((i) => i.indicador === "Margen");
 
+  const forecastFinanciero = useMemo(() => {
+    const corte = proyeccion.findLast((p) => !p.es_futuro);
+    const cierre = proyeccion.at(-1);
+    const aseguradosReales = corte?.acumulado ?? 0;
+    if (!cierre || aseguradosReales <= 0) return null;
+
+    const factorLineal = cierre.proyectado / aseguradosReales;
+    const factorIdeal = cierre.linea_meta === null ? null : cierre.linea_meta / aseguradosReales;
+    const ingresoReal = ingreso?.valor ?? 0;
+    const totalCostoCierre = costosCierre.reduce((s, fila) => s + Number(fila.monto_clp ?? 0), 0);
+    const costoVariableActual = costosCierre
+      .filter((fila) => fila.concepto !== "Sueldo base" && !["mensual", "por_posicion"].includes(fila.base))
+      .reduce((s, fila) => s + Number(fila.monto_clp ?? 0), 0);
+    const costoFijoCierre = Math.max(0, totalCostoCierre - costoVariableActual);
+    const costoLineal = costosCierre.length > 0 ? costoFijoCierre + costoVariableActual * factorLineal : null;
+    const costoIdeal = costosCierre.length > 0 && factorIdeal !== null ? costoFijoCierre + costoVariableActual * factorIdeal : null;
+    const ingresoLineal = ingresoReal * factorLineal;
+    const ingresoIdeal = ingreso?.meta ?? (factorIdeal === null ? null : ingresoReal * factorIdeal);
+
+    return {
+      ingresoLineal,
+      ingresoIdeal,
+      costoLineal,
+      costoIdeal,
+      margenLineal: costoLineal === null ? null : ingresoLineal - costoLineal,
+      margenIdeal: costoIdeal === null || ingresoIdeal === null ? null : ingresoIdeal - costoIdeal,
+    };
+  }, [costosCierre, ingreso, proyeccion]);
+
+  const desgloseCostos = useMemo(() => {
+    const corte = proyeccion.findLast((p) => !p.es_futuro);
+    const cierre = proyeccion.at(-1);
+    const reales = corte?.acumulado ?? 0;
+    const factorLineal = reales > 0 && cierre ? cierre.proyectado / reales : 1;
+    const filas = costosCierre.map((fila) => {
+      const fijo = ["mensual", "por_posicion"].includes(fila.base);
+      const proyectado = Number(fila.monto_clp ?? 0) * (fijo ? 1 : factorLineal);
+      return { ...fila, fijo, proyectado };
+    });
+    const total = filas.reduce((s, fila) => s + fila.proyectado, 0);
+    return {
+      filas,
+      total,
+      fijo: filas.filter((fila) => fila.fijo).reduce((s, fila) => s + fila.proyectado, 0),
+      variable: filas.filter((fila) => !fila.fijo).reduce((s, fila) => s + fila.proyectado, 0),
+      leyes: filas.filter((fila) => fila.concepto.startsWith("Leyes sociales")).reduce((s, fila) => s + fila.proyectado, 0),
+    };
+  }, [costosCierre, proyeccion]);
+
   const sinCostos = (costo?.valor ?? 0) === 0;
 
   // El salto de tarifa del oncológico es el hallazgo más accionable del
@@ -258,9 +316,9 @@ export function Tablero({
         <Titulo numero="2" titulo="Resultado financiero y forecast" subtitulo="Real al corte, cierre esperado, meta y sostenibilidad" />
         <div className="grid gap-4 lg:grid-cols-3">
         {[
-          { t: "Ingreso del periodo", i: ingreso, tono: "var(--tono-venta)", mejorAlSubir: true },
-          { t: "Costo total", i: costo, tono: "var(--tono-asistencia)", mejorAlSubir: false },
-          { t: "Margen", i: margen, tono: "var(--tono-cliente)", mejorAlSubir: true },
+          { t: "Ingreso del periodo", i: ingreso, tono: "var(--tono-venta)", mejorAlSubir: true, lineal: forecastFinanciero?.ingresoLineal, ideal: forecastFinanciero?.ingresoIdeal },
+          { t: "Costo total", i: costo, tono: "var(--tono-asistencia)", mejorAlSubir: false, lineal: forecastFinanciero?.costoLineal, ideal: forecastFinanciero?.costoIdeal },
+          { t: "Margen", i: margen, tono: "var(--tono-cliente)", mejorAlSubir: true, lineal: forecastFinanciero?.margenLineal, ideal: forecastFinanciero?.margenIdeal },
         ].map((c, k) => (
           <motion.div
             key={c.t}
@@ -278,6 +336,16 @@ export function Tablero({
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
               {c.i?.detalle}
             </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--vidrio-borde)] pt-3">
+              <div>
+                <p className="etiqueta">Cierre lineal</p>
+                <p className="tabular mt-1 text-sm font-semibold">{c.lineal === null || c.lineal === undefined ? "—" : fmt.clp(c.lineal)}</p>
+              </div>
+              <div>
+                <p className="etiqueta">Ideal al cierre</p>
+                <p className="tabular mt-1 text-sm font-semibold">{c.ideal === null || c.ideal === undefined ? "—" : fmt.clp(c.ideal)}</p>
+              </div>
+            </div>
             {c.i && anteriores.has(`${c.i.perspectiva}-${c.i.indicador}`) ? (() => {
               const previo = anteriores.get(`${c.i.perspectiva}-${c.i.indicador}`)?.valor;
               if (previo === null || previo === undefined) return null;
@@ -293,6 +361,78 @@ export function Tablero({
           </motion.div>
         ))}
         </div>
+
+        {forecastFinanciero ? (
+          <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+            Forecast financiero: el ingreso mantiene el mix y la tarifa media observados; el costo fijo se lleva completo al cierre y el variable acompaña el volumen proyectado. “Ideal” representa el escenario de cumplir la meta, no un presupuesto contable independiente.
+          </p>
+        ) : null}
+
+        {desgloseCostos.filas.length > 0 ? (
+          <div
+            data-tono
+            style={{ "--tono": "var(--tono-asistencia)" } as React.CSSProperties}
+            className="vidrio overflow-hidden rounded-2xl"
+          >
+            <div className="grid gap-4 border-b border-[var(--vidrio-borde)] p-5 lg:grid-cols-[1.35fr_repeat(3,minmax(130px,0.65fr))] lg:items-end">
+              <div>
+                <p className="etiqueta">Estructura de costo · cierre lineal</p>
+                <h3 className="mt-1 text-sm font-semibold">Qué compone el costo y cuánto pesa</h3>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                  Separa compromisos fijos, costo variable y carga legal para explicar el margen proyectado.
+                </p>
+              </div>
+              {[
+                ["Fijo comprometido", desgloseCostos.fijo],
+                ["Variable proyectado", desgloseCostos.variable],
+                ["Leyes sociales", desgloseCostos.leyes],
+              ].map(([etiqueta, valor]) => (
+                <div key={String(etiqueta)}>
+                  <p className="etiqueta">{etiqueta}</p>
+                  <p className="tabular mt-1 text-lg font-semibold">{fmt.clp(Number(valor))}</p>
+                </div>
+              ))}
+            </div>
+            <div className="overflow-x-auto px-5 pb-4">
+              <table className="w-full min-w-[680px] text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--vidrio-borde)] text-left text-[var(--text-muted)]">
+                    <th className="py-2 font-medium">Componente</th>
+                    <th className="py-2 font-medium">Naturaleza</th>
+                    <th className="py-2 text-right font-medium">Proyección cierre</th>
+                    <th className="py-2 text-right font-medium">Peso</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {desgloseCostos.filas.map((fila) => (
+                    <tr key={`${fila.concepto}-${fila.base}`} className="border-b border-[var(--vidrio-borde)] last:border-0">
+                      <td className="py-2.5 pr-4 font-medium text-[var(--text-primary)]">
+                        {fila.concepto}
+                        <span className="ml-2 font-normal text-[var(--text-muted)]">{fila.base.replaceAll("_", " ")}</span>
+                      </td>
+                      <td className="py-2.5">
+                        <span className="rounded-full border border-[var(--vidrio-borde)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
+                          {fila.fijo ? "Fijo" : "Variable"}
+                        </span>
+                      </td>
+                      <td className="tabular py-2.5 text-right font-semibold">{fmt.clp(fila.proyectado)}</td>
+                      <td className="tabular py-2.5 text-right text-[var(--text-secondary)]">
+                        {desgloseCostos.total > 0 ? `${((fila.proyectado / desgloseCostos.total) * 100).toFixed(1)}%` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-[var(--vidrio-borde)]">
+                    <td className="py-2.5 font-semibold" colSpan={2}>Costo total proyectado</td>
+                    <td className="tabular py-2.5 text-right font-semibold">{fmt.clp(desgloseCostos.total)}</td>
+                    <td className="tabular py-2.5 text-right font-semibold">100%</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        ) : null}
 
         {sinCostos ? (
         <p
