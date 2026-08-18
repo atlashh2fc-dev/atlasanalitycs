@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/stat";
 import { fmt } from "@/lib/utils";
 
@@ -16,8 +14,6 @@ export interface CargaPendiente {
   filasTotales: number | null;
   error: string | null;
   fecha: string;
-  datasetId: string | null;
-  puedeUsar: boolean;
 }
 
 const TONO: Record<string, "good" | "warning" | "critical" | "neutro"> = {
@@ -57,6 +53,7 @@ export function Pendientes({
   const [avance, setAvance] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
+
   async function reanudar(id: string) {
     setTrabajando(id);
     setError(null);
@@ -143,6 +140,7 @@ export function Pendientes({
   const incompletas = cargas.filter(
     (c) => c.estado !== "procesada" && c.estado !== "revertida",
   );
+
   return (
     <div>
       {incompletas.length > 0 ? (
@@ -159,19 +157,17 @@ export function Pendientes({
         </p>
       ) : null}
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-xs">
-          <thead>
-            <tr className="border-b text-left text-[var(--text-muted)]">
-              <th className="pb-1.5 font-medium">Archivo</th>
-              <th className="pb-1.5 font-medium">Hoja</th>
-              <th className="pb-1.5 font-medium">Análisis</th>
-              <th className="pb-1.5 font-medium">Avance</th>
-              <th className="pb-1.5 font-medium">Estado</th>
-              <th className="pb-1.5 text-right font-medium">Acción</th>
-            </tr>
-          </thead>
-          <tbody>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b text-left text-[var(--text-muted)]">
+            <th className="pb-1.5 font-medium">Archivo</th>
+            <th className="pb-1.5 font-medium">Hoja</th>
+            <th className="pb-1.5 font-medium">Avance</th>
+            <th className="pb-1.5 font-medium">Estado</th>
+            <th className="pb-1.5 text-right font-medium">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
           {cargas.map((c) => {
             // Las cargas del flujo anterior no llevaban contador, así
             // que una completa se mostraba en 0 / 83. El estado manda.
@@ -189,19 +185,6 @@ export function Pendientes({
                   {c.archivo}
                 </td>
                 <td className="py-2 text-[var(--text-secondary)]">{c.hoja}</td>
-                <td className="py-2 text-[var(--text-secondary)]">
-                  {c.datasetId ? (
-                    <Link
-                      href={`/analisis?dataset=${c.datasetId}`}
-                      className="inline-flex items-center gap-1 font-medium text-[var(--series-1)] hover:underline"
-                    >
-                      <BarChart3 className="size-3" />
-                      Ver campaña
-                    </Link>
-                  ) : (
-                    <span className="text-[var(--text-muted)]">No disponible</span>
-                  )}
-                </td>
                 <td className="py-2">
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--surface-0)]">
@@ -276,9 +259,8 @@ export function Pendientes({
               </tr>
             );
           })}
-          </tbody>
-        </table>
-      </div>
+        </tbody>
+      </table>
 
       {error ? (
         <p className="mt-2 text-xs" style={{ color: "var(--critical)" }}>

@@ -79,7 +79,10 @@ export function normalizaNombreColumna(v: unknown): string {
 /* ------------------------------------------------------------------ */
 
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const RE_FECHA = /^\d{1,4}[-/]\d{1,2}[-/]\d{1,4}([ T]\d{1,2}:\d{2}(:\d{2})?)?$/;
+// La coma entre fecha y hora la escribe el export del discador:
+// "8/8/2026, 11:28:59". Sin admitirla, esa columna se clasificaba como
+// texto y no como fecha.
+const RE_FECHA = /^\d{1,4}[-/]\d{1,2}[-/]\d{1,4}(,?[ T]\d{1,2}:\d{2}(:\d{2})?)?$/;
 const RE_HORA = /^\d{1,2}:\d{2}(:\d{2})?$/;
 const RE_SOLO_DIGITOS = /^\d+$/;
 
@@ -216,6 +219,19 @@ const SINONIMOS: Record<string, string> = {
   edad_beneficiario: "edad",
   cluster: "cluster",
   equipo: "equipo",
+  valor_uf: "valor_uf",
+
+  // Gestiones del discador. Ojo con los dos RUT del archivo: si no se
+  // nombra el del ejecutivo, la inferencia por tipo lo toma como RUT de
+  // cliente y cada gestión queda pegada a la persona equivocada.
+  id_gestion: "id_gestion",
+  id_genesys: "id_externo",
+  fecha_gestion: "fecha_gestion",
+  nombre_ejecutivo: "ejecutivo",
+  rut_ejecutivo: "rut_ejecutivo",
+  tipificacion: "tipificacion",
+  telefono: "telefono_cliente",
+  campana: "campana",
 };
 
 /** Roles que se pueden inferir sólo del tipo, sin mirar el nombre. */

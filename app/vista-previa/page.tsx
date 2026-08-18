@@ -2,12 +2,13 @@
 
 import { useEffect } from "react";
 import { useTheme } from "next-themes";
-import { motion } from "framer-motion";
 import { Nav } from "@/components/nav";
-import { TarjetaCifra } from "@/components/panel/tarjeta";
-import { GraficoCumplimiento } from "@/components/charts/cumplimiento";
-import { GraficoRanking } from "@/components/charts/ranking";
-import { tonoDe } from "@/lib/tonos";
+import {
+  Tablero,
+  type FilaEconomia,
+  type FilaLinea,
+  type Indicador,
+} from "@/components/bsc/tablero";
 
 /**
  * Banco de pruebas visual.
@@ -15,19 +16,94 @@ import { tonoDe } from "@/lib/tonos";
  * Existe para revisar el diseño en pantalla con datos conocidos, sin
  * depender de una sesión ni de la base. Se sirve sólo en desarrollo: en
  * producción devuelve 404, así que no hay ruta pública que exponga nada.
+ *
+ * Los números son los reales de agosto 2026: los financieros salen de la
+ * base y los de gestión, del archivo del discador.
  */
 
-const serie = [3, 7, 5, 12, 9, 15, 11, 18, 14, 21, 17, 24].map((v, i) => ({
-  clave: `2026-08-${String(i + 1).padStart(2, "0")}`,
-  valor: v,
+const IND: Indicador[] = [
+  ["Financiera", 1, "Ingreso del periodo", 8034584, "clp", null, 40.6, "Lo que factura el contact center según la tarifa vigente."],
+  ["Financiera", 2, "Costo total", 0, "clp", null, null, "Remuneración con leyes sociales más los costos de operación cargados en el mantenedor."],
+  ["Financiera", 3, "Margen", 8034584, "clp", null, null, "Ingreso menos costo. Sin remuneración cargada, es igual al ingreso."],
+  ["Financiera", 4, "Margen sobre ingreso", 100, "pct", null, null, "Qué porcentaje de cada peso facturado queda después de costos."],
+  ["Financiera", 5, "Ingreso por asegurado", 1.561, "uf", null, null, "Tarifa media obtenida. Sube con el mix: titulares mayores y pólizas con adicionales pagan más."],
+  ["Financiera", 6, "Costo por asegurado", 0, "clp", null, null, "Cuánto cuesta producir un asegurado. Es el número que hay que comparar contra la tarifa."],
+
+  ["Cliente", 1, "Contactabilidad", 69.1, "pct", null, null, "De cada cien intentos, en cuántos se habló con la persona. Mide la calidad de la base y del horario de marcado, no del ejecutivo."],
+  ["Cliente", 2, "Clientes gestionados", 5295, "entero", null, null, "Personas únicas tocadas en el periodo."],
+  ["Cliente", 3, "Intentos por cliente", 1.58, "decimal", null, null, "Insistencia media. Muy bajo quema base; muy alto molesta y no convierte."],
+  ["Cliente", 4, "Tasa de rechazo", 37.8, "pct", null, null, "De los que sí contestaron, cuántos dijeron que no."],
+  ["Cliente", 5, "Base quemada", 19.3, "pct", null, null, "Clientes que pidieron no volver a ser llamados. Es pérdida permanente de base."],
+
+  ["Procesos", 1, "Gestiones", 8391, "entero", null, null, "Volumen total de intentos de contacto."],
+  ["Procesos", 2, "Gestiones por ejecutivo-día", 49.9, "decimal", null, null, "Intensidad de marcado. Es lo que separa un problema de esfuerzo de uno de efectividad."],
+  ["Procesos", 3, "Conversión contacto a venta", 1.76, "pct", null, null, "De cada cien conversaciones reales, cuántas terminaron en contrato."],
+  ["Procesos", 4, "Conversión gestión a venta", 1.22, "pct", null, null, "Contratos sobre intentos totales."],
+  ["Procesos", 5, "Cierre sobre cotización", 2.12, "pct", null, null, "Cuántas cotizaciones terminan en venta."],
+  ["Procesos", 6, "Compromisos abiertos", 3453, "entero", null, null, "Agendamientos y rellamadas vivas: el embudo que queda para los próximos días."],
+
+  ["Personas", 1, "Cumplimiento de meta", 40.6, "pct", 100, 40.6, "Asegurados sobre la meta del periodo, sumando todas las líneas."],
+  ["Personas", 2, "Ejecutivos con venta", 16, "entero", 14, null, "Cuántos de los que gestionaron lograron vender."],
+  ["Personas", 3, "Brecha entre cuartiles", 5.5, "decimal", null, null, "Cuántas veces rinde el cuartil superior respecto del inferior. Sobre tres, el problema es de método, no de personas."],
+  ["Personas", 4, "Mediana del equipo", 7, "decimal", null, null, "Asegurados del ejecutivo del medio."],
+  ["Personas", 5, "Asistencia", null, "pct", null, null, "Presencias sobre marcas registradas. Requiere la planilla de asistencia cargada."],
+].map(([perspectiva, orden, indicador, valor, unidad, meta, cumplimiento, detalle]) => ({
+  perspectiva: perspectiva as string,
+  orden: orden as number,
+  indicador: indicador as string,
+  valor: valor as number | null,
+  unidad: unidad as string,
+  meta: meta as number | null,
+  cumplimiento: cumplimiento as number | null,
+  sentido: "mas_mejor",
+  detalle: detalle as string,
 }));
 
-const KPIS = [
-  { t: "Asegurados del periodo", fuente: "venta", total: 104, obj: 310, ant: 78, u: "entero", reg: 83 },
-  { t: "Contratos", fuente: "venta", total: 83, ant: 91, u: "entero", reg: 83 },
-  { t: "UF vendida", fuente: "venta", total: 36.08, ant: 31.2, u: "uf", reg: 83 },
-  { t: "Cotizaciones", fuente: "cotizacion", total: 2064, ant: 1890, u: "entero", reg: 2064 },
-] as const;
+const ECONOMIA: FilaEconomia[] = [
+  ["Marjorie Venegas Gonzalez", 15, 20, 0, 30.0, 1225407],
+  ["Marta Orellana Leiva", 10, 13, 2, 20.0, 816938],
+  ["Francisca Valenzuela", 10, 14, 963, 19.5, 796514],
+  ["Millaray Guzman Gajardo", 9, 13, 4, 19.5, 796514],
+  ["Isabel Tarifeño", 8, 9, 937, 14.55, 594322],
+  ["Daniela Guzman Contreras", 6, 9, 0, 13.5, 551433],
+  ["Jacqueline López", 7, 8, 785, 12.75, 520798],
+  ["Marisela Landeros", 7, 7, 802, 12.3, 502417],
+  ["Veronica Muñoz Montes", 4, 7, 0, 10.5, 428892],
+  ["Camila Marchant", 5, 5, 927, 8.55, 349241],
+  ["José Zuñiga", 5, 5, 419, 8.5, 347199],
+  ["Rommy Gormaz", 5, 5, 671, 8.0, 326775],
+].map(([ejecutivo, contratos, asegurados, gestiones, ingreso_uf, ingreso_clp]) => ({
+  ejecutivo: ejecutivo as string,
+  contratos: contratos as number,
+  asegurados: asegurados as number,
+  gestiones: gestiones as number,
+  ingreso_uf: ingreso_uf as number,
+  ingreso_clp: ingreso_clp as number,
+  costo_empresa_clp: 0,
+  margen_clp: ingreso_clp as number,
+  margen_pct: 100,
+}));
+
+const LINEAS: FilaLinea[] = [
+  {
+    agrupacion_meta: "CM+CAT",
+    asegurados: 67,
+    meta: 250,
+    cumplimiento_pct: 26.8,
+    tarifa_uf: null,
+    ingreso_uf: 108.2,
+    ingreso_clp: 4419634,
+  },
+  {
+    agrupacion_meta: "ONCO",
+    asegurados: 59,
+    meta: 60,
+    cumplimiento_pct: 98.33,
+    tarifa_uf: 1.5,
+    ingreso_uf: 88.5,
+    ingreso_clp: 3614950,
+  },
+];
 
 export default function VistaPrevia() {
   const { setTheme } = useTheme();
@@ -41,93 +117,18 @@ export default function VistaPrevia() {
       <Nav email="paula@ejemplo.cl" />
       <main className="mx-auto max-w-[1560px] px-6 py-7">
         <div className="mb-6">
-          <p className="etiqueta">Gestión de venta</p>
+          <p className="etiqueta">Contact center · gestión de venta</p>
           <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">
-            Mi panel
+            Cuadro de mando integral
           </h1>
         </div>
 
-        <div className="mb-5 grid gap-4 sm:grid-cols-4">
-          {KPIS.map((k, i) => {
-            const t = tonoDe(k.fuente);
-            const Icono = t.icono;
-            return (
-              <motion.div
-                key={k.t}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.045, type: "spring", stiffness: 260, damping: 26 }}
-                data-tono
-                style={{ "--tono": t.css } as React.CSSProperties}
-                className="vidrio h-[196px] rounded-2xl p-4"
-              >
-                <div className="mb-3 flex items-center gap-2">
-                  <span
-                    className="grid size-6 place-items-center rounded-lg"
-                    style={{
-                      background: "color-mix(in srgb, var(--tono) 18%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--tono) 38%, transparent)",
-                      color: "var(--tono)",
-                    }}
-                  >
-                    <Icono className="size-3.5" strokeWidth={2.2} />
-                  </span>
-                  <h3 className="truncate text-[13px] font-semibold">{k.t}</h3>
-                </div>
-                <div className="h-[130px]">
-                  <TarjetaCifra
-                    total={k.total}
-                    unidad={k.u as "entero"}
-                    registros={k.reg}
-                    objetivo={"obj" in k ? k.obj : undefined}
-                    anterior={k.ant}
-                    serie={serie}
-                    granularidad="dia"
-                    tono={t.css}
-                    ritmo={0.42}
-                  />
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div
-            data-tono
-            style={{ "--tono": "var(--tono-venta)" } as React.CSSProperties}
-            className="vidrio rounded-2xl p-5"
-          >
-            <h3 className="text-[13px] font-semibold">Cumplimiento por línea</h3>
-            <p className="mb-3 text-xs text-[var(--text-muted)]">
-              Una línea sobre ritmo puede tapar el atraso de la otra.
-            </p>
-            <GraficoCumplimiento
-              datos={[
-                { agrupacion: "CM+CAT", asegurados: 57, meta: 250, ritmoEsperado: 91, proyeccion: 157 },
-                { agrupacion: "ONCO", asegurados: 47, meta: 60, ritmoEsperado: 22, proyeccion: 129 },
-              ]}
-            />
-          </div>
-
-          <div
-            data-tono
-            style={{ "--tono": "var(--tono-venta)" } as React.CSSProperties}
-            className="vidrio rounded-2xl p-5"
-          >
-            <h3 className="mb-3 text-[13px] font-semibold">Ranking y dispersión</h3>
-            <GraficoRanking
-              mediana={10}
-              datos={[
-                { ejecutivo: "Marjorie Venegas", asegurados: 17, cuartil: 4, ipD: 2.12 },
-                { ejecutivo: "Francisca Valenzuela", asegurados: 14, cuartil: 4, ipD: 1.75 },
-                { ejecutivo: "Marta Orellana", asegurados: 10, cuartil: 3, ipD: 1.25 },
-                { ejecutivo: "Isabel Tarifeño", asegurados: 7, cuartil: 2, ipD: 0.88 },
-                { ejecutivo: "Fresia Rojas", asegurados: 2, cuartil: 1, ipD: 0.25 },
-              ]}
-            />
-          </div>
-        </div>
+        <Tablero
+          indicadores={IND}
+          economia={ECONOMIA}
+          lineas={LINEAS}
+          periodo={{ desde: "2026-08-01", hasta: "2026-08-31" }}
+        />
       </main>
     </>
   );

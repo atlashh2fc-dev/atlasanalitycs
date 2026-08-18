@@ -2,30 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Database, House, Settings2 } from "lucide-react";
+import { BarChart3, Database, Settings2, Target, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SelectorTema } from "./tema";
 
 const LINKS = [
-  { href: "/inicio", label: "Inicio", icono: House, rutas: ["/inicio"] },
-  {
-    href: "/datos",
-    label: "Datos",
-    icono: Database,
-    rutas: ["/datos", "/cargar"],
-  },
-  {
-    href: "/analisis",
-    label: "Análisis",
-    icono: BarChart3,
-    rutas: ["/analisis", "/dashboard", "/equipo"],
-  },
-  {
-    href: "/mantenedor",
-    label: "Configuración",
-    icono: Settings2,
-    rutas: ["/mantenedor"],
-  },
+  { href: "/bsc", label: "Cuadro de mando", icono: Target },
+  { href: "/dashboard", label: "Mi panel", icono: BarChart3 },
+  { href: "/equipo", label: "Equipo", icono: Users },
+  { href: "/cargar", label: "Cargar datos", icono: Database },
+  { href: "/mantenedor", label: "Mantenedor", icono: Settings2 },
 ];
 
 export function Nav({ email }: { email: string | null }) {
@@ -33,11 +19,8 @@ export function Nav({ email }: { email: string | null }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--vidrio-borde)] bg-[color-mix(in_srgb,var(--plano)_72%,transparent)] backdrop-blur-xl">
-      <div className="mx-auto flex min-h-14 max-w-[1560px] items-center gap-3 px-4 py-2 sm:gap-6 sm:px-6">
-        <Link
-          href="/inicio"
-          className="group flex shrink-0 items-center gap-2.5"
-        >
+      <div className="mx-auto flex h-14 max-w-[1560px] items-center gap-6 px-6">
+        <Link href="/dashboard" className="group flex items-center gap-2.5">
           {/* La marca: un cuadrado de vidrio con la A y el punto de
               acento de la suite. Es lo que hace que Analytics se lea
               como hermano de Atlas 360 y no como otro producto. */}
@@ -46,34 +29,29 @@ export function Nav({ email }: { email: string | null }) {
             style={{
               background:
                 "linear-gradient(140deg, color-mix(in srgb, var(--tono-venta) 92%, white), color-mix(in srgb, var(--tono-cotizacion) 85%, black))",
-              boxShadow:
-                "0 3px 12px color-mix(in srgb, var(--tono-venta) 45%, transparent)",
+              boxShadow: "0 3px 12px color-mix(in srgb, var(--tono-venta) 45%, transparent)",
             }}
           >
             A
           </span>
-          <span className="hidden items-baseline gap-1.5 md:flex">
-            <span className="text-[15px] font-semibold tracking-tight">
-              Atlas
-            </span>
+          <span className="flex items-baseline gap-1.5">
+            <span className="text-[15px] font-semibold tracking-tight">Atlas</span>
             <span className="text-[15px] font-light text-[var(--text-secondary)]">
               Analytics
             </span>
           </span>
         </Link>
 
-        <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+        <nav className="flex items-center gap-0.5">
           {LINKS.map((l) => {
-            const activo = l.rutas.some(
-              (ruta) => path === ruta || path.startsWith(`${ruta}/`),
-            );
+            const activo = path === l.href;
             const Icono = l.icono;
             return (
               <Link
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "relative flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[13px] transition-colors sm:px-3",
+                  "relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] transition-colors",
                   activo
                     ? "text-[var(--text-primary)]"
                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
@@ -86,9 +64,7 @@ export function Nav({ email }: { email: string | null }) {
                   />
                 ) : null}
                 <Icono className="relative size-3.5" strokeWidth={2} />
-                <span className="relative hidden font-medium sm:inline">
-                  {l.label}
-                </span>
+                <span className="relative font-medium">{l.label}</span>
               </Link>
             );
           })}
@@ -104,7 +80,7 @@ export function Nav({ email }: { email: string | null }) {
           <form action="/api/salir" method="post">
             <button
               type="submit"
-              className="hidden rounded-full border border-[var(--vidrio-borde)] px-3 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--vidrio-borde-alto)] hover:text-[var(--text-primary)] lg:block"
+              className="rounded-full border border-[var(--vidrio-borde)] px-3 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--vidrio-borde-alto)] hover:text-[var(--text-primary)]"
             >
               Salir
             </button>

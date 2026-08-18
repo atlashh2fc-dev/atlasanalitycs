@@ -92,12 +92,15 @@ function fecha(v: unknown): string | null {
   if (v instanceof Date) return v.toISOString();
 
   const s = String(v).trim();
-  // dd-mm-yyyy y dd/mm/yyyy: formato chileno, día primero
+  // dd-mm-yyyy y dd/mm/yyyy: formato chileno, día primero.
+  // El separador con la hora admite coma: el export del discador
+  // escribe "8/8/2026, 11:28:59" y sin la coma se perdía la hora, que es
+  // justo lo que se necesita para saber a qué hora se contacta mejor.
   const m = s.match(
-    /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})([ T](\d{1,2}):(\d{2})(:(\d{2}))?)?/,
+    /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:,?[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/,
   );
   if (m) {
-    const [, d, mes, a, , h = "0", min = "0", , seg = "0"] = m;
+    const [, d, mes, a, h = "0", min = "0", seg = "0"] = m;
     return new Date(Date.UTC(+a, +mes - 1, +d, +h, +min, +seg)).toISOString();
   }
 
@@ -128,26 +131,85 @@ function booleano(v: unknown): boolean | null {
 /* Maestros                                                            */
 /* ------------------------------------------------------------------ */
 
-async function mapaEjecutivos(supabase: Supa, tenantId: string) {
-  const { data } = await supabase
-    .from("ejecutivo_alias")
-    .select("alias_normalizado, ejecutivo_id")
-    .eq("tenant_id", tenantId);
-  return new Map((data ?? []).map((a) => [a.alias_normalizado, a.ejecutivo_id]));
+interface MapaEjecutivos {
+  porAlias: Map<string, string>;
+  porRut: Map<string, string>;
 }
 
+async function mapaEjecutivos(
+  supabase: Supa,
+  tenantId: string,
+): Promise<MapaEjecutivos> {
+  const [{ data: alias }, { data: ejecutivos }] = await Promise.all([
+    supabase
+      .from("ejecutivo_alias")
+      .select("alias_normalizado, ejecutivo_id")
+      .eq("tenant_id", tenantId),
+    supabase
+      .from("ejecutivo")
+      .select("id, rut")
+      .eq("tenant_id", tenantId)
+      .not("rut", "is", null),
+  ]);
+
+  return {
+    porAlias: new Map(
+      (alias ?? []).map((a) => [a.alias_normalizado as string, a.ejecutivo_id as string]),
+    ),
+    porRut: new Map(
+      (ejecutivos ?? []).map((e) => [e.rut as string, e.id as string]),
+    ),
+  };
+}
+
+/**
+ * Identifica al ejecutivo.
+ *
+ * El RUT manda cuando el archivo lo trae. Emparejar sólo por nombre es
+ * lo que llenó la tabla de duplicados: el discador escribe "Sofia San
+ * Martin Moscoso" y el archivo de ventas "Sofia San Martin", y cada
+ * variante creaba una persona nueva con sus propias ventas.
+ *
+ * Cuando llega un RUT para alguien que hasta ahora sólo se conocía por
+ * nombre, se le asigna: de ahí en adelante esa persona queda anclada y
+ * cualquier variante futura de su nombre cae en la misma ficha.
+ */
 async function resuelveEjecutivo(
   supabase: Supa,
   tenantId: string,
   nombre: string,
-  cache: Map<string, string>,
+  cache: MapaEjecutivos,
+  rut?: string | null,
 ): Promise<string | null> {
   const clave = normalizaTexto(nombre);
-  if (cache.has(clave)) return cache.get(clave)!;
+  const rutNorm = rut ? normalizaRut(rut) : null;
+
+  if (rutNorm && cache.porRut.has(rutNorm)) {
+    const id = cache.porRut.get(rutNorm)!;
+    if (clave && !cache.porAlias.has(clave)) {
+      await supabase.from("ejecutivo_alias").insert({
+        tenant_id: tenantId,
+        ejecutivo_id: id,
+        alias_original: nombre,
+        origen: "carga_excel",
+      });
+      cache.porAlias.set(clave, id);
+    }
+    return id;
+  }
+
+  if (cache.porAlias.has(clave)) {
+    const id = cache.porAlias.get(clave)!;
+    if (rutNorm) {
+      await supabase.from("ejecutivo").update({ rut: rutNorm }).eq("id", id);
+      cache.porRut.set(rutNorm, id);
+    }
+    return id;
+  }
 
   const { data: nuevo } = await supabase
     .from("ejecutivo")
-    .insert({ tenant_id: tenantId, nombre_canonico: nombre })
+    .insert({ tenant_id: tenantId, nombre_canonico: nombre, rut: rutNorm })
     .select("id")
     .single();
 
@@ -160,7 +222,8 @@ async function resuelveEjecutivo(
     origen: "carga_excel",
   });
 
-  cache.set(clave, nuevo.id);
+  cache.porAlias.set(clave, nuevo.id);
+  if (rutNorm) cache.porRut.set(rutNorm, nuevo.id);
   return nuevo.id;
 }
 
@@ -209,6 +272,60 @@ async function resuelveProducto(
 /* Lectura del archivo desde Storage                                   */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Tipificaciones                                                      */
+/* ------------------------------------------------------------------ */
+
+async function mapaTipificaciones(supabase: Supa, tenantId: string) {
+  const { data } = await supabase
+    .from("tipificacion")
+    .select("id, codigo")
+    .eq("tenant_id", tenantId);
+
+  return new Map((data ?? []).map((t) => [t.codigo as string, t.id as string]));
+}
+
+/**
+ * Una tipificación que no está en el catálogo se crea sola, en
+ * 'pendiente'. Descartar la gestión sería peor: el discador agrega
+ * códigos nuevos sin avisar y perderíamos gestiones reales. Queda
+ * marcada para que el mantenedor la reclasifique.
+ */
+async function resuelveTipificacion(
+  supabase: Supa,
+  tenantId: string,
+  nombre: string | null,
+  cache: Map<string, string>,
+): Promise<string | null> {
+  if (!nombre) return null;
+
+  const codigo = normalizaTexto(nombre);
+  const conocida = cache.get(codigo);
+  if (conocida) return conocida;
+
+  const { data } = await supabase
+    .from("tipificacion")
+    .upsert(
+      {
+        tenant_id: tenantId,
+        codigo,
+        nombre,
+        categoria: "pendiente",
+        cuenta_como_contacto: false,
+        es_cierre: false,
+      },
+      { onConflict: "tenant_id,codigo", ignoreDuplicates: false },
+    )
+    .select("id")
+    .single();
+
+  if (data?.id) {
+    cache.set(codigo, data.id as string);
+    return data.id as string;
+  }
+  return null;
+}
+
 export async function leeHoja(
   supabase: Supa,
   storagePath: string,
@@ -250,54 +367,14 @@ export async function procesaLote(
   const matriz = await leeHoja(supabase, carga.storage_path, carga.hoja);
   const cfg = carga.config;
 
-  /* --- Planilla: unpivot por lotes para informar avance real y reanudar. --- */
+  /* --- Planilla: el unpivot es atómico, va todo de una --- */
   if (cfg.modo === "matriz") {
     const largo = extraeMatriz(matriz, cfg.filaEncabezado);
-    // También las planillas se conservan en su forma original. Antes se
-    // derivaban directo a asistencia y Atlas perdía las celdas que no
-    // pertenecían a ese pack especializado.
-    const encabezadoFuente = (matriz[cfg.filaEncabezado] ?? []).map((c, i) =>
-      typeof c === "string" && c.trim() !== "" ? c.trim() : `columna_${i + 1}`,
-    );
-    const filasFuente = matriz
-      .slice(cfg.filaEncabezado + 1)
-      .filter((f) => f.some((c) => c !== null && String(c).trim() !== ""))
-      .map((f, i) => {
-        const datos: Record<string, unknown> = {};
-        encabezadoFuente.forEach((nombre, posicion) => {
-          const valor = f[posicion];
-          datos[nombre] = valor instanceof Date ? valor.toISOString() : valor;
-        });
-        return { carga_id: carga.id, nro_fila: i + 1, datos };
-      });
-
-    const desde = carga.filas_procesadas;
-    const hasta = Math.min(desde + tamanoLote, largo.filas.length);
-
-    // Si el primer intento se cortó antes de confirmar avance, reconstruimos
-    // la copia cruda para no duplicarla al reintentar.
-    if (desde === 0) {
-      const { error: errorLimpieza } = await supabase
-        .from("fila_cruda")
-        .delete()
-        .eq("carga_id", carga.id);
-      if (errorLimpieza) {
-        throw new Error(`No se pudo preparar la hoja: ${errorLimpieza.message}`);
-      }
-
-      for (let i = 0; i < filasFuente.length; i += 500) {
-        const { error } = await supabase
-          .from("fila_cruda")
-          .insert(filasFuente.slice(i, i + 500));
-        if (error) throw new Error(`No se pudo conservar la hoja: ${error.message}`);
-      }
-    }
-
     const ejecutivos = await mapaEjecutivos(supabase, tenantId);
     const jornadas = new Map<string, number>();
     let insertadas = 0;
 
-    for (const f of largo.filas.slice(desde, hasta)) {
+    for (const f of largo.filas) {
       const ejecutivoId = await resuelveEjecutivo(
         supabase,
         tenantId,
@@ -331,24 +408,21 @@ export async function procesaLote(
       }
     }
 
-    const terminado = hasta >= largo.filas.length;
-
     await supabase
       .from("carga")
       .update({
-        estado: terminado ? "procesada" : "mapeada",
-        filas_procesadas: hasta,
+        estado: "procesada",
+        filas_procesadas: largo.filas.length,
         filas_totales: largo.filas.length,
-        filas_validas: filasFuente.length,
-        filas_rechazadas: 0,
+        filas_validas: insertadas,
       })
       .eq("id", carga.id);
 
     return {
-      procesadas: hasta,
+      procesadas: largo.filas.length,
       total: largo.filas.length,
       insertadas,
-      terminado,
+      terminado: true,
     };
   }
 
@@ -376,37 +450,93 @@ export async function procesaLote(
 
   // Filas crudas: fuente de verdad, se conservan siempre
   if (filas.length > 0) {
-    // Un corte entre el INSERT y la actualización de filas_procesadas no
-    // puede duplicar el primer lote al reanudar.
-    if (desde === 0) {
-      const { error: errorLimpieza } = await supabase
-        .from("fila_cruda")
-        .delete()
-        .eq("carga_id", carga.id);
-      if (errorLimpieza) {
-        throw new Error(`No se pudo reanudar la copia cruda: ${errorLimpieza.message}`);
-      }
-    }
-    const { error } = await supabase.from("fila_cruda").insert(
+    await supabase.from("fila_cruda").insert(
       filas.map((f, i) => ({
         carga_id: carga.id,
         nro_fila: desde + i + 1,
         datos: f,
       })),
     );
-    if (error) throw new Error(`No se pudieron conservar las filas: ${error.message}`);
   }
 
   const inverso = invertir(cfg.mapeo);
-  const tieneVenta = Boolean(inverso.fecha_venta && inverso.rut_cliente);
-  const tieneCotizacion = Boolean(inverso.fecha_cotizacion && !tieneVenta);
+  // Gestiones del discador: una fila por intento de contacto, con su
+  // tipificación. Se evalúa primero porque el archivo también trae RUT
+  // de cliente y podría confundirse con una base.
+  const tieneGestion = Boolean(inverso.fecha_gestion && inverso.tipificacion);
+  const tieneVenta = Boolean(!tieneGestion && inverso.fecha_venta && inverso.rut_cliente);
+  const tieneCotizacion = Boolean(!tieneGestion && inverso.fecha_cotizacion && !tieneVenta);
   // Base UCC: identifica a la persona por RUT y trae una fecha de
   // agenda. No es una venta, es una hora médica por confirmar.
   const tieneAgenda = Boolean(
-    !tieneVenta && !tieneCotizacion && inverso.rut_cliente &&
+    !tieneGestion && !tieneVenta && !tieneCotizacion && inverso.rut_cliente &&
       (inverso.fecha_agenda || inverso.presentado),
   );
   let insertadas = 0;
+
+  if (tieneGestion) {
+    const ejecutivos = await mapaEjecutivos(supabase, tenantId);
+    const tipificaciones = await mapaTipificaciones(supabase, tenantId);
+
+    for (const fila of filas) {
+      const rut = normalizaRut(fila[inverso.rut_cliente ?? ""]);
+      if (!rut) continue;
+
+      // El cliente se crea si no existe: una gestión sin contacto
+      // previo es exactamente el caso normal de una base nueva.
+      const { data: cliente } = await supabase
+        .from("cliente")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            rut,
+            nombre: texto(fila[inverso.nombre_cliente ?? ""]),
+            telefono: texto(fila[inverso.telefono_cliente ?? ""]),
+          },
+          { onConflict: "tenant_id,rut" },
+        )
+        .select("id")
+        .single();
+
+      if (!cliente) continue;
+
+      const ejecutivoNombre = texto(fila[inverso.ejecutivo ?? ""]);
+      const ejecutivoId = ejecutivoNombre
+        ? await resuelveEjecutivo(
+            supabase,
+            tenantId,
+            ejecutivoNombre,
+            ejecutivos,
+            texto(fila[inverso.rut_ejecutivo ?? ""]),
+          )
+        : null;
+
+      const tipificacionId = await resuelveTipificacion(
+        supabase,
+        tenantId,
+        texto(fila[inverso.tipificacion!]),
+        tipificaciones,
+      );
+
+      const { error } = await supabase.from("gestion").upsert(
+        {
+          tenant_id: tenantId,
+          campana_id: cfg.campanaId,
+          cliente_id: cliente.id,
+          ejecutivo_id: ejecutivoId,
+          fecha: fecha(fila[inverso.fecha_gestion!]),
+          tipificacion_id: tipificacionId,
+          id_externo:
+            texto(fila[inverso.id_gestion ?? ""]) ??
+            texto(fila[inverso.id_externo ?? ""]),
+          carga_id: carga.id,
+        },
+        { onConflict: "tenant_id,id_externo" },
+      );
+
+      if (!error) insertadas++;
+    }
+  }
 
   if (tieneAgenda) {
     for (const fila of filas) {
@@ -463,7 +593,13 @@ export async function procesaLote(
     for (const fila of filas) {
       const ejecutivoNombre = texto(fila[inverso.ejecutivo ?? ""]);
       const ejecutivoId = ejecutivoNombre
-        ? await resuelveEjecutivo(supabase, tenantId, ejecutivoNombre, ejecutivos)
+        ? await resuelveEjecutivo(
+            supabase,
+            tenantId,
+            ejecutivoNombre,
+            ejecutivos,
+            texto(fila[inverso.rut_ejecutivo ?? ""]),
+          )
         : null;
 
       const productoNombre = texto(fila[inverso.producto ?? ""]);
@@ -535,13 +671,19 @@ export async function procesaLote(
 
   const terminado = hasta >= cuerpo.length;
 
+  // Al cerrar una carga de ventas se desarman las columnas de titular y
+  // beneficiarios en personas. El parseo vive en SQL para que haya una
+  // sola implementación: la tarifa por tramo etario y el catálogo de
+  // preexistencias dependen de que esto quede bien.
+  if (terminado && tieneVenta) {
+    await supabase.rpc("poblar_asegurados_de_carga", { p_carga_id: carga.id });
+  }
+
   await supabase
     .from("carga")
     .update({
       filas_procesadas: hasta,
       filas_totales: cuerpo.length,
-      filas_validas: cuerpo.length,
-      filas_rechazadas: 0,
       estado: terminado ? "procesada" : "mapeada",
     })
     .eq("id", carga.id);

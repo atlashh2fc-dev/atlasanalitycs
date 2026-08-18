@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
-import { Upload } from "tus-js-client";
 import { extraeMatriz, perfilaHoja, type PerfilHoja } from "@/lib/perfilador";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/stat";
 import { fmt } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { leerCredenciales } from "@/lib/supabase/env";
 
 const ROLES = [
   { valor: "", etiqueta: "— sin usar —" },
@@ -61,80 +59,15 @@ interface ArchivoEnCola {
   libro: XLSX.WorkBook;
   hojas: PerfilHoja[];
   hojaActiva: number;
-  /** Hojas útiles que Atlas cargará. El usuario sólo desmarca las que no correspondan. */
-  hojasSeleccionadas: number[];
   /** roles por hoja: clave = índice de hoja */
   roles: Record<number, Record<number, string>>;
   estado: EstadoArchivo;
   mensaje: string | null;
-  /** Etapa operativa que explica qué está haciendo Atlas ahora. */
-  etapa: string | null;
   /** 0 a 1; alimenta la barra de avance */
   progreso: number;
   /** El archivo original: se sube a Storage tal cual llegó */
   original: File;
   cargaId?: string;
-}
-
-async function subirConProgreso(
-  archivo: File,
-  ruta: string,
-  alAvanzar: (bytesSubidos: number, bytesTotales: number) => void,
-) {
-  const credenciales = leerCredenciales();
-  if (!credenciales) throw new Error("Falta configurar Supabase.");
-
-  const supabase = createClient();
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
-  if (error || !session?.access_token) {
-    throw new Error("La sesión expiró. Vuelve a entrar para cargar el archivo.");
-  }
-
-  const api = new URL(credenciales.url);
-  const referencia = api.hostname.endsWith(".supabase.co")
-    ? api.hostname.split(".")[0]
-    : null;
-  const endpoint = referencia
-    ? `https://${referencia}.storage.supabase.co/storage/v1/upload/resumable`
-    : `${api.origin}/storage/v1/upload/resumable`;
-
-  await new Promise<void>((resolve, reject) => {
-    const carga = new Upload(archivo, {
-      endpoint,
-      retryDelays: [0, 3_000, 5_000, 10_000, 20_000],
-      headers: {
-        authorization: `Bearer ${session.access_token}`,
-        apikey: credenciales.key,
-        "x-upsert": "false",
-      },
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      chunkSize: 6 * 1024 * 1024,
-      metadata: {
-        bucketName: "cargas",
-        objectName: ruta,
-        contentType: archivo.type || "application/octet-stream",
-        cacheControl: "3600",
-      },
-      onProgress: alAvanzar,
-      onError: (fallo) => reject(fallo),
-      onSuccess: () => resolve(),
-    });
-
-    carga
-      .findPreviousUploads()
-      .then((anteriores) => {
-        const anterior = anteriores.find(
-          (a) => a.metadata?.bucketName === "cargas" && a.metadata?.objectName === ruta,
-        );
-        if (anterior) carga.resumeFromPreviousUpload(anterior);
-        carga.start();
-      })
-      .catch(reject);
-  });
 }
 
 const ESTADO_TONO: Record<EstadoArchivo, "good" | "warning" | "critical" | "neutro"> = {
@@ -155,22 +88,14 @@ const ESTADO_TEXTO: Record<EstadoArchivo, string> = {
 
 export function Cargador({
   campanas,
-  datasets,
   tenantId,
-  campanaInicial,
 }: {
   campanas: { id: string; nombre: string }[];
-  datasets: { id: string; nombre: string; campana_id: string | null }[];
   tenantId: string;
-  campanaInicial?: string;
 }) {
   const [archivos, setArchivos] = useState<ArchivoEnCola[]>([]);
   const [activo, setActivo] = useState(0);
-  const [campana, setCampana] = useState(
-    campanas.some((c) => c.id === campanaInicial)
-      ? campanaInicial!
-      : (campanas[0]?.id ?? ""),
-  );
+  const [campana, setCampana] = useState(campanas[0]?.id ?? "");
   const [ocupado, setOcupado] = useState(false);
 
   // Cerrar la pestaña a mitad de carga deja el lote incompleto.
@@ -220,14 +145,9 @@ export function Cargador({
         libro,
         hojas,
         hojaActiva: 0,
-        hojasSeleccionadas: hojas
-          .map((h, i) => ({ h, i }))
-          .filter(({ h }) => h.filas > 0 && h.columnas.some((c) => !c.descartada))
-          .map(({ i }) => i),
         roles,
         estado: "pendiente",
         mensaje: null,
-        etapa: null,
         progreso: 0,
         original: f,
       });
@@ -237,6 +157,7 @@ export function Cargador({
     const primeroNuevo = archivos.length;
     setArchivos([...archivos, ...nuevos]);
     setActivo(primeroNuevo);
+
     // Permite volver a elegir el mismo archivo si el usuario lo quitó
     e.target.value = "";
   }
@@ -331,97 +252,49 @@ export function Cargador({
    * —o cerrar el navegador— ya no pierde el trabajo: la carga queda
    * pendiente y se reanuda donde quedó.
    */
-  async function resolverDataset(): Promise<string | null> {
-    if (!campana) return null;
-    const existente = datasets.find((d) => d.campana_id === campana);
-    if (existente) return existente.id;
-    throw new Error(
-      "La campaña no tiene su espacio de datos preparado. Recarga la página.",
-    );
-  }
-
   async function cargarUno(indice: number): Promise<boolean> {
     const archivo = archivos[indice];
-    const seleccionadas = archivo.hojasSeleccionadas;
-    if (seleccionadas.length === 0) {
-      actualizar(indice, { estado: "error", mensaje: "Selecciona al menos una hoja útil." });
-      return false;
+    const hoja = archivo.hojas[archivo.hojaActiva];
+    const rolesHoja = archivo.roles[archivo.hojaActiva] ?? {};
+
+    actualizar(indice, { estado: "subiendo", mensaje: null, progreso: 0 });
+
+    const mapeo: Record<string, string> = {};
+    for (const c of hoja.columnas) {
+      const rol = rolesHoja[c.posicion];
+      if (rol) mapeo[c.nombreOriginal] = rol;
     }
 
-    actualizar(indice, {
-      estado: "subiendo",
-      mensaje: null,
-      etapa: "Preparando la campaña…",
-      progreso: 0,
-    });
-
-    let baseId: string | null;
-    try {
-      baseId = await resolverDataset();
-    } catch (e) {
-      actualizar(indice, { estado: "error", mensaje: e instanceof Error ? e.message : "No se pudo preparar la campaña." });
-      return false;
-    }
-    if (!baseId) {
-      actualizar(indice, { estado: "error", mensaje: "Selecciona una campaña." });
-      return false;
-    }
-
-    /* 1. El archivo original va a Storage tal cual llegó. TUS entrega
-       bytes confirmados por el servidor: el primer 20% es subida real. */
+    /* 1. El archivo original va a Storage tal cual llegó */
+    const supabase = createClient();
     const limpio = archivo.nombre.replace(/[^a-zA-Z0-9._-]/g, "_");
     const ruta = `${tenantId}/${crypto.randomUUID()}-${limpio}`;
 
-    try {
-      await subirConProgreso(archivo.original, ruta, (subidos, total) => {
-        const fraccion = total > 0 ? subidos / total : 0;
-        const porcentajeSubida = Math.round(fraccion * 100);
-        actualizar(indice, {
-          estado: "subiendo",
-          progreso: fraccion * 0.2,
-          etapa: `Subiendo archivo · ${porcentajeSubida}%`,
-        });
-      });
-    } catch (e) {
+    const { error: errSubida } = await supabase.storage
+      .from("cargas")
+      .upload(ruta, archivo.original, { upsert: false });
+
+    if (errSubida) {
       actualizar(indice, {
         estado: "error",
         progreso: 0,
-        etapa: null,
-        mensaje: `No se pudo subir el archivo: ${e instanceof Error ? e.message : "error desconocido"}`,
+        mensaje: `No se pudo subir el archivo: ${errSubida.message}`,
       });
       return false;
     }
 
-    actualizar(indice, {
-      progreso: 0.2,
-      etapa: `Archivo subido · preparando hoja 1 de ${seleccionadas.length}`,
-    });
-
-    let procesadasTotal = 0;
-    let insertadasTotal = 0;
-
-    for (let posicion = 0; posicion < seleccionadas.length; posicion++) {
-      const hojaIndice = seleccionadas[posicion];
-      const hoja = archivo.hojas[hojaIndice];
-      const rolesHoja = archivo.roles[hojaIndice] ?? {};
-      const mapeo: Record<string, string> = {};
-      for (const c of hoja.columnas) {
-        const rol = rolesHoja[c.posicion];
-        if (rol) mapeo[c.nombreOriginal] = rol;
-      }
-
-      /* Cada hoja es una carga reanudable, todas apuntan al mismo original. */
-      const resIniciar = await fetch("/api/carga/iniciar", {
+    /* 2. Se registra la carga con la receta de procesamiento */
+    const resIniciar = await fetch("/api/carga/iniciar", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        datasetId: baseId,
         storagePath: ruta,
         archivo: archivo.nombre,
         hoja: hoja.hoja,
         modo: hoja.modo,
         filaEncabezado: hoja.filaEncabezado,
         metadatos: hoja.metadatos,
+        campanaId: campana || null,
         mapeo,
         filasTotales: hoja.filas,
         columnas: hoja.columnas.map((c) => ({
@@ -440,76 +313,65 @@ export function Cargador({
           muestra: c.muestra,
         })),
       }),
-      });
+    });
 
-      const iniciado = await resIniciar.json();
-      if (!resIniciar.ok) {
-        actualizar(indice, {
-          estado: "error",
-          progreso: posicion / seleccionadas.length,
-          mensaje: iniciado.error ?? `No se pudo registrar la hoja ${hoja.hoja}.`,
-        });
-        return false;
-      }
-
+    const iniciado = await resIniciar.json();
+    if (!resIniciar.ok) {
       actualizar(indice, {
-        estado: "cargando",
-        cargaId: iniciado.cargaId,
-        etapa: `Procesando ${hoja.hoja} · hoja ${posicion + 1} de ${seleccionadas.length}`,
+        estado: "error",
+        progreso: 0,
+        mensaje: iniciado.error ?? "No se pudo registrar la carga.",
       });
+      return false;
+    }
 
-      let vueltas = 0;
-      let terminoHoja = false;
+    /* 3. Lotes en el servidor hasta terminar */
+    actualizar(indice, { estado: "cargando", cargaId: iniciado.cargaId });
 
-      while (vueltas++ < 500) {
-        const res = await fetch("/api/carga/procesar", {
+    let insertadas = 0;
+    let vueltas = 0;
+
+    while (vueltas++ < 500) {
+      const res = await fetch("/api/carga/procesar", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ cargaId: iniciado.cargaId }),
       });
 
-        const json = await res.json();
+      const json = await res.json();
 
-        if (!res.ok) {
-          actualizar(indice, {
-            estado: "error",
-            mensaje: json.error ?? `Error al procesar ${hoja.hoja}.`,
-          });
-          return false;
-        }
-
-        insertadasTotal += json.insertadas ?? 0;
-        const avanceHoja = json.total > 0 ? json.procesadas / json.total : 1;
-        const avanceProceso = (posicion + avanceHoja) / seleccionadas.length;
-        const progresoReal = 0.2 + avanceProceso * 0.8;
-        actualizar(indice, {
-          progreso: Math.min(progresoReal, 0.999),
-          etapa: `Procesando ${hoja.hoja} · ${fmt.entero(json.procesadas ?? 0)} de ${fmt.entero(json.total ?? 0)} filas`,
-        });
-
-        if (json.terminado) {
-          procesadasTotal += json.procesadas ?? 0;
-          terminoHoja = true;
-          break;
-        }
-      }
-      if (!terminoHoja) {
+      if (!res.ok) {
         actualizar(indice, {
           estado: "error",
-          etapa: null,
-          mensaje: `La hoja ${hoja.hoja} quedó a medio procesar. Puedes reanudarla desde Cargas registradas.`,
+          mensaje: json.error ?? "Error al procesar.",
         });
         return false;
+      }
+
+      insertadas += json.insertadas ?? 0;
+      actualizar(indice, {
+        progreso: json.total > 0 ? json.procesadas / json.total : 1,
+      });
+
+      if (json.terminado) {
+        actualizar(indice, {
+          estado: "cargado",
+          progreso: 1,
+          mensaje:
+            hoja.modo === "matriz"
+              ? `${fmt.entero(json.procesadas)} marcas de asistencia cargadas`
+              : `${fmt.entero(json.procesadas)} filas · ${fmt.entero(insertadas)} registros canónicos`,
+        });
+        return true;
       }
     }
 
     actualizar(indice, {
-      estado: "cargado",
-      progreso: 1,
-      etapa: "Carga completa",
-      mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}`,
+      estado: "error",
+      mensaje:
+        "El procesamiento se detuvo. Puedes reanudarlo desde la lista de cargas.",
     });
-    return true;
+    return false;
   }
 
   async function cargarActivo() {
@@ -535,11 +397,6 @@ export function Cargador({
   const usadas = hoja
     ? hoja.columnas.filter((c) => rolesHoja[c.posicion]).length
     : 0;
-  const columnasRevision = hoja
-    ? hoja.columnas.filter(
-        (c) => !c.descartada && (!rolesHoja[c.posicion] || c.confianza < 0.8),
-      )
-    : [];
   const pendientes = archivos.filter((a) => a.estado !== "cargado").length;
 
   return (
@@ -575,15 +432,8 @@ export function Cargador({
                     {a.nombre}
                   </span>
                   <span className="ml-2 text-xs text-[var(--text-muted)]">
-                    {a.hojasSeleccionadas.length} hoja
-                    {a.hojasSeleccionadas.length === 1 ? "" : "s"} útil
-                    {a.hojasSeleccionadas.length === 1 ? "" : "es"} ·{" "}
-                    {fmt.entero(
-                      a.hojasSeleccionadas.reduce(
-                        (total, h) => total + (a.hojas[h]?.filas ?? 0),
-                        0,
-                      ),
-                    )} filas
+                    hoja: {a.hojas[a.hojaActiva]?.hoja} ·{" "}
+                    {fmt.entero(a.hojas[a.hojaActiva]?.filas ?? 0)} filas
                   </span>
                 </button>
 
@@ -628,40 +478,22 @@ export function Cargador({
             <CardTitle hint="Ordenadas por cantidad de datos útiles. Las hojas con restos de trabajo manual quedan al final.">
               2 · Hoja de «{archivo.nombre}»
             </CardTitle>
-            <p className="mb-3 text-xs text-[var(--text-secondary)]">
-              Atlas seleccionó las hojas con datos. Desmarca portadas, notas o
-              tablas auxiliares que no quieras analizar.
-            </p>
             <div className="flex flex-wrap gap-2">
               {archivo.hojas.map((h, i) => (
-                <div
+                <button
                   key={h.hoja}
+                  onClick={() => actualizar(activo, { hojaActiva: i })}
                   className={`rounded-md border px-3 py-1.5 text-sm ${
                     i === archivo.hojaActiva
                       ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_8%,transparent)] font-medium"
                       : "bg-[var(--surface-2)] text-[var(--text-secondary)]"
                   }`}
                 >
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={archivo.hojasSeleccionadas.includes(i)}
-                      onChange={(e) =>
-                        actualizar(activo, {
-                          hojasSeleccionadas: e.target.checked
-                            ? [...archivo.hojasSeleccionadas, i]
-                            : archivo.hojasSeleccionadas.filter((x) => x !== i),
-                        })
-                      }
-                    />
-                    <button type="button" onClick={() => actualizar(activo, { hojaActiva: i })}>
-                      {h.hoja}
-                      <span className="ml-2 text-xs text-[var(--text-muted)]">
-                        {fmt.entero(h.filas)} filas
-                      </span>
-                    </button>
-                  </label>
-                </div>
+                  {h.hoja}
+                  <span className="ml-2 text-xs text-[var(--text-muted)]">
+                    {fmt.entero(h.filas)} filas
+                  </span>
+                </button>
               ))}
             </div>
 
@@ -717,22 +549,12 @@ export function Cargador({
 
           <Card>
             <CardTitle
-              hint={`${usadas} de ${hoja.columnas.length} columnas interpretadas. Atlas conserva todas las columnas, incluso las que no alimentan un pack especializado.`}
+              hint={`${usadas} de ${hoja.columnas.length} columnas mapeadas. Las descartadas tienen un solo valor o están vacías.`}
             >
-              3 · Confirma sólo las dudas
+              3 · Revisa el mapeo propuesto
             </CardTitle>
 
-            {columnasRevision.length === 0 ? (
-              <div className="rounded-md border border-[var(--good)]/30 bg-[color-mix(in_srgb,var(--good)_8%,transparent)] px-3 py-2 text-sm">
-                Atlas interpretó esta hoja sin dudas. Puedes cargarla directamente.
-              </div>
-            ) : (
-              <p className="mb-3 text-xs text-[var(--text-secondary)]">
-                Sólo mostramos {columnasRevision.length} columna{columnasRevision.length === 1 ? "" : "s"} que necesita{columnasRevision.length === 1 ? "" : "n"} confirmación. Las otras {hoja.columnas.length - columnasRevision.length} ya están listas.
-              </p>
-            )}
-
-            {columnasRevision.length > 0 ? <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-[var(--text-muted)]">
@@ -744,7 +566,7 @@ export function Cargador({
                   </tr>
                 </thead>
                 <tbody>
-                  {columnasRevision.map((c) => (
+                  {hoja.columnas.map((c) => (
                     <tr
                       key={c.posicion}
                       className={`border-b last:border-0 ${c.descartada ? "opacity-45" : ""}`}
@@ -795,37 +617,34 @@ export function Cargador({
                   ))}
                 </tbody>
               </table>
-            </div> : null}
+            </div>
           </Card>
 
           <Card>
-            <CardTitle>4 · Confirma la campaña y carga</CardTitle>
+            <CardTitle>4 · Confirma y carga</CardTitle>
             <div className="flex flex-wrap items-end gap-3">
-              {campanas.length > 0 ? <label className="min-w-[260px] text-xs text-[var(--text-secondary)]">
-                <span className="mb-1 block font-medium">Campaña de destino</span>
+              <label className="text-xs text-[var(--text-secondary)]">
+                <span className="mb-1 block font-medium">Campaña</span>
                 <select
                   value={campana}
                   onChange={(e) => setCampana(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
+                  className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 py-1.5 text-sm"
                 >
+                  <option value="">Sin campaña</option>
                   {campanas.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nombre}
                     </option>
                   ))}
                 </select>
-              </label> : (
-                <p className="rounded-xl border border-dashed px-3 py-2 text-xs text-[var(--critical)]">
-                  Crea una campaña antes de cargar archivos.
-                </p>
-              )}
+              </label>
 
               <button
                 onClick={cargarActivo}
-                disabled={ocupado || !campana}
+                disabled={ocupado}
                 className="rounded-xl bg-[var(--series-1)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {ocupado ? `${Math.round(archivo.progreso * 100)}%` : "Cargar esta hoja"}
+                {ocupado ? "Cargando…" : "Cargar esta hoja"}
               </button>
 
               {archivos.length > 1 ? (
@@ -853,57 +672,7 @@ export function Cargador({
               ) : null}
             </div>
 
-            {archivo.estado !== "pendiente" &&
-            (archivo.progreso > 0 || archivo.estado !== "error") ? (
-              <div
-                className="mt-5 rounded-xl border border-[var(--vidrio-borde)] bg-[var(--surface-1)] p-4"
-                role="progressbar"
-                aria-label="Progreso de la carga"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(archivo.progreso * 100)}
-              >
-                <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-                  <span className="font-medium text-[var(--text-primary)]">
-                    {archivo.etapa ?? "Cargando…"}
-                  </span>
-                  <span
-                    className="tabular text-lg font-semibold"
-                    style={{
-                      color:
-                        archivo.estado === "cargado"
-                          ? "var(--good)"
-                          : archivo.estado === "error"
-                            ? "var(--critical)"
-                            : "var(--series-1)",
-                    }}
-                  >
-                    {Math.round(archivo.progreso * 100)}%
-                  </span>
-                </div>
-                <div className="h-3 overflow-hidden rounded-full bg-[var(--surface-0)]">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-300 ease-out"
-                    style={{
-                      width: `${Math.round(archivo.progreso * 100)}%`,
-                      background:
-                        archivo.estado === "cargado"
-                          ? "var(--good)"
-                          : archivo.estado === "error"
-                            ? "var(--critical)"
-                            : "var(--series-1)",
-                    }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-[var(--text-muted)]">
-                  El porcentaje usa bytes recibidos por Storage y filas confirmadas por la base.
-                </p>
-              </div>
-            ) : null}
-
             <p className="mt-4 border-t pt-3 text-xs text-[var(--text-muted)]">
-              Esta carga y las siguientes quedarán en el historial de la
-              campaña seleccionada. No se creará una base separada por archivo.{" "}
               Los archivos se cargan de a uno en orden, no en paralelo: si dos
               traen al mismo ejecutivo escrito distinto, la conciliación de
               alias necesita que el primero termine antes de que empiece el

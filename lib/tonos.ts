@@ -4,7 +4,6 @@ import {
   FileText,
   Users,
   Clock,
-  Database,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,8 +21,7 @@ export type Fuente =
   | "cotizacion"
   | "agendamiento"
   | "asistencia"
-  | "cliente"
-  | "dataset";
+  | "cliente";
 
 export const TONO: Record<Fuente, { css: string; icono: LucideIcon; nombre: string }> = {
   venta: { css: "var(--tono-venta)", icono: Banknote, nombre: "Ventas" },
@@ -31,7 +29,6 @@ export const TONO: Record<Fuente, { css: string; icono: LucideIcon; nombre: stri
   agendamiento: { css: "var(--tono-agendamiento)", icono: CalendarClock, nombre: "Agendamientos" },
   asistencia: { css: "var(--tono-asistencia)", icono: Clock, nombre: "Asistencia" },
   cliente: { css: "var(--tono-cliente)", icono: Users, nombre: "Clientes" },
-  dataset: { css: "var(--series-1)", icono: Database, nombre: "Base de datos" },
 };
 
 export function tonoDe(fuente: unknown): { css: string; icono: LucideIcon; nombre: string } {
