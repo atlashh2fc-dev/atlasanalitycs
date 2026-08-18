@@ -33,26 +33,58 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     storagePath: string;
+    datasetId: string;
     archivo: string;
     hoja: string;
     modo: "tabular" | "matriz";
     filaEncabezado: number;
     metadatos: Record<string, unknown>;
-    campanaId: string | null;
     mapeo: Record<string, string>;
     columnas: Record<string, unknown>[];
     filasTotales: number;
   };
 
-  if (!body.storagePath || !body.hoja) {
+  if (!body.storagePath || !body.hoja || !body.datasetId) {
     return NextResponse.json({ error: "Faltan datos de la carga." }, { status: 400 });
+  }
+
+  const { data: dataset } = await supabase
+    .from("dataset")
+    .select("id, campana_id")
+    .eq("id", body.datasetId)
+    .eq("tenant_id", perfil.tenant_id)
+    .maybeSingle();
+  if (!dataset) {
+    return NextResponse.json({ error: "La campaña seleccionada no existe." }, { status: 404 });
+  }
+  if (!dataset.campana_id) {
+    return NextResponse.json(
+      { error: "Esta carga debe pertenecer a una campaña." },
+      { status: 400 },
+    );
+  }
+
+  // `campana` sí está protegida por las campañas visibles del perfil.
+  // No basta con validar el tenant del dataset: un supervisor no debe poder
+  // cargar en otra campaña del mismo espacio adivinando su UUID.
+  const { data: campanaVisible } = await supabase
+    .from("campana")
+    .select("id")
+    .eq("id", dataset.campana_id)
+    .maybeSingle();
+  if (!campanaVisible) {
+    return NextResponse.json(
+      { error: "No tienes acceso a esta campaña." },
+      { status: 403 },
+    );
   }
 
   const { data: carga, error } = await supabase
     .from("carga")
     .insert({
       tenant_id: perfil.tenant_id,
-      campana_id: body.campanaId,
+      dataset_id: body.datasetId,
+      campana_id: dataset.campana_id,
       archivo_nombre: body.archivo,
       hoja: body.hoja,
       storage_path: body.storagePath,
@@ -67,7 +99,7 @@ export async function POST(request: Request) {
         mapeo: body.mapeo,
         modo: body.modo,
         filaEncabezado: body.filaEncabezado,
-        campanaId: body.campanaId,
+        campanaId: dataset.campana_id,
       },
     })
     .select("id")
@@ -81,7 +113,7 @@ export async function POST(request: Request) {
   }
 
   if (body.columnas?.length) {
-    await supabase.from("carga_columna").insert(
+    const { error: errorColumnas } = await supabase.from("carga_columna").insert(
       body.columnas.map((c) => ({
         carga_id: carga.id,
         posicion: c.posicion,
@@ -99,6 +131,24 @@ export async function POST(request: Request) {
         muestra: c.muestra,
       })),
     );
+    if (errorColumnas) {
+      await supabase.from("carga").delete().eq("id", carga.id);
+      return NextResponse.json(
+        { error: `No se pudo guardar el perfil de columnas: ${errorColumnas.message}` },
+        { status: 500 },
+      );
+    }
+
+    const { error: errorCampos } = await supabase.rpc("sincronizar_campos_dataset", {
+      p_carga: carga.id,
+    });
+    if (errorCampos) {
+      await supabase.from("carga").delete().eq("id", carga.id);
+      return NextResponse.json(
+        { error: `No se pudo preparar el modelo analítico: ${errorCampos.message}` },
+        { status: 500 },
+      );
+    }
 
     // El mapeo confirmado alimenta el diccionario de sinónimos.
     for (const c of body.columnas) {

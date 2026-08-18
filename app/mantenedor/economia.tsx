@@ -24,7 +24,20 @@ export interface FilaRemuneracion {
   sueldo_base_clp: number;
   comision_asegurado_clp: number;
   factor_leyes: number;
+  factor_semana_corrida: number;
   vigencia_desde: string;
+}
+
+export interface FilaComision {
+  id: string;
+  agrupacion_meta: string;
+  tipo: "escalonada" | "bono";
+  base: "beneficiario" | "contrato";
+  desde: number;
+  hasta: number | null;
+  monto_clp: number;
+  acumulable: boolean;
+  notas: string | null;
 }
 
 export interface FilaCosto {
@@ -87,11 +100,13 @@ function Celda({
 
 export function Economia({
   tarifas,
+  comisiones,
   remuneraciones,
   costos,
   campanaId,
 }: {
   tarifas: FilaTarifa[];
+  comisiones: FilaComision[];
   remuneraciones: FilaRemuneracion[];
   costos: FilaCosto[];
   campanaId: string | null;
@@ -125,10 +140,37 @@ export function Economia({
             comision_asegurado_clp:
               campo === "comision_asegurado_clp" ? valor : 0,
             factor_leyes: campo === "factor_leyes" ? valor : 1.2,
+            factor_semana_corrida:
+              campo === "factor_semana_corrida" ? valor : 0.2,
           },
         }),
       });
     }
+    refrescar();
+  }
+
+  async function agregaComision() {
+    if (!campanaId) return;
+    await fetch("/api/economia", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        tabla: "comision",
+        fila: {
+          campana_id: campanaId,
+          agrupacion_meta: "ONCO",
+          tipo: "escalonada",
+          base: "beneficiario",
+          desde: 0,
+          monto_clp: 0,
+        },
+      }),
+    });
+    refrescar();
+  }
+
+  async function elimina(tabla: string, id: string) {
+    await fetch(`/api/economia?tabla=${tabla}&id=${id}`, { method: "DELETE" });
     refrescar();
   }
 
@@ -146,13 +188,6 @@ export function Economia({
           monto_clp: 0,
         },
       }),
-    });
-    refrescar();
-  }
-
-  async function eliminaCosto(id: string) {
-    await fetch(`/api/economia?tabla=costo_operacion&id=${id}`, {
-      method: "DELETE",
     });
     refrescar();
   }
@@ -249,12 +284,111 @@ export function Economia({
 
       {/* ---------------------------------------------------------- */}
       <section>
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-[13px] font-semibold">Comisiones y bonos</h3>
+          <button
+            onClick={agregaComision}
+            className="inline-flex items-center gap-1 rounded-full border border-[var(--vidrio-borde)] px-2.5 py-1 text-[11px] hover:border-[var(--vidrio-borde-alto)]"
+          >
+            <Plus className="size-3" /> Agregar tramo
+          </button>
+        </div>
+        <p className="mb-3 text-xs text-[var(--text-secondary)]">
+          El tramo alcanzado se aplica a toda la producción del mes, no
+          sólo al excedente: llegar a 20 beneficiarios paga los 20 a
+          $11.000, no los primeros 19 a $9.000. Los bonos acumulables se
+          suman entre sí, así que a las 30 ventas se ganan los dos.
+        </p>
+
+        {comisiones.length === 0 ? (
+          <p className="rounded-xl border border-dashed px-3 py-4 text-center text-xs text-[var(--text-muted)]">
+            Sin esquema de comisiones. Sin esto el ejecutivo sólo cuesta su
+            sueldo base.
+          </p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b text-left text-[var(--text-muted)]">
+                <th className="pb-1.5 font-medium">Línea</th>
+                <th className="pb-1.5 font-medium">Concepto</th>
+                <th className="pb-1.5 font-medium">Se cuenta por</th>
+                <th className="pb-1.5 text-right font-medium">Desde</th>
+                <th className="pb-1.5 text-right font-medium">Hasta</th>
+                <th className="pb-1.5 text-right font-medium">Monto</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody>
+              {comisiones.map((c) => (
+                <tr key={c.id} className="border-b last:border-0">
+                  <td className="py-1.5 font-medium text-[var(--text-primary)]">
+                    {c.agrupacion_meta}
+                  </td>
+                  <td className="py-1.5 text-[var(--text-secondary)]">
+                    {c.tipo === "escalonada"
+                      ? "Comisión por tramo"
+                      : c.acumulable
+                        ? "Bono acumulable"
+                        : "Bono"}
+                  </td>
+                  <td className="py-1.5 text-[var(--text-secondary)]">
+                    {c.base === "beneficiario" ? "Beneficiarios" : "Ventas"}
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <Celda
+                      valor={c.desde}
+                      ancho="w-20"
+                      onGuardar={(v) =>
+                        guarda("comision", c.id, { desde: Number(v) }).then(refrescar)
+                      }
+                    />
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <Celda
+                      valor={c.hasta ?? ""}
+                      ancho="w-20"
+                      onGuardar={(v) =>
+                        guarda("comision", c.id, {
+                          hasta: v === "" ? null : Number(v),
+                        }).then(refrescar)
+                      }
+                    />
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <Celda
+                      valor={c.monto_clp}
+                      paso="1000"
+                      onGuardar={(v) =>
+                        guarda("comision", c.id, { monto_clp: Number(v) }).then(refrescar)
+                      }
+                    />
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <button
+                      onClick={() => elimina("comision", c.id)}
+                      aria-label={`Eliminar tramo de ${c.agrupacion_meta}`}
+                      className="text-[var(--text-muted)] hover:text-[var(--critical)]"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {/* ---------------------------------------------------------- */}
+      <section>
         <h3 className="text-[13px] font-semibold">Remuneración por ejecutivo</h3>
         <p className="mb-3 text-xs text-[var(--text-secondary)]">
-          Sueldo base más comisión por asegurado. El factor de leyes
-          sociales lleva el bruto a costo empresa: 1,20 significa que cada
-          peso de sueldo cuesta 1,20. Mientras esté en cero, el margen del
-          cuadro de mando será igual al ingreso.
+          La semana corrida es la proporción de la comisión que se paga
+          por el día de descanso: 0,20 es un día por cada cinco
+          trabajados. Se aplica a la comisión y no a los bonos, porque el
+          bono es mensual y no se devenga día a día. El factor de leyes
+          sociales lleva el bruto a costo empresa y se aplica sobre todo,
+          incluidas comisiones y semana corrida, porque son imponibles.
         </p>
 
         <table className="w-full text-xs">
@@ -263,6 +397,7 @@ export function Economia({
               <th className="pb-1.5 font-medium">Ejecutivo</th>
               <th className="pb-1.5 text-right font-medium">Sueldo base</th>
               <th className="pb-1.5 text-right font-medium">Comisión por asegurado</th>
+              <th className="pb-1.5 text-right font-medium">Semana corrida</th>
               <th className="pb-1.5 text-right font-medium">Factor leyes</th>
               <th className="pb-1.5 text-right font-medium">Costo empresa base</th>
             </tr>
@@ -288,6 +423,16 @@ export function Economia({
                     paso="1000"
                     onGuardar={(v) =>
                       guardaRemuneracion(r, "comision_asegurado_clp", Number(v))
+                    }
+                  />
+                </td>
+                <td className="py-1.5 text-right">
+                  <Celda
+                    valor={r.factor_semana_corrida}
+                    ancho="w-20"
+                    paso="0.01"
+                    onGuardar={(v) =>
+                      guardaRemuneracion(r, "factor_semana_corrida", Number(v))
                     }
                   />
                 </td>
@@ -386,7 +531,7 @@ export function Economia({
                   </td>
                   <td className="py-1.5 text-right">
                     <button
-                      onClick={() => eliminaCosto(c.id)}
+                      onClick={() => elimina("costo_operacion", c.id)}
                       aria-label={`Eliminar ${c.concepto}`}
                       className="text-[var(--text-muted)] hover:text-[var(--critical)]"
                     >

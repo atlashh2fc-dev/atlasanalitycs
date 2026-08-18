@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
 import {
   Tablero,
+  type Equilibrio,
   type FilaEconomia,
   type FilaLinea,
   type Indicador,
@@ -40,8 +41,12 @@ export default async function CuadroDeMando({
 
   const supabase = await createClient();
 
-  const [{ data: indicadores }, { data: economia }, { data: lineas }] =
-    await Promise.all([
+  const [
+    { data: indicadores },
+    { data: economia },
+    { data: lineas },
+    { data: equilibrio },
+  ] = await Promise.all([
       supabase.rpc("bsc_periodo", {
         p_desde: desde,
         p_hasta: hasta,
@@ -53,6 +58,11 @@ export default async function CuadroDeMando({
         p_campana: campana,
       }),
       supabase.rpc("ingreso_periodo", {
+        p_desde: desde,
+        p_hasta: hasta,
+        p_campana: campana,
+      }),
+      supabase.rpc("punto_equilibrio", {
         p_desde: desde,
         p_hasta: hasta,
         p_campana: campana,
@@ -121,6 +131,9 @@ export default async function CuadroDeMando({
           indicadores={(indicadores ?? []) as unknown as Indicador[]}
           economia={(economia ?? []) as unknown as FilaEconomia[]}
           lineas={(lineas ?? []) as unknown as FilaLinea[]}
+          equilibrio={
+            ((equilibrio ?? [])[0] as unknown as Equilibrio | undefined) ?? null
+          }
           periodo={{ desde, hasta }}
         />
       </main>

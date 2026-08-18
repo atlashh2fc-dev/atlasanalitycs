@@ -75,11 +75,16 @@ const SEMILLA: {
   },
 ];
 
-export default async function Dashboard() {
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams?: Promise<{ campana?: string }>;
+} = {}) {
   if (!hayCredenciales()) redirect("/configuracion");
 
   const ctx = await getContexto();
   const supabase = await createClient();
+  const { campana: campanaSolicitada } = (await searchParams) ?? {};
 
   if (!ctx.tenantId) {
     return (
@@ -108,6 +113,7 @@ export default async function Dashboard() {
     .from("panel")
     .select("id")
     .eq("perfil_id", ctx.userId!)
+    .is("dataset_id", null)
     .maybeSingle();
 
   if (!panel) {
@@ -148,13 +154,22 @@ export default async function Dashboard() {
     .order("orden");
 
   // Sólo se ofrecen en el asistente las fuentes que tienen datos.
-  const [venta, cotizacion, agendamiento, asistencia, cliente] = await Promise.all([
+  const [venta, cotizacion, agendamiento, asistencia, cliente, datasets] = await Promise.all([
     supabase.from("venta").select("id", { count: "exact", head: true }),
     supabase.from("cotizacion").select("id", { count: "exact", head: true }),
     supabase.from("agendamiento").select("id", { count: "exact", head: true }),
     supabase.from("asistencia").select("id", { count: "exact", head: true }),
     supabase.from("cliente").select("id", { count: "exact", head: true }),
+    supabase
+      .from("dataset")
+      .select("id,nombre")
+      .eq("activo", true)
+      .order("nombre"),
   ]);
+
+  const campanaInicial = ctx.campanas.some((campana) => campana.id === campanaSolicitada)
+    ? campanaSolicitada ?? null
+    : null;
 
   const rango = rangoMes();
 
@@ -171,6 +186,7 @@ export default async function Dashboard() {
         </div>
 
         <Panel
+          key="campanas"
           panelId={panel?.id ?? ""}
           widgetsIniciales={(widgets ?? []) as unknown as WidgetGuardado[]}
           campanas={ctx.campanas}
@@ -182,6 +198,8 @@ export default async function Dashboard() {
             cliente: cliente.count ?? 0,
           }}
           rangoInicial={{ desde: rango.desde, hasta: rango.hasta }}
+          datasets={datasets.data ?? []}
+          campanaInicial={campanaInicial}
         />
       </main>
     </>

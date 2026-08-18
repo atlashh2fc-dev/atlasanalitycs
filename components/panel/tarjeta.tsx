@@ -88,9 +88,26 @@ export function ContenidoTarjeta({
     setCargando(true);
     setError(null);
 
-    const esKpi = tipo === "kpi";
-    const ruta = esKpi ? "/api/kpi" : "/api/consulta";
-    const cuerpo = esKpi
+    const esDataset = config.fuente === "dataset";
+    const esKpiLegacy = tipo === "kpi" && !esDataset;
+    const ruta = esDataset
+      ? "/api/consulta/dataset"
+      : esKpiLegacy
+        ? "/api/kpi"
+        : "/api/consulta";
+    const cuerpo = esDataset
+      ? {
+          datasetId: config.datasetId,
+          metricaId: config.metricaId ?? null,
+          dimensionId: config.dimensionId ?? null,
+          agregacion: config.agregacion ?? null,
+          granularidad: config.granularidad ?? "dia",
+          desde: config.tieneFecha ? filtros.desde || null : null,
+          hasta: config.tieneFecha ? filtros.hasta || null : null,
+          limite: config.limite ?? 50,
+          orden: config.orden ?? "desc",
+        }
+      : esKpiLegacy
       ? {
           fuente: config.fuente,
           metrica: config.metrica,
@@ -109,7 +126,7 @@ export function ContenidoTarjeta({
       .then((j) => {
         if (!vivo) return;
         if (j.error) return setError(j.error);
-        if (esKpi) {
+        if (esKpiLegacy) {
           const k = j as DatosKpi;
           setKpi(k);
           setDatos({
@@ -119,6 +136,7 @@ export function ContenidoTarjeta({
             registros: k.registros,
           });
         } else {
+          setKpi(null);
           setDatos(j as Resultado);
         }
       })

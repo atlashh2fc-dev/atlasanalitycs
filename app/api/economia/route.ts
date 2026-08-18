@@ -11,7 +11,13 @@ import { createClient } from "@/lib/supabase/server";
  * olvidar de replicar.
  */
 
-const TABLAS = new Set(["tarifa", "remuneracion", "costo_operacion", "valor_uf"]);
+const TABLAS = new Set([
+  "tarifa",
+  "comision",
+  "remuneracion",
+  "costo_operacion",
+  "valor_uf",
+]);
 
 async function sesion() {
   const supabase = await createClient();

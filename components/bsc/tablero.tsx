@@ -47,6 +47,14 @@ export interface FilaEconomia {
   margen_pct: number | null;
 }
 
+export interface Equilibrio {
+  asegurados_equilibrio: number | null;
+  asegurados_reales: number;
+  tarifa_media_clp: number | null;
+  costo_total_clp: number;
+  ultima_venta: string | null;
+}
+
 export interface FilaLinea {
   agrupacion_meta: string;
   asegurados: number;
@@ -123,11 +131,13 @@ export function Tablero({
   indicadores,
   economia,
   lineas,
+  equilibrio,
   periodo,
 }: {
   indicadores: Indicador[];
   economia: FilaEconomia[];
   lineas: FilaLinea[];
+  equilibrio: Equilibrio | null;
   periodo: { desde: string; hasta: string };
 }) {
   const reducido = usaMovimientoReducido();
@@ -160,6 +170,30 @@ export function Tablero({
       : null;
 
   const topEconomia = economia.filter((e) => e.asegurados > 0).slice(0, 12);
+
+  // El sueldo se carga por el periodo completo. Si sólo hay ventas hasta
+  // la mitad del mes, el margen sale peor que el real y hay que decirlo:
+  // un tablero que no avisa esto hace tomar decisiones sobre una foto
+  // incompleta.
+  const dias = (a: string, b: string) =>
+    Math.round(
+      (new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) /
+        86_400_000,
+    ) + 1;
+
+  const diasPeriodo = dias(periodo.desde, periodo.hasta);
+  const diasConVenta = equilibrio?.ultima_venta
+    ? dias(periodo.desde, equilibrio.ultima_venta)
+    : null;
+  const parcial =
+    diasConVenta !== null && diasConVenta < diasPeriodo - 1 && diasPeriodo > 0;
+
+  const proyeccion =
+    parcial && equilibrio?.tarifa_media_clp
+      ? Math.round(
+          (equilibrio.asegurados_reales / diasConVenta!) * diasPeriodo,
+        )
+      : null;
 
   return (
     <div className="space-y-6">
@@ -219,6 +253,70 @@ export function Tablero({
           exceden. Son unas {fmt.decimal((onco!.asegurados + brecha) * 0.1, 1)} UF
           adicionales por cruzar esa línea.
         </p>
+      ) : null}
+
+      {equilibrio?.asegurados_equilibrio ? (
+        <div
+          data-tono
+          style={{ "--tono": "var(--tono-asistencia)" } as React.CSSProperties}
+          className="vidrio rounded-2xl p-5"
+        >
+          <p className="etiqueta">Punto de equilibrio</p>
+          <div className="mt-2.5 flex flex-wrap items-baseline gap-x-8 gap-y-3">
+            <div>
+              <p className="cifra text-[2.1rem]">
+                {fmt.decimal(equilibrio.asegurados_equilibrio, 0)}
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                asegurados para cubrir el costo
+              </p>
+            </div>
+            <div>
+              <p
+                className="cifra text-[2.1rem]"
+                style={{
+                  color:
+                    equilibrio.asegurados_reales >= equilibrio.asegurados_equilibrio
+                      ? ESTADO.good
+                      : ESTADO.serious,
+                }}
+              >
+                {fmt.entero(equilibrio.asegurados_reales)}
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                producidos hasta ahora
+              </p>
+            </div>
+            {proyeccion !== null ? (
+              <div>
+                <p
+                  className="cifra text-[2.1rem]"
+                  style={{
+                    color:
+                      proyeccion >= equilibrio.asegurados_equilibrio
+                        ? ESTADO.good
+                        : ESTADO.serious,
+                  }}
+                >
+                  {fmt.entero(proyeccion)}
+                </p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                  proyectados al cierre, al ritmo actual
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <p className="mt-3 text-xs text-[var(--text-secondary)]">
+            A la tarifa media del mes, {fmt.clp(equilibrio.tarifa_media_clp ?? 0)} por
+            asegurado, la campaña se paga sola desde el asegurado{" "}
+            {fmt.decimal(equilibrio.asegurados_equilibrio, 0)}. Todo lo que venga
+            después es margen.
+            {parcial
+              ? ` Ojo: el costo va por el periodo completo y las ventas llegan hasta el ${equilibrio.ultima_venta}, así que el margen de arriba está peor que el real.`
+              : ""}
+          </p>
+        </div>
       ) : null}
 
       {/* ---------------- Las cuatro perspectivas ---------------- */}

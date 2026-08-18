@@ -367,14 +367,54 @@ export async function procesaLote(
   const matriz = await leeHoja(supabase, carga.storage_path, carga.hoja);
   const cfg = carga.config;
 
-  /* --- Planilla: el unpivot es atómico, va todo de una --- */
+  /* --- Planilla: unpivot por lotes para informar avance real y reanudar. --- */
   if (cfg.modo === "matriz") {
     const largo = extraeMatriz(matriz, cfg.filaEncabezado);
+    // También las planillas se conservan en su forma original. Antes se
+    // derivaban directo a asistencia y Atlas perdía las celdas que no
+    // pertenecían a ese pack especializado.
+    const encabezadoFuente = (matriz[cfg.filaEncabezado] ?? []).map((c, i) =>
+      typeof c === "string" && c.trim() !== "" ? c.trim() : `columna_${i + 1}`,
+    );
+    const filasFuente = matriz
+      .slice(cfg.filaEncabezado + 1)
+      .filter((f) => f.some((c) => c !== null && String(c).trim() !== ""))
+      .map((f, i) => {
+        const datos: Record<string, unknown> = {};
+        encabezadoFuente.forEach((nombre, posicion) => {
+          const valor = f[posicion];
+          datos[nombre] = valor instanceof Date ? valor.toISOString() : valor;
+        });
+        return { carga_id: carga.id, nro_fila: i + 1, datos };
+      });
+
+    const desde = carga.filas_procesadas;
+    const hasta = Math.min(desde + tamanoLote, largo.filas.length);
+
+    // Si el primer intento se cortó antes de confirmar avance, reconstruimos
+    // la copia cruda para no duplicarla al reintentar.
+    if (desde === 0) {
+      const { error: errorLimpieza } = await supabase
+        .from("fila_cruda")
+        .delete()
+        .eq("carga_id", carga.id);
+      if (errorLimpieza) {
+        throw new Error(`No se pudo preparar la hoja: ${errorLimpieza.message}`);
+      }
+
+      for (let i = 0; i < filasFuente.length; i += 500) {
+        const { error } = await supabase
+          .from("fila_cruda")
+          .insert(filasFuente.slice(i, i + 500));
+        if (error) throw new Error(`No se pudo conservar la hoja: ${error.message}`);
+      }
+    }
+
     const ejecutivos = await mapaEjecutivos(supabase, tenantId);
     const jornadas = new Map<string, number>();
     let insertadas = 0;
 
-    for (const f of largo.filas) {
+    for (const f of largo.filas.slice(desde, hasta)) {
       const ejecutivoId = await resuelveEjecutivo(
         supabase,
         tenantId,
@@ -408,21 +448,24 @@ export async function procesaLote(
       }
     }
 
+    const terminado = hasta >= largo.filas.length;
+
     await supabase
       .from("carga")
       .update({
-        estado: "procesada",
-        filas_procesadas: largo.filas.length,
+        estado: terminado ? "procesada" : "mapeada",
+        filas_procesadas: hasta,
         filas_totales: largo.filas.length,
-        filas_validas: insertadas,
+        filas_validas: filasFuente.length,
+        filas_rechazadas: 0,
       })
       .eq("id", carga.id);
 
     return {
-      procesadas: largo.filas.length,
+      procesadas: hasta,
       total: largo.filas.length,
       insertadas,
-      terminado: true,
+      terminado,
     };
   }
 
@@ -450,13 +493,25 @@ export async function procesaLote(
 
   // Filas crudas: fuente de verdad, se conservan siempre
   if (filas.length > 0) {
-    await supabase.from("fila_cruda").insert(
+    // Un corte entre el INSERT y la actualización de filas_procesadas no
+    // puede duplicar el primer lote al reanudar.
+    if (desde === 0) {
+      const { error: errorLimpieza } = await supabase
+        .from("fila_cruda")
+        .delete()
+        .eq("carga_id", carga.id);
+      if (errorLimpieza) {
+        throw new Error(`No se pudo reanudar la copia cruda: ${errorLimpieza.message}`);
+      }
+    }
+    const { error } = await supabase.from("fila_cruda").insert(
       filas.map((f, i) => ({
         carga_id: carga.id,
         nro_fila: desde + i + 1,
         datos: f,
       })),
     );
+    if (error) throw new Error(`No se pudieron conservar las filas: ${error.message}`);
   }
 
   const inverso = invertir(cfg.mapeo);
@@ -684,6 +739,8 @@ export async function procesaLote(
     .update({
       filas_procesadas: hasta,
       filas_totales: cuerpo.length,
+      filas_validas: cuerpo.length,
+      filas_rechazadas: 0,
       estado: terminado ? "procesada" : "mapeada",
     })
     .eq("id", carga.id);

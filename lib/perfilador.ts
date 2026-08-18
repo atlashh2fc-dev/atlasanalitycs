@@ -234,6 +234,22 @@ const SINONIMOS: Record<string, string> = {
   campana: "campana",
 };
 
+/**
+ * Roles del modelo. Una columna que ya se llama como el rol se mapea a
+ * sí misma: "Nombre Cliente", "Tipificación" o "Fecha Gestión" no
+ * necesitan sinónimo, y sin esta regla quedaban sin rol y su dato se
+ * perdía en silencio.
+ */
+const ROLES = new Set([
+  "rut_cliente", "nombre_cliente", "email_cliente", "telefono_cliente",
+  "rut_pagador", "fecha_venta", "fecha_cotizacion", "fecha_agenda",
+  "fecha_gestion", "id_gestion", "id_externo", "tipificacion",
+  "ejecutivo", "rut_ejecutivo", "producto", "n_asegurados",
+  "monto_uf", "monto_clp", "valor_uf", "nro_solicitud", "presentado",
+  "especialidad", "centro", "area", "prevision", "edad", "cluster",
+  "equipo", "tramo_etario", "campana",
+]);
+
 /** Roles que se pueden inferir sólo del tipo, sin mirar el nombre. */
 const ROL_POR_TIPO: Partial<Record<TipoColumna, string>> = {
   rut: "rut_cliente",
@@ -249,6 +265,7 @@ function sugiereRol(
 ): string | null {
   const dicc = { ...SINONIMOS, ...extra };
   if (dicc[nombreNorm]) return dicc[nombreNorm];
+  if (ROLES.has(nombreNorm)) return nombreNorm;
 
   // Contenido de tramo etario, sin importar el nombre de la columna.
   // Caso real: columnas 'dede' / 'deded' / 'DEDED'.

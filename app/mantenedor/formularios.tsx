@@ -53,9 +53,18 @@ export function FormMeta({
     const fin = new Date(Date.UTC(anio, m, 0));
 
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setGuardando(false);
+      setError("Tu sesión ya no es válida.");
+      return;
+    }
     const { data: perfil } = await supabase
       .from("perfil")
       .select("tenant_id")
+      .eq("id", user.id)
       .maybeSingle();
 
     const { error } = await supabase.from("meta").insert({
@@ -150,22 +159,16 @@ export function FormCampana() {
     setGuardando(true);
     setError(null);
 
-    const supabase = createClient();
-    const { data: perfil } = await supabase
-      .from("perfil")
-      .select("tenant_id")
-      .maybeSingle();
-
-    const { error } = await supabase.from("campana").insert({
-      tenant_id: perfil?.tenant_id,
-      nombre,
-      tipo,
-      fecha_inicio: new Date().toISOString().slice(0, 10),
+    const res = await fetch("/api/campanas", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nombre, tipo }),
     });
+    const json = (await res.json()) as { error?: string };
 
     setGuardando(false);
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      setError(json.error ?? "No se pudo crear la campaña.");
       return;
     }
     setNombre("");
@@ -184,7 +187,11 @@ export function FormCampana() {
         />
       </Campo>
       <Campo label="Tipo">
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={input}>
+        <select
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value)}
+          className={input}
+        >
           <option value="venta">Venta</option>
           <option value="outbound">Outbound</option>
           <option value="inbound">Inbound</option>
