@@ -7,6 +7,7 @@ import {
   type FilaLinea,
   type Indicador,
 } from "@/components/bsc/tablero";
+import { Control, type FilaControl } from "@/components/bsc/control";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
 import { getContexto, rangoMes } from "@/lib/datos";
@@ -46,6 +47,7 @@ export default async function CuadroDeMando({
     { data: economia },
     { data: lineas },
     { data: equilibrio },
+    { data: control },
   ] = await Promise.all([
       supabase.rpc("bsc_periodo", {
         p_desde: desde,
@@ -63,6 +65,11 @@ export default async function CuadroDeMando({
         p_campana: campana,
       }),
       supabase.rpc("punto_equilibrio", {
+        p_desde: desde,
+        p_hasta: hasta,
+        p_campana: campana,
+      }),
+      supabase.rpc("control_ejecutivo", {
         p_desde: desde,
         p_hasta: hasta,
         p_campana: campana,
@@ -136,6 +143,10 @@ export default async function CuadroDeMando({
           }
           periodo={{ desde, hasta }}
         />
+
+        <div className="mt-6">
+          <Control filas={(control ?? []) as unknown as FilaControl[]} />
+        </div>
       </main>
     </>
   );

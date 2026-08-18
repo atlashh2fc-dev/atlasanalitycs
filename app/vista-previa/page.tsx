@@ -10,6 +10,7 @@ import {
   type FilaLinea,
   type Indicador,
 } from "@/components/bsc/tablero";
+import { Control, type FilaControl } from "@/components/bsc/control";
 
 /**
  * Banco de pruebas visual.
@@ -61,18 +62,18 @@ const IND: Indicador[] = [
 }));
 
 const ECONOMIA: FilaEconomia[] = [
-  ["Marjorie Venegas Gonzalez", 15, 20, 30.0, 1225407, 738474],
-  ["Marta Orellana Leiva", 10, 13, 20.0, 816938, 582474],
-  ["Millaray Guzman Gajardo", 9, 13, 19.5, 796514, 614874],
-  ["Francisca Valenzuela", 10, 14, 19.5, 796514, 664264],
-  ["Isabel Tarifeño", 8, 9, 14.55, 594322, 664264],
-  ["Daniela Guzman Contreras", 6, 9, 13.5, 551433, 571674],
-  ["Jacqueline López", 7, 8, 12.75, 520798, 664264],
-  ["Marisela Landeros", 7, 7, 12.3, 502417, 664264],
-  ["Veronica Muñoz Montes", 4, 7, 10.5, 428892, 550074],
-  ["Camila Marchant", 5, 5, 8.55, 349241, 664264],
-  ["José Zuñiga", 5, 5, 8.5, 347199, 664264],
-  ["Rommy Gormaz", 5, 5, 8.0, 326775, 474474],
+  ["Marjorie Venegas Gonzalez", 15, 0, 20, 30.0, 1225407, 738474],
+  ["Marta Orellana Leiva", 10, 2, 13, 20.0, 816938, 582474],
+  ["Millaray Guzman Gajardo", 9, 4, 13, 19.5, 796514, 614874],
+  ["Francisca Valenzuela", 10, 302, 14, 19.5, 796514, 664264],
+  ["Isabel Tarifeño", 8, 861, 9, 14.55, 594322, 664264],
+  ["Daniela Guzman Contreras", 6, 0, 9, 13.5, 551433, 571674],
+  ["Jacqueline López", 7, 551, 8, 12.75, 520798, 664264],
+  ["Marisela Landeros", 7, 639, 7, 12.3, 502417, 664264],
+  ["Veronica Muñoz Montes", 4, 0, 7, 10.5, 428892, 550074],
+  ["Camila Marchant", 5, 470, 5, 8.55, 349241, 664264],
+  ["José Zuñiga", 5, 275, 5, 8.5, 347199, 664264],
+  ["Rommy Gormaz", 5, 542, 5, 8.0, 326775, 474474],
 ].map(([ejecutivo, contratos, asegurados, ingreso_uf, ingreso_clp, costo]) => ({
   ejecutivo: ejecutivo as string,
   contratos: contratos as number,
@@ -107,6 +108,65 @@ const LINEAS: FilaLinea[] = [
   },
 ];
 
+const CONTROL: FilaControl[] = [
+  ["Marjorie Venegas Gonzalez", 30, 0, 0, 15, 20, 13.5, 148.1, 7.8, 1225407, 791274, 434133, 10.4, "en meta"],
+  ["Marta Orellana Leiva", 30, 2, 2, 10, 13, 13.5, 96.3, 7.8, 816938, 647274, 169664, 9.6, "en ritmo"],
+  ["Millaray Guzman Gajardo", 30, 4, 4, 9, 13, 13.5, 96.3, 7.8, 796514, 642954, 153560, 9.8, "en ritmo"],
+  ["Francisca Valenzuela", 42, 302, 963, 10, 14, 18.9, 74.1, 11.0, 796514, 808264, -11750, 14.3, "no cubre su costo"],
+  ["Daniela Guzman Contreras", 30, 0, 0, 6, 9, 13.5, 66.7, 7.8, 551433, 591114, -39681, 9.8, "no cubre su costo"],
+  ["Veronica Muñoz Montes", 30, 0, 0, 4, 7, 13.5, 51.9, 7.8, 428892, 565194, -136302, 9.8, "no cubre su costo"],
+  ["Isabel Tarifeño", 42, 861, 937, 8, 9, 18.9, 47.6, 11.0, 594322, 779464, -185142, 12.5, "no cubre su costo"],
+  ["Rommy Gormaz", 30, 542, 671, 5, 5, 13.5, 37.0, 7.8, 326775, 546474, -219699, 9.3, "no cubre su costo"],
+  ["Jacqueline López", 42, 551, 785, 7, 8, 18.9, 42.3, 11.0, 520798, 765064, -244266, 12.7, "no cubre su costo"],
+  ["Marcela Gómez", 30, 228, 350, 4, 4, 13.5, 29.6, 7.8, 275717, 532074, -256357, 8.7, "no cubre su costo"],
+  ["Marisela Landeros", 42, 639, 802, 7, 7, 18.9, 37.0, 11.0, 502417, 765064, -262647, 11.6, "no cubre su costo"],
+  ["Fresia Rojas", 30, 471, 587, 2, 2, 13.5, 14.8, 7.8, 122541, 503274, -380733, 10.1, "no cubre su costo"],
+  ["Camila Marchant", 42, 470, 927, 5, 5, 18.9, 26.5, 11.0, 349241, 736264, -387023, 12.0, "no cubre su costo"],
+  ["José Zuñiga", 42, 275, 419, 5, 5, 18.9, 26.5, 11.0, 347199, 736264, -389065, 12.1, "no cubre su costo"],
+  ["Sofia San Martin", 42, 465, 767, 4, 4, 18.9, 21.2, 11.0, 308394, 721864, -413470, 10.6, "no cubre su costo"],
+  ["Elvira Alviña", 30, 404, 504, 1, 1, 13.5, 7.4, 7.8, 71482, 488874, -417392, 8.3, "no cubre su costo"],
+  ["Margarita Astorga", 42, 588, 673, 0, 0, 18.9, 0, 11.0, 0, 664264, -664264, null, "sin produccion"],
+  ["Francisco Javier Saez", 42, 0, 0, 0, 0, 18.9, 0, 11.0, 0, 664264, -664264, null, "sin produccion"],
+  ["Liliana Garrido Benavides", 42, 0, 0, 0, 0, 18.9, 0, 11.0, 0, 664264, -664264, null, "sin produccion"],
+].map(
+  (
+    [
+      ejecutivo, jornada, contactos, gestiones, contratos, asegurados, meta,
+      pct, ritmo, ingreso, costo, margen, equilibrio, estado,
+    ],
+    i,
+  ) => ({
+    ejecutivo_id: `e${i}`,
+    ejecutivo: ejecutivo as string,
+    jornada_horas: jornada as number,
+    gestiones: gestiones as number,
+    contactos: contactos as number,
+    // Mismo piso estadístico que la función de la base.
+    contactabilidad_pct:
+      (gestiones as number) >= 20
+        ? Math.round(((contactos as number) / (gestiones as number)) * 1000) / 10
+        : null,
+    conversion_pct:
+      (contactos as number) >= 20
+        ? Math.round(((contratos as number) / (contactos as number)) * 1000) / 10
+        : null,
+    contratos: contratos as number,
+    asegurados: asegurados as number,
+    meta_asignada: meta as number,
+    meta_es_propia: false,
+    cumplimiento_pct: pct as number,
+    ritmo_esperado: ritmo as number,
+    proyeccion: null,
+    ingreso_clp: ingreso as number,
+    costo_fijo_clp: 0,
+    costo_variable_clp: 0,
+    costo_total_clp: costo as number,
+    margen_clp: margen as number,
+    equilibrio_aseg: equilibrio as number | null,
+    estado: estado as string,
+  }),
+);
+
 export default function VistaPrevia() {
   const { setTheme } = useTheme();
   useEffect(() => {
@@ -138,6 +198,10 @@ export default function VistaPrevia() {
           }}
           periodo={{ desde: "2026-08-01", hasta: "2026-08-31" }}
         />
+
+        <div className="mt-6">
+          <Control filas={CONTROL} />
+        </div>
       </main>
     </>
   );
