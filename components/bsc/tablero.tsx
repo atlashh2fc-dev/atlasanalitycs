@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Banknote,
@@ -131,11 +132,13 @@ function ResumenPerspectivas({
   abierto,
   setAbierto,
   reducido,
+  analysisQuery,
 }: {
   porPerspectiva: Map<string, Indicador[]>;
   abierto: string | null;
   setAbierto: (clave: string | null) => void;
   reducido: boolean;
+  analysisQuery: string;
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -177,6 +180,12 @@ function ResumenPerspectivas({
                 );
               })}
             </ul>
+            <Link
+              href={`/analisis?${analysisQuery}&foco=${encodeURIComponent(p.nombre.toLocaleLowerCase("es"))}`}
+              className="mt-3 border-t border-[var(--vidrio-borde)] pt-2 text-[11px] font-medium text-[var(--tono)]"
+            >
+              Profundizar en Análisis →
+            </Link>
           </motion.div>
         );
       })}
@@ -193,6 +202,7 @@ export function Tablero({
   proyeccion,
   embudo,
   indicadoresAnteriores = [],
+  analysisQuery = "",
 }: {
   indicadores: Indicador[];
   lineas: FilaLinea[];
@@ -200,6 +210,7 @@ export function Tablero({
   proyeccion: PuntoProyeccion[];
   embudo: EtapaEmbudo[];
   indicadoresAnteriores?: Indicador[];
+  analysisQuery?: string;
 }) {
   const reducido = usaMovimientoReducido();
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -240,7 +251,7 @@ export function Tablero({
     <div className="space-y-8">
       <section className="space-y-4">
         <Titulo numero="1" titulo="Resumen ejecutivo BSC" subtitulo="Financiera · Cliente · Procesos · Personas" />
-        <ResumenPerspectivas porPerspectiva={porPerspectiva} abierto={abierto} setAbierto={setAbierto} reducido={reducido} />
+        <ResumenPerspectivas porPerspectiva={porPerspectiva} abierto={abierto} setAbierto={setAbierto} reducido={reducido} analysisQuery={analysisQuery} />
       </section>
 
       <section className="space-y-4">
@@ -292,7 +303,7 @@ export function Tablero({
           }}
         >
           No hay remuneraciones ni costos cargados, así que el margen es
-          igual al ingreso. Cárgalos en Mantenedor · Economía del negocio
+          igual al ingreso. Cárgalos en Administración · Economía del negocio
           para que este tablero diga algo sobre rentabilidad.
         </p>
         ) : null}

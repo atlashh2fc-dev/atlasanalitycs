@@ -38,7 +38,7 @@ export default async function Mantenedor({
       <>
         <Nav email={ctx.email} />
         <main className="mx-auto max-w-[700px] px-6 py-6">
-          <h1 className="mb-6 text-xl font-semibold tracking-tight">Mantenedor</h1>
+          <h1 className="mb-6 text-xl font-semibold tracking-tight">Administración</h1>
           <Card>
             <CardTitle hint="Tu usuario todavía no está asociado a una organización. Este paso se hace una sola vez.">
               Configuración inicial
@@ -238,7 +238,7 @@ export default async function Mantenedor({
     <>
       <Nav email={ctx.email} />
       <main className="mx-auto max-w-[1200px] px-6 py-6">
-        <p className="etiqueta">Configuración</p>
+        <p className="etiqueta">Administración del negocio</p>
         <div className="mt-1.5 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-[27px] font-semibold leading-none tracking-[-0.03em]">
@@ -246,8 +246,8 @@ export default async function Mantenedor({
             </h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               {seleccionada
-                ? "Esta configuración afecta sólo a esta campaña: sus cargas, equipo, metas y usuarios."
-                : "Crea una campaña para reunir sus cargas, equipo, metas y usuarios."}
+                ? "Define equipo, metas, economía y accesos. Las cargas y su calidad se controlan en Datos."
+                : "Crea una campaña para definir su equipo, metas, economía y usuarios."}
             </p>
           </div>
           {seleccionada ? (
@@ -265,7 +265,7 @@ export default async function Mantenedor({
             {campanas.map((campana) => (
               <Link
                 key={campana.id}
-                href={`/mantenedor?campana=${campana.id}`}
+                href={`/administracion?campana=${campana.id}`}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
                   campana.id === seleccionada?.id
                     ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_9%,transparent)]"

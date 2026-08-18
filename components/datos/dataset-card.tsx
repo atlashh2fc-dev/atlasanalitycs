@@ -68,14 +68,14 @@ export function CampanaCard({ campana }: { campana: CampanaResumen }) {
             href={`/datos/${campana.datasetId}`}
             className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
           >
-            <BarChart3 className="size-3.5" /> Datos y análisis
+            <BarChart3 className="size-3.5" /> Calidad y estructura
           </Link>
         ) : null}
         <Link
-          href={`/mantenedor?campana=${campana.id}`}
+          href={`/administracion?campana=${campana.id}`}
           className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
         >
-          <Settings2 className="size-3.5" /> Configurar
+          <Settings2 className="size-3.5" /> Administrar
           <ArrowRight className="size-3" />
         </Link>
       </div>

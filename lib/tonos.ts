@@ -5,6 +5,7 @@ import {
   Users,
   Clock,
   Database,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ import {
  * suficiente para distinguirse también en deuteranopía.
  */
 export type Fuente =
+  | "operacion"
   | "venta"
   | "cotizacion"
   | "agendamiento"
@@ -26,6 +28,7 @@ export type Fuente =
   | "dataset";
 
 export const TONO: Record<Fuente, { css: string; icono: LucideIcon; nombre: string }> = {
+  operacion: { css: "var(--tono-cliente)", icono: Activity, nombre: "Operación comercial" },
   venta: { css: "var(--tono-venta)", icono: Banknote, nombre: "Ventas" },
   cotizacion: { css: "var(--tono-cotizacion)", icono: FileText, nombre: "Cotizaciones" },
   agendamiento: { css: "var(--tono-agendamiento)", icono: CalendarClock, nombre: "Agendamientos" },

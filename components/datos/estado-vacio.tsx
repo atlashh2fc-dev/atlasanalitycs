@@ -16,7 +16,7 @@ export function EstadoVacioDatos({ compacto = false }: { compacto?: boolean }) {
           : "La campaña será el contenedor de sus cargas, usuarios, equipo, configuración e indicadores."}
       </p>
       <Link
-        href="/mantenedor"
+        href="/administracion"
         className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--series-1)] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
       >
         <Tags className="size-4" />

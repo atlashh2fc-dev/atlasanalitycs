@@ -18,6 +18,7 @@ export type TipoWidget =
   | "dispersion";
 
 export type Fuente =
+  | "operacion"
   | "venta"
   | "cotizacion"
   | "agendamiento"
@@ -57,6 +58,29 @@ export interface DefinicionFuente {
 }
 
 export const FUENTES: DefinicionFuente[] = [
+  {
+    clave: "operacion",
+    nombre: "Operación comercial",
+    descripcion: "KPI correlacionados de discador, cotizaciones y ventas.",
+    tabla: "v_operacion_diaria",
+    campoFecha: "fecha",
+    select: "fecha, campana_id, ejecutivo_id, gestiones, contactos, cotizaciones, contratos, asegurados",
+    metricas: [
+      { clave: "gestiones", nombre: "Gestiones", agregacion: "suma", campo: "gestiones", unidad: "entero", descripcion: "Intentos registrados por el discador." },
+      { clave: "contactos", nombre: "Contactos", agregacion: "suma", campo: "contactos", unidad: "entero", descripcion: "Gestiones con conversación real." },
+      { clave: "contactabilidad", nombre: "Contactabilidad", agregacion: "razon", unidad: "porcentaje", descripcion: "Contactos sobre gestiones." },
+      { clave: "cotizaciones", nombre: "Cotizaciones", agregacion: "suma", campo: "cotizaciones", unidad: "entero" },
+      { clave: "contratos", nombre: "Ventas", agregacion: "suma", campo: "contratos", unidad: "entero" },
+      { clave: "asegurados", nombre: "Asegurados", agregacion: "suma", campo: "asegurados", unidad: "entero" },
+      { clave: "conversion_contacto", nombre: "Conversión contacto a venta", agregacion: "razon", unidad: "porcentaje", descripcion: "Contratos sobre contactos del mismo período." },
+      { clave: "conversion_cotizacion", nombre: "Cierre sobre cotización", agregacion: "razon", unidad: "porcentaje", descripcion: "Contratos sobre cotizaciones del mismo período." },
+      { clave: "profundidad", nombre: "Asegurados por venta", agregacion: "razon", unidad: "decimal", descripcion: "Personas cubiertas por contrato." },
+    ],
+    dimensiones: [
+      { clave: "ejecutivo", nombre: "Ejecutivo", campo: "ejecutivo.nombre_canonico" },
+      { clave: "fecha", nombre: "Fecha", campo: "fecha", temporal: true },
+    ],
+  },
   {
     clave: "venta",
     nombre: "Ventas",

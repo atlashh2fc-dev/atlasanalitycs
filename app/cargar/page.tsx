@@ -99,10 +99,10 @@ export default async function Cargar({
               y sus indicadores.
             </p>
             <Link
-              href="/mantenedor"
+              href="/administracion"
               className="mt-4 inline-flex rounded-full bg-[var(--series-1)] px-4 py-2 text-sm font-semibold text-white"
             >
-              Ir a Configuración
+              Ir a Administración
             </Link>
           </Card>
         )}

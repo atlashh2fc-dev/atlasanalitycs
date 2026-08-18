@@ -181,7 +181,7 @@ export default async function DetalleDataset({
           ) : null}
           {tieneMetas ? (
             <Link
-              href={`/mantenedor?campana=${dataset.campana_id ?? ""}`}
+              href={`/administracion?campana=${dataset.campana_id ?? ""}`}
               className="shrink-0 rounded-full px-3 py-1.5 font-medium text-[var(--text-secondary)] hover:bg-[var(--vidrio)] hover:text-[var(--text-primary)]"
             >
               Metas
@@ -235,7 +235,7 @@ export default async function DetalleDataset({
                         icono={Settings2}
                         titulo="Metas"
                         detalle="Hay métricas numéricas atribuibles al equipo."
-                        href={`/mantenedor?campana=${dataset.campana_id ?? ""}`}
+                        href={`/administracion?campana=${dataset.campana_id ?? ""}`}
                       />
                     ) : null}
                   </div>

@@ -12,15 +12,15 @@ export const dynamic = "force-dynamic";
 export default async function Analisis({
   searchParams,
 }: {
-  searchParams: Promise<{ dataset?: string; campana?: string }>;
+  searchParams: Promise<{ dataset?: string; campana?: string; desde?: string; hasta?: string; foco?: string }>;
 }) {
   if (!hayCredenciales()) redirect("/configuracion");
-  const { dataset: datasetId, campana } = await searchParams;
+  const { dataset: datasetId, campana, desde, hasta, foco } = await searchParams;
 
   // Sin contexto explícito se conserva exactamente el panel personal legacy
   // de Seguros, con sus widgets, metas y filtros de campaña.
   if (!datasetId) {
-    return <DashboardLegacy searchParams={Promise.resolve({ campana })} />;
+    return <DashboardLegacy searchParams={Promise.resolve({ campana, desde, hasta, foco })} />;
   }
 
   const ctx = await getContexto();
@@ -76,12 +76,12 @@ export default async function Analisis({
       <main className="mx-auto max-w-[1560px] px-6 py-7">
         <div className="mb-6">
           <div>
-            <p className="etiqueta">Análisis de base</p>
+            <p className="etiqueta">Explorador de base</p>
             <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">
               {catalogoTipado.dataset.nombre}
             </h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Panel configurable · {Number(catalogoTipado.resumen.filas ?? 0).toLocaleString("es-CL")} registros
+              Vista independiente para explorar campos de una carga · {Number(catalogoTipado.resumen.filas ?? 0).toLocaleString("es-CL")} registros
             </p>
           </div>
 

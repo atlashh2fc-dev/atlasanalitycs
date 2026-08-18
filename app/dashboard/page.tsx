@@ -78,13 +78,13 @@ const SEMILLA: {
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams?: Promise<{ campana?: string }>;
+  searchParams?: Promise<{ campana?: string; desde?: string; hasta?: string; foco?: string }>;
 } = {}) {
   if (!hayCredenciales()) redirect("/configuracion");
 
   const ctx = await getContexto();
   const supabase = await createClient();
-  const { campana: campanaSolicitada } = (await searchParams) ?? {};
+  const { campana: campanaSolicitada, desde, hasta, foco } = (await searchParams) ?? {};
 
   if (!ctx.tenantId) {
     return (
@@ -154,9 +154,10 @@ export default async function Dashboard({
     .order("orden");
 
   // Sólo se ofrecen en el asistente las fuentes que tienen datos.
-  const [venta, cotizacion, agendamiento, asistencia, cliente, datasets] = await Promise.all([
+  const [venta, cotizacion, gestion, agendamiento, asistencia, cliente, datasets] = await Promise.all([
     supabase.from("venta").select("id", { count: "exact", head: true }),
     supabase.from("cotizacion").select("id", { count: "exact", head: true }),
+    supabase.from("gestion").select("id", { count: "exact", head: true }),
     supabase.from("agendamiento").select("id", { count: "exact", head: true }),
     supabase.from("asistencia").select("id", { count: "exact", head: true }),
     supabase.from("cliente").select("id", { count: "exact", head: true }),
@@ -172,17 +173,25 @@ export default async function Dashboard({
     : null;
 
   const rango = rangoMes();
+  const rangoPanel = { desde: desde ?? rango.desde, hasta: hasta ?? rango.hasta };
+  const parametrosControl = new URLSearchParams(rangoPanel);
+  if (campanaInicial) parametrosControl.set("campana", campanaInicial);
 
   return (
     <>
       <Nav email={ctx.email} />
 
       <main className="mx-auto max-w-[1560px] px-6 py-7">
-        <div className="mb-6">
-          <p className="etiqueta">Gestión de venta</p>
-          <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">
-            Mi panel
-          </h1>
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="etiqueta">Zoom operativo personalizable</p>
+            <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">Análisis operativo</h1>
+            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
+              Elige los KPI que te sirven, combínalos y ordena el panel según tu gestión. Las tarjetas y su disposición se guardan para tu usuario.
+            </p>
+            {foco ? <p className="mt-2 text-xs font-medium capitalize text-[var(--tono-venta)]">Contexto heredado desde {foco}</p> : null}
+          </div>
+          <Link href={`/bsc?${parametrosControl}`} className="pildora text-xs font-medium">Volver a Control</Link>
         </div>
 
         <Panel
@@ -193,11 +202,12 @@ export default async function Dashboard({
           fuentesDisponibles={{
             venta: venta.count ?? 0,
             cotizacion: cotizacion.count ?? 0,
+            operacion: (gestion.count ?? 0) + (cotizacion.count ?? 0) + (venta.count ?? 0),
             agendamiento: agendamiento.count ?? 0,
             asistencia: asistencia.count ?? 0,
             cliente: cliente.count ?? 0,
           }}
-          rangoInicial={{ desde: rango.desde, hasta: rango.hasta }}
+          rangoInicial={rangoPanel}
           datasets={datasets.data ?? []}
           campanaInicial={campanaInicial}
         />

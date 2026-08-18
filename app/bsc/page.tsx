@@ -51,7 +51,7 @@ export default async function CuadroDeMando({
   if (!hayCredenciales()) redirect("/configuracion");
 
   const ctx = await getContexto();
-  if (!ctx.tenantId) redirect("/mantenedor");
+  if (!ctx.tenantId) redirect("/administracion");
 
   const sp = await searchParams;
   const rango = rangoMes();
@@ -61,6 +61,8 @@ export default async function CuadroDeMando({
   const comparar = sp.comparar !== "no";
   const anterior = periodoAnterior(desde, hasta);
   const cierre = cierreDelMes(hasta);
+  const contextoAnalisis = new URLSearchParams({ desde, hasta });
+  if (campana) contextoAnalisis.set("campana", campana);
 
   const supabase = await createClient();
 
@@ -185,6 +187,7 @@ export default async function CuadroDeMando({
           proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
           embudo={(embudo ?? []) as unknown as EtapaEmbudo[]}
           indicadoresAnteriores={comparar ? (indicadoresAnteriores ?? []) as unknown as Indicador[] : []}
+          analysisQuery={contextoAnalisis.toString()}
         />
 
         <section className="mt-8 space-y-4">

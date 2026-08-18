@@ -2,35 +2,34 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Database, House, Settings2, Target } from "lucide-react";
+import { BarChart3, Database, Settings2, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SelectorTema } from "./tema";
 
 const LINKS = [
-  { href: "/inicio", label: "Inicio", icono: House, rutas: ["/inicio"] },
   {
     href: "/bsc",
-    label: "Cuadro de mando",
+    label: "Control",
     icono: Target,
     rutas: ["/bsc"],
   },
   {
-    href: "/datos",
-    label: "Datos",
-    icono: Database,
-    rutas: ["/datos", "/cargar"],
-  },
-  {
     href: "/analisis",
-    label: "Análisis",
+    label: "Análisis operativo",
     icono: BarChart3,
     rutas: ["/analisis", "/dashboard", "/equipo"],
   },
   {
-    href: "/mantenedor",
-    label: "Configuración",
+    href: "/datos",
+    label: "Datos y calidad",
+    icono: Database,
+    rutas: ["/datos", "/cargar"],
+  },
+  {
+    href: "/administracion",
+    label: "Administración",
     icono: Settings2,
-    rutas: ["/mantenedor"],
+    rutas: ["/administracion", "/mantenedor"],
   },
 ];
 
@@ -41,7 +40,7 @@ export function Nav({ email }: { email: string | null }) {
     <header className="sticky top-0 z-40 border-b border-[var(--vidrio-borde)] bg-[color-mix(in_srgb,var(--plano)_72%,transparent)] backdrop-blur-xl">
       <div className="mx-auto flex min-h-14 max-w-[1560px] items-center gap-3 px-4 py-2 sm:gap-6 sm:px-6">
         <Link
-          href="/inicio"
+          href="/bsc"
           className="group flex shrink-0 items-center gap-2.5"
         >
           {/* La marca: un cuadrado de vidrio con la A y el punto de

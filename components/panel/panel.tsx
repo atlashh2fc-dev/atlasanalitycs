@@ -6,7 +6,7 @@ import { Responsive, WidthProvider, type Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { motion } from "framer-motion";
-import { CalendarRange, Check, Lock, LockOpen, Plus, Target } from "lucide-react";
+import { ArrowLeft, CalendarRange, Check, Database, Lock, LockOpen, Plus, Target } from "lucide-react";
 import { Asistente } from "./asistente";
 import { AsistenteDataset } from "./asistente-dataset";
 import { ContenidoTarjeta, type Filtros } from "./tarjeta";
@@ -186,47 +186,56 @@ export function Panel({
           />
         </label>
 
-        <label className="pildora cursor-pointer">
-          <Target className="size-3.5 text-[var(--text-muted)]" />
-          <select
-            value={
-              catalogoDataset
-                ? `dataset:${catalogoDataset.dataset.id}`
-                : filtros.campanaId
-                  ? `campana:${filtros.campanaId}`
-                  : ""
-            }
-            onChange={(e) => {
-              const valor = e.target.value;
-              if (valor.startsWith("dataset:")) {
-                router.push(`/analisis?dataset=${encodeURIComponent(valor.slice(8))}`);
-                return;
-              }
-
-              const campanaId = valor.startsWith("campana:") ? valor.slice(9) : null;
-              setFiltros({ ...filtros, campanaId });
-              router.push(
-                campanaId
-                  ? `/analisis?campana=${encodeURIComponent(campanaId)}`
-                  : "/analisis",
-              );
-            }}
-            aria-label="Campaña o base"
-            className="cursor-pointer"
-          >
-            <option value="">Todas las campañas</option>
-            {campanas.map((c) => (
-              <option key={c.id} value={`campana:${c.id}`}>
-                {c.nombre}
-              </option>
-            ))}
-            {datasets.map((dataset) => (
-              <option key={dataset.id} value={`dataset:${dataset.id}`}>
-                {dataset.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+        {catalogoDataset ? (
+          <>
+            <label className="pildora cursor-pointer">
+              <Database className="size-3.5 text-[var(--text-muted)]" />
+              <select
+                value={catalogoDataset.dataset.id}
+                onChange={(e) => router.push(`/analisis?dataset=${encodeURIComponent(e.target.value)}`)}
+                aria-label="Base explorada"
+                className="cursor-pointer"
+              >
+                {datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.nombre}</option>)}
+              </select>
+            </label>
+            <button type="button" onClick={() => router.push("/analisis")} className="pildora">
+              <ArrowLeft className="size-3.5" /> Volver a operación
+            </button>
+          </>
+        ) : (
+          <>
+            <label className="pildora cursor-pointer">
+              <Target className="size-3.5 text-[var(--text-muted)]" />
+              <select
+                value={filtros.campanaId ?? ""}
+                onChange={(e) => {
+                  const campanaId = e.target.value || null;
+                  setFiltros((actuales) => ({ ...actuales, campanaId }));
+                  const params = new URLSearchParams();
+                  if (campanaId) params.set("campana", campanaId);
+                  if (filtros.desde) params.set("desde", filtros.desde);
+                  if (filtros.hasta) params.set("hasta", filtros.hasta);
+                  router.push(`/analisis${params.size ? `?${params}` : ""}`);
+                }}
+                aria-label="Campaña"
+                className="cursor-pointer"
+              >
+                <option value="">Todas las campañas</option>
+                {campanas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </label>
+            {datasets.length > 0 ? (
+              <label className="pildora cursor-pointer">
+                <Database className="size-3.5 text-[var(--text-muted)]" />
+                <select defaultValue="" onChange={(e) => e.target.value && router.push(`/analisis?dataset=${encodeURIComponent(e.target.value)}`)} aria-label="Explorar una base" className="cursor-pointer">
+                  <option value="">Explorar una base…</option>
+                  {datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.nombre}</option>)}
+                </select>
+              </label>
+            ) : null}
+          </>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           {guardado ? (

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
  * variables de entorno muestre qué falta, en vez de un 500 opaco.
  */
 export default function Configuracion() {
-  if (hayCredenciales()) redirect("/dashboard");
+  if (hayCredenciales()) redirect("/bsc");
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
