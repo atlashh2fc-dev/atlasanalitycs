@@ -9,6 +9,8 @@ export interface SemanaComparacion {
 }
 
 const METRICAS = [
+  "Ventas / contratos",
+  "Asegurados",
   "Gestiones",
   "Contactabilidad",
   "Conversión gestión a venta",

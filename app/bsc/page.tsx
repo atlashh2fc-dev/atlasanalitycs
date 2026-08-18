@@ -167,18 +167,39 @@ export default async function CuadroDeMando({
     ]);
 
   const resultadosSemanales = await Promise.all(
-    semanas.map((semana) =>
-      supabase.rpc("bsc_periodo", {
-        p_desde: semana.desde,
-        p_hasta: semana.hasta,
-        p_campana: campana,
-      }),
-    ),
+    semanas.map(async (semana) => {
+      const [resultadoBsc, resultadoIngreso] = await Promise.all([
+        supabase.rpc("bsc_periodo", {
+          p_desde: semana.desde,
+          p_hasta: semana.hasta,
+          p_campana: campana,
+        }),
+        supabase.rpc("ingreso_periodo", {
+          p_desde: semana.desde,
+          p_hasta: semana.hasta,
+          p_campana: campana,
+        }),
+      ]);
+      return { resultadoBsc, resultadoIngreso };
+    }),
   );
-  const comparacionSemanal: SemanaComparacion[] = semanas.map((semana, indice) => ({
-    ...semana,
-    indicadores: (resultadosSemanales[indice].data ?? []) as unknown as Indicador[],
-  }));
+  const comparacionSemanal: SemanaComparacion[] = semanas.map((semana, indice) => {
+    const resultado = resultadosSemanales[indice];
+    const filasIngreso = (resultado.resultadoIngreso.data ?? []) as unknown as FilaLinea[];
+    const ventas = filasIngreso.reduce((total, fila) => total + Number(fila.contratos ?? 0), 0);
+    const asegurados = filasIngreso.reduce((total, fila) => total + Number(fila.asegurados ?? 0), 0);
+    const indicadoresVolumen: Indicador[] = [
+      { perspectiva: "Procesos", orden: 0, indicador: "Ventas / contratos", valor: ventas, unidad: "entero", meta: null, cumplimiento: null, sentido: "mas_mejor", detalle: "Contratos de venta registrados durante la semana." },
+      { perspectiva: "Procesos", orden: 0.5, indicador: "Asegurados", valor: asegurados, unidad: "entero", meta: null, cumplimiento: null, sentido: "mas_mejor", detalle: "Titulares y cargas registrados durante la semana." },
+    ];
+    return {
+      ...semana,
+      indicadores: [
+        ...(resultado.resultadoBsc.data ?? []) as unknown as Indicador[],
+        ...indicadoresVolumen,
+      ],
+    };
+  });
 
   return (
     <>

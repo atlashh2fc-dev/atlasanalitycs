@@ -65,6 +65,9 @@ const IND: Indicador[] = [
 const LINEAS: FilaLinea[] = [
   {
     agrupacion_meta: "CM+CAT",
+    contratos: 58,
+    titulares: 58,
+    adicionales: 9,
     asegurados: 67,
     meta: 250,
     cumplimiento_pct: 26.8,
@@ -74,6 +77,9 @@ const LINEAS: FilaLinea[] = [
   },
   {
     agrupacion_meta: "ONCO",
+    contratos: 43,
+    titulares: 43,
+    adicionales: 16,
     asegurados: 59,
     meta: 60,
     cumplimiento_pct: 98.33,

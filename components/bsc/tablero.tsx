@@ -38,6 +38,9 @@ export interface Equilibrio {
 
 export interface FilaLinea {
   agrupacion_meta: string;
+  contratos: number;
+  titulares: number;
+  adicionales: number;
   asegurados: number;
   meta: number | null;
   cumplimiento_pct: number | null;
@@ -229,6 +232,10 @@ export function Tablero({
 }) {
   const reducido = usaMovimientoReducido();
   const [abierto, setAbierto] = useState<string | null>(null);
+  const totalContratos = lineas.reduce((s, fila) => s + Number(fila.contratos ?? 0), 0);
+  const totalAsegurados = lineas.reduce((s, fila) => s + Number(fila.asegurados ?? 0), 0);
+  const ingresoCalculado = lineas.reduce((s, fila) => s + Number(fila.ingreso_clp ?? 0), 0);
+  const faltaTarifa = totalContratos > 0 && ingresoCalculado === 0;
 
   const proyeccionesAgrupadas = useMemo(() => {
     const grupos = new Map<string, PuntoProyeccion[]>();
@@ -248,14 +255,38 @@ export function Tablero({
 
   const porPerspectiva = useMemo(() => {
     const m = new Map<string, Indicador[]>();
-    for (const i of indicadores) {
+    const volumen: Indicador[] = totalContratos > 0 ? [
+      {
+        perspectiva: "Procesos",
+        orden: 0,
+        indicador: "Ventas / contratos",
+        valor: totalContratos,
+        unidad: "entero",
+        meta: null,
+        cumplimiento: null,
+        sentido: "mas_mejor",
+        detalle: "Contratos de venta registrados en el periodo seleccionado.",
+      },
+      {
+        perspectiva: "Procesos",
+        orden: 0.5,
+        indicador: "Asegurados",
+        valor: totalAsegurados,
+        unidad: "entero",
+        meta: null,
+        cumplimiento: null,
+        sentido: "mas_mejor",
+        detalle: "Titulares y cargas derivados de las ventas del periodo.",
+      },
+    ] : [];
+    for (const i of [...indicadores, ...volumen]) {
       const l = m.get(i.perspectiva) ?? [];
       l.push(i);
       m.set(i.perspectiva, l);
     }
     for (const l of m.values()) l.sort((a, b) => a.orden - b.orden);
     return m;
-  }, [indicadores]);
+  }, [indicadores, totalAsegurados, totalContratos]);
 
   const financiera = porPerspectiva.get("Financiera") ?? [];
   const anteriores = useMemo(
@@ -282,18 +313,20 @@ export function Tablero({
     const costoFijoCierre = Math.max(0, totalCostoCierre - costoVariableActual);
     const costoLineal = costosCierre.length > 0 ? costoFijoCierre + costoVariableActual * factorLineal : null;
     const costoIdeal = costosCierre.length > 0 && factorIdeal !== null ? costoFijoCierre + costoVariableActual * factorIdeal : null;
-    const ingresoLineal = ingresoReal * factorLineal;
-    const ingresoIdeal = ingreso?.meta ?? (factorIdeal === null ? null : ingresoReal * factorIdeal);
+    const ingresoLineal = faltaTarifa ? null : ingresoReal * factorLineal;
+    const ingresoIdeal = faltaTarifa
+      ? null
+      : ingreso?.meta ?? (factorIdeal === null ? null : ingresoReal * factorIdeal);
 
     return {
       ingresoLineal,
       ingresoIdeal,
       costoLineal,
       costoIdeal,
-      margenLineal: costoLineal === null ? null : ingresoLineal - costoLineal,
+      margenLineal: costoLineal === null || ingresoLineal === null ? null : ingresoLineal - costoLineal,
       margenIdeal: costoIdeal === null || ingresoIdeal === null ? null : ingresoIdeal - costoIdeal,
     };
-  }, [costosCierre, ingreso, proyeccion]);
+  }, [costosCierre, faltaTarifa, ingreso, proyeccion]);
 
   const desgloseCostos = useMemo(() => {
     const corte = proyeccion.findLast((p) => !p.es_futuro);
@@ -353,7 +386,12 @@ export function Tablero({
           >
             <p className="etiqueta">{c.t}</p>
             <p className="cifra mt-2.5 text-[2.1rem]">
-              {formatea(c.i?.valor ?? null, c.i?.unidad ?? "clp")}
+              {formatea(
+                faltaTarifa && (c.t === "Ingreso del periodo" || c.t === "Margen")
+                  ? null
+                  : c.i?.valor ?? null,
+                c.i?.unidad ?? "clp",
+              )}
             </p>
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
               {c.i?.detalle}
@@ -368,7 +406,7 @@ export function Tablero({
                 <p className="tabular mt-1 text-sm font-semibold">{c.ideal === null || c.ideal === undefined ? "—" : fmt.clp(c.ideal)}</p>
               </div>
             </div>
-            {c.i && anteriores.has(`${c.i.perspectiva}-${c.i.indicador}`) ? (() => {
+            {!(faltaTarifa && (c.t === "Ingreso del periodo" || c.t === "Margen")) && c.i && anteriores.has(`${c.i.perspectiva}-${c.i.indicador}`) ? (() => {
               const previo = anteriores.get(`${c.i.perspectiva}-${c.i.indicador}`)?.valor;
               if (previo === null || previo === undefined) return null;
               const delta = (c.i.valor ?? 0) - previo;
@@ -384,7 +422,14 @@ export function Tablero({
         ))}
         </div>
 
-        {forecastFinanciero ? (
+        {faltaTarifa ? (
+          <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 px-4 py-3 text-xs text-[var(--text-secondary)]">
+            <strong className="text-[var(--text-primary)]">Hay {fmt.entero(totalContratos)} ventas y {fmt.entero(totalAsegurados)} asegurados.</strong>{" "}
+            El ingreso y el margen no se pueden calcular porque no existe una tarifa contractual vigente para este mes.
+          </div>
+        ) : null}
+
+        {forecastFinanciero && !faltaTarifa ? (
           <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
             Forecast financiero: el ingreso mantiene el mix y la tarifa media observados; el costo fijo se lleva completo al cierre y el variable acompaña el volumen proyectado. “Ideal” representa el escenario de cumplir la meta, no un presupuesto contable independiente.
           </p>
@@ -595,6 +640,7 @@ function TablaLineas({ lineas }: { lineas: FilaLinea[] }) {
       <thead>
         <tr className="border-b text-left text-[var(--text-muted)]">
           <th className="pb-1.5 font-medium">Línea</th>
+          <th className="pb-1.5 text-right font-medium">Contratos</th>
           <th className="pb-1.5 text-right font-medium">Asegurados</th>
           <th className="pb-1.5 text-right font-medium">Meta</th>
           <th className="pb-1.5 text-right font-medium">Cumplimiento</th>
@@ -607,6 +653,7 @@ function TablaLineas({ lineas }: { lineas: FilaLinea[] }) {
         {lineas.map((l) => (
           <tr key={l.agrupacion_meta} className="border-b last:border-0">
             <td className="py-1.5 font-medium text-[var(--text-primary)]">{l.agrupacion_meta}</td>
+            <td className="py-1.5 text-right">{fmt.entero(l.contratos)}</td>
             <td className="py-1.5 text-right">{fmt.entero(l.asegurados)}</td>
             <td className="py-1.5 text-right text-[var(--text-secondary)]">{l.meta === null ? "—" : fmt.entero(l.meta)}</td>
             <td
@@ -624,9 +671,15 @@ function TablaLineas({ lineas }: { lineas: FilaLinea[] }) {
             >
               {l.cumplimiento_pct === null ? "—" : `${fmt.decimal(l.cumplimiento_pct, 1)}%`}
             </td>
-            <td className="py-1.5 text-right text-[var(--text-secondary)]">{l.tarifa_uf === null ? "por edad" : `${fmt.decimal(l.tarifa_uf, 2)} UF`}</td>
-            <td className="py-1.5 text-right">{fmt.decimal(l.ingreso_uf, 2)}</td>
-            <td className="py-1.5 text-right font-semibold">{fmt.clp(l.ingreso_clp)}</td>
+            <td className="py-1.5 text-right text-[var(--text-secondary)]">
+              {l.ingreso_uf === 0 && l.contratos > 0
+                ? "Sin tarifa vigente"
+                : l.tarifa_uf === null
+                  ? "por edad"
+                  : `${fmt.decimal(l.tarifa_uf, 2)} UF`}
+            </td>
+            <td className="py-1.5 text-right">{l.ingreso_uf === 0 && l.contratos > 0 ? "—" : fmt.decimal(l.ingreso_uf, 2)}</td>
+            <td className="py-1.5 text-right font-semibold">{l.ingreso_clp === 0 && l.contratos > 0 ? "—" : fmt.clp(l.ingreso_clp)}</td>
           </tr>
         ))}
       </tbody>
