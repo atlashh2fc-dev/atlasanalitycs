@@ -204,4 +204,4 @@ $fn$;
 comment on function bsc_periodo is
   'Cuadro de mando integral del periodo, en las cuatro perspectivas de
    Kaplan y Norton. Un indicador sin datos devuelve null y no cero: cero
-   es un resultado, la ausencia de dato no.';
+   es un resultado, la ausencia de dato no.';;

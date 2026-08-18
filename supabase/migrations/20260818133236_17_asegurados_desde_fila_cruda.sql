@@ -32,6 +32,7 @@ comment on function edad_a_fecha is
    solicitud, no a hoy: la tarifa que se cobró depende de la edad que
    tenía la persona cuando se vendió.';
 
+-- ---------------------------------------------------------------------
 create or replace function poblar_asegurados_de_carga(p_carga_id uuid)
 returns table (ventas_tocadas int, asegurados int)
 language plpgsql
@@ -50,6 +51,8 @@ begin
     where f.carga_id = p_carga_id
       and f.datos ? 'Datos Titular'
   ),
+  -- Una fila por persona: el titular en la posición 0 y cada
+  -- beneficiario en la suya.
   personas as (
     select
       c.nro_solicitud,
@@ -136,4 +139,4 @@ $$;
 comment on function poblar_asegurados_de_carga is
   'Lee las columnas de titular y beneficiarios de una carga de ventas y
    deja una fila por persona en venta_asegurado, con su edad calculada a
-   la fecha de la solicitud.';
+   la fecha de la solicitud.';;

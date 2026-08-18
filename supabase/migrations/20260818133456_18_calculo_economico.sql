@@ -175,4 +175,4 @@ $$;
 comment on function ingreso_periodo is
   'Ingreso del contact center por línea, según la tarifa vigente. El
    oncológico se liquida al cierre del periodo porque su tarifa depende
-   del cumplimiento total, no de cada venta.';
+   del cumplimiento total, no de cada venta.';;

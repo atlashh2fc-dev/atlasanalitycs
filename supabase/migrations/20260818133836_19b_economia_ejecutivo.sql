@@ -24,8 +24,8 @@ set search_path = public
 as $fn$
 with fraccion as (select fraccion_de_mes(p_desde, p_hasta) as f),
 uf as (select uf_del_periodo(p_desde, p_hasta) as v),
--- La tarifa del oncologico depende del cumplimiento de toda la campana,
--- asi que se resuelve una vez y se aplica a cada ejecutivo.
+-- La tarifa del oncológico depende del cumplimiento de toda la campaña,
+-- así que se resuelve una vez y se aplica a cada ejecutivo.
 tarifas_onco as (
   select agrupacion_meta, tarifa_uf
   from ingreso_periodo(p_desde, p_hasta, p_campana)
@@ -123,6 +123,6 @@ order by a.ingreso_clp desc nulls last;
 $fn$;
 
 comment on function economia_ejecutivo is
-  'Produccion, ingreso generado y costo empresa por ejecutivo. Sin
-   remuneracion cargada el costo queda en cero y el margen es igual al
-   ingreso: hay que llenar el mantenedor para que el numero sirva.';
+  'Producción, ingreso generado y costo empresa por ejecutivo. Sin
+   remuneración cargada el costo queda en cero y el margen es igual al
+   ingreso: hay que llenar el mantenedor para que el número sirva.';;

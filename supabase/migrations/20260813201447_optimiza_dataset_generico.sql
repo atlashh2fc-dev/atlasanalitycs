@@ -31,3 +31,4 @@ create policy dataset_campo_eliminar on public.dataset_campo
 create index if not exists carga_dataset_estado_created_idx
   on public.carga (dataset_id, estado, created_at desc)
   where dataset_id is not null;
+;

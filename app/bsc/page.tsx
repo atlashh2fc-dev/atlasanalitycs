@@ -8,6 +8,8 @@ import {
   type Indicador,
 } from "@/components/bsc/tablero";
 import { Control, type FilaControl } from "@/components/bsc/control";
+import { type EtapaEmbudo } from "@/components/bsc/embudo";
+import { type PuntoProyeccion } from "@/components/bsc/proyeccion";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
 import { getContexto, rangoMes } from "@/lib/datos";
@@ -48,6 +50,8 @@ export default async function CuadroDeMando({
     { data: lineas },
     { data: equilibrio },
     { data: control },
+    { data: proyeccion },
+    { data: embudo },
   ] = await Promise.all([
       supabase.rpc("bsc_periodo", {
         p_desde: desde,
@@ -70,6 +74,16 @@ export default async function CuadroDeMando({
         p_campana: campana,
       }),
       supabase.rpc("control_ejecutivo", {
+        p_desde: desde,
+        p_hasta: hasta,
+        p_campana: campana,
+      }),
+      supabase.rpc("proyeccion_cierre", {
+        p_desde: desde,
+        p_hasta: hasta,
+        p_campana: campana,
+      }),
+      supabase.rpc("embudo_periodo", {
         p_desde: desde,
         p_hasta: hasta,
         p_campana: campana,
@@ -141,12 +155,24 @@ export default async function CuadroDeMando({
           equilibrio={
             ((equilibrio ?? [])[0] as unknown as Equilibrio | undefined) ?? null
           }
+          proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
+          embudo={(embudo ?? []) as unknown as EtapaEmbudo[]}
           periodo={{ desde, hasta }}
         />
 
-        <div className="mt-6">
+        <section className="mt-8 space-y-4">
+          <div className="flex items-baseline gap-3">
+            <span className="etiqueta shrink-0 text-[var(--text-muted)]">4</span>
+            <h2 className="text-[15px] font-semibold tracking-tight">
+              Gestión del equipo
+            </h2>
+            <span className="text-xs text-[var(--text-muted)]">
+              ¿Dónde intervenir primero?
+            </span>
+            <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
+          </div>
           <Control filas={(control ?? []) as unknown as FilaControl[]} />
-        </div>
+        </section>
       </main>
     </>
   );

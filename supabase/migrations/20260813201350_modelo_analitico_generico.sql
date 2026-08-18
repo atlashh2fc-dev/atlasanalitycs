@@ -465,3 +465,4 @@ grant execute on function inicializar_tenant(text) to authenticated;
 
 comment on function inicializar_tenant(text) is
   'Arranque neutral: crea únicamente organización y perfil administrador.';
+;

@@ -110,6 +110,9 @@ create table valor_uf (
   constraint valor_uf_positivo check (valor_clp > 0)
 );
 
+-- ---------------------------------------------------------------------
+-- Disparadores de updated_at
+-- ---------------------------------------------------------------------
 create trigger tarifa_touch before update on tarifa
   for each row execute function tg_set_updated_at();
 create trigger remuneracion_touch before update on remuneracion
@@ -117,6 +120,9 @@ create trigger remuneracion_touch before update on remuneracion
 create trigger costo_operacion_touch before update on costo_operacion
   for each row execute function tg_set_updated_at();
 
+-- ---------------------------------------------------------------------
+-- RLS
+-- ---------------------------------------------------------------------
 alter table tarifa           enable row level security;
 alter table remuneracion     enable row level security;
 alter table costo_operacion  enable row level security;
@@ -150,4 +156,4 @@ create policy valor_uf_lectura on valor_uf for select to authenticated
   using (tenant_id = current_tenant_id());
 create policy valor_uf_admin on valor_uf for all to authenticated
   using (tenant_id = current_tenant_id() and es_admin())
-  with check (tenant_id = current_tenant_id() and es_admin());
+  with check (tenant_id = current_tenant_id() and es_admin());;

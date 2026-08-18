@@ -1,14 +1,3 @@
--- ---------------------------------------------------------------------
--- 25b · La economía por ejecutivo incluye su comisión
--- ---------------------------------------------------------------------
--- Sin esto, el "aporte por ejecutivo" del cuadro de mando comparaba el
--- ingreso que genera cada uno contra un costo que sólo tenía el sueldo:
--- el que más vende parecía el más barato.
---
--- De paso, el ingreso por edad pasa a resolverse por piso de tramo,
--- igual que en ingreso_periodo, para que las dos funciones no puedan
--- discrepar.
--- ---------------------------------------------------------------------
 create or replace function economia_ejecutivo(
   p_desde date,
   p_hasta date,
@@ -147,4 +136,4 @@ select
   end as margen_pct
 from armado a
 order by a.ingreso_clp desc nulls last;
-$fn$;
+$fn$;;

@@ -104,4 +104,4 @@ $$;
 comment on function costos_periodo is
   'Costos del periodo. El sueldo se prorratea por la fracción de mes
    consultada; los costos por puesto, por gestión o por hora se
-   multiplican por la cantidad real del periodo.';
+   multiplican por la cantidad real del periodo.';;

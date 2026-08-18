@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------
--- 27 · Control por ejecutivo
+-- 30 · Piso estadístico del control por ejecutivo
 -- ---------------------------------------------------------------------
 -- El cuadro de mando mostraba el equilibrio del equipo. Para gestionar
 -- hace falta el de cada persona: cuánto tiene que producir para cubrir

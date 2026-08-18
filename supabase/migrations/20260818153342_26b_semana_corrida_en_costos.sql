@@ -1,16 +1,3 @@
--- ---------------------------------------------------------------------
--- 25 · Las comisiones entran al costo
--- ---------------------------------------------------------------------
--- Hasta acá el costo era sueldo base más una comisión plana por
--- asegurado. Con el esquema real —tramos por volumen y bonos por
--- ventas— la comisión se calcula en comision_ejecutivo y se suma al
--- costo empresa como cualquier otra remuneración: el factor de leyes
--- sociales se aplica igual, porque comisiones y bonos son imponibles.
---
--- La comisión plana de la tabla remuneracion no se elimina: sirve para
--- campañas con un esquema simple y se suma a la escalonada.
--- ---------------------------------------------------------------------
-
 create or replace function costos_periodo(
   p_desde date, p_hasta date, p_campana uuid default null
 )
@@ -25,7 +12,6 @@ asegurados_por_ejecutivo as (
     and (p_campana is null or v.campana_id = p_campana)
   group by 1
 ),
--- Factor de leyes por ejecutivo, para no promediar lo que puede diferir.
 factores as (
   select r.ejecutivo_id, r.factor_leyes from remuneracion r
   where r.vigencia_desde <= p_hasta
@@ -42,11 +28,11 @@ remuneraciones as (
 ),
 escalonadas as (
   select
-    coalesce(sum(ce.comision_clp * coalesce(f.factor_leyes, 1)), 0) as comisiones,
-    coalesce(sum(ce.bonos_clp    * coalesce(f.factor_leyes, 1)), 0) as bonos,
-    -- Sólo los beneficiarios que efectivamente generan comisión: sumar
-    -- todos haría creer que las líneas sin esquema también comisionan.
-    coalesce(sum(ce.beneficiarios) filter (where ce.tramo_clp is not null), 0)::numeric as beneficiarios
+    coalesce(sum(ce.comision_clp       * coalesce(f.factor_leyes, 1)), 0) as comisiones,
+    coalesce(sum(ce.semana_corrida_clp * coalesce(f.factor_leyes, 1)), 0) as semana_corrida,
+    coalesce(sum(ce.bonos_clp          * coalesce(f.factor_leyes, 1)), 0) as bonos,
+    coalesce(sum(case when ce.unidad = 'beneficiario' then ce.beneficiarios else ce.contratos end)
+             filter (where ce.tramo_clp is not null), 0)::numeric as unidades
   from comision_ejecutivo(p_desde, p_hasta, p_campana) ce
   left join factores f on f.ejecutivo_id = ce.ejecutivo_id
 ),
@@ -78,17 +64,15 @@ select 'Sueldo base'::text, 'mensual'::text,
        round((select f from fraccion), 4),
        round(coalesce((select base from remuneraciones), 0), 0)
 union all
-select 'Comisiones'::text, 'beneficiarios con esquema'::text,
-       (select beneficiarios from escalonadas),
+select 'Comisiones'::text, 'unidades con esquema'::text,
+       (select unidades from escalonadas),
        round((select comisiones from escalonadas) + coalesce((select plana from remuneraciones), 0), 0)
 union all
-select 'Bonos'::text, 'por ventas alcanzadas'::text, null::numeric,
+select 'Semana corrida'::text, 'sobre la comisión'::text, null::numeric,
+       round((select semana_corrida from escalonadas), 0)
+union all
+select 'Bonos'::text, 'por metas alcanzadas'::text, null::numeric,
        round((select bonos from escalonadas), 0)
 union all
 select o.concepto, o.base, round(o.cantidad, 4), round(o.cantidad * o.monto_clp, 0) from otros o;
-$fn$;
-
-comment on function costos_periodo is
-  'Costos del periodo, con leyes sociales aplicadas. El sueldo se
-   prorratea por la fracción de mes consultada; comisiones y bonos salen
-   del esquema escalonado por ejecutivo.';
+$fn$;;

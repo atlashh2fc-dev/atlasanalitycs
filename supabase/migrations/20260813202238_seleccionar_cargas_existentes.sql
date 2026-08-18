@@ -105,3 +105,4 @@ create index if not exists carga_cargado_por_estado_idx
 
 comment on function public.usar_cargas_en_dataset(uuid[], uuid, text) is
   'Organiza cargas completas ya existentes en una base analizable. Admin: tenant completo; usuario: sólo cargas propias.';
+;

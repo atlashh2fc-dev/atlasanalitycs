@@ -59,10 +59,14 @@ create trigger comision_touch before update on comision
 alter table comision enable row level security;
 alter table comision force row level security;
 
+-- Es parte de la remuneración: sólo administración.
 create policy comision_admin on comision for all to authenticated
   using (tenant_id = current_tenant_id() and es_admin())
   with check (tenant_id = current_tenant_id() and es_admin());
 
+-- ---------------------------------------------------------------------
+-- Comisión ganada por ejecutivo en el periodo
+-- ---------------------------------------------------------------------
 create or replace function comision_ejecutivo(
   p_desde date,
   p_hasta date,
@@ -83,7 +87,7 @@ language sql
 stable
 security invoker
 set search_path = public
-as $fn$
+as $$
 with produccion as (
   select
     v.ejecutivo_id,
@@ -104,6 +108,8 @@ calculado as (
     p.agrupacion_meta,
     p.contratos,
     p.beneficiarios,
+    -- Tramo escalonado: el piso más alto alcanzado, aplicado a toda la
+    -- producción del ejecutivo en esa línea.
     (select c.monto_clp from comision c
       where c.agrupacion_meta = p.agrupacion_meta
         and c.tipo = 'escalonada'
@@ -115,10 +121,13 @@ calculado as (
                          else p.contratos
                        end
       order by c.desde desc limit 1) as tramo_clp,
+    -- Bonos: se suman todos los alcanzados que sean acumulables, más el
+    -- mayor de los no acumulables.
     coalesce((
       select sum(c.monto_clp) from comision c
       where c.agrupacion_meta = p.agrupacion_meta
-        and c.tipo = 'bono' and c.acumulable
+        and c.tipo = 'bono'
+        and c.acumulable
         and (p_campana is null or c.campana_id = p_campana)
         and c.vigencia_desde <= p_hasta
         and (c.vigencia_hasta is null or c.vigencia_hasta >= p_desde)
@@ -130,7 +139,8 @@ calculado as (
     + coalesce((
       select c.monto_clp from comision c
       where c.agrupacion_meta = p.agrupacion_meta
-        and c.tipo = 'bono' and not c.acumulable
+        and c.tipo = 'bono'
+        and not c.acumulable
         and (p_campana is null or c.campana_id = p_campana)
         and c.vigencia_desde <= p_hasta
         and (c.vigencia_hasta is null or c.vigencia_hasta >= p_desde)
@@ -149,15 +159,15 @@ select
   c.contratos,
   c.beneficiarios,
   c.tramo_clp,
-  round(coalesce(c.tramo_clp, 0) * c.beneficiarios, 0),
-  round(c.bonos_clp, 0),
-  round(coalesce(c.tramo_clp, 0) * c.beneficiarios + c.bonos_clp, 0)
+  round(coalesce(c.tramo_clp, 0) * c.beneficiarios, 0) as comision_clp,
+  round(c.bonos_clp, 0) as bonos_clp,
+  round(coalesce(c.tramo_clp, 0) * c.beneficiarios + c.bonos_clp, 0) as total_clp
 from calculado c
 join ejecutivo e on e.id = c.ejecutivo_id
 order by 9 desc;
-$fn$;
+$$;
 
 comment on function comision_ejecutivo is
   'Comisión y bonos ganados por ejecutivo y línea en el periodo. El
    tramo escalonado se aplica a toda la producción, no sólo al
-   excedente; los bonos acumulables se suman entre sí.';
+   excedente; los bonos acumulables se suman entre sí.';;

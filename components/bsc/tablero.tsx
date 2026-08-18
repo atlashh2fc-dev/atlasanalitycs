@@ -20,6 +20,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ESTADO, SERIES, Tooltip } from "@/components/charts/base";
+import { Embudo, type EtapaEmbudo } from "@/components/bsc/embudo";
+import { Proyeccion, type PuntoProyeccion } from "@/components/bsc/proyeccion";
 import { usaMovimientoReducido } from "@/lib/animacion";
 import { fmt } from "@/lib/utils";
 
@@ -127,17 +129,42 @@ function colorEstado(i: Indicador): string | null {
 
 /* ------------------------------------------------------------------ */
 
+function Titulo({
+  numero,
+  titulo,
+  pregunta,
+}: {
+  numero: string;
+  titulo: string;
+  pregunta: string;
+}) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="etiqueta shrink-0 text-[var(--text-muted)]">{numero}</span>
+      <h2 className="text-[15px] font-semibold tracking-tight">{titulo}</h2>
+      <span className="text-xs text-[var(--text-muted)]">{pregunta}</span>
+      <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
 export function Tablero({
   indicadores,
   economia,
   lineas,
   equilibrio,
+  proyeccion,
+  embudo,
   periodo,
 }: {
   indicadores: Indicador[];
   economia: FilaEconomia[];
   lineas: FilaLinea[];
   equilibrio: Equilibrio | null;
+  proyeccion: PuntoProyeccion[];
+  embudo: EtapaEmbudo[];
   periodo: { desde: string; hasta: string };
 }) {
   const reducido = usaMovimientoReducido();
@@ -171,34 +198,13 @@ export function Tablero({
 
   const topEconomia = economia.filter((e) => e.asegurados > 0).slice(0, 12);
 
-  // El sueldo se carga por el periodo completo. Si sólo hay ventas hasta
-  // la mitad del mes, el margen sale peor que el real y hay que decirlo:
-  // un tablero que no avisa esto hace tomar decisiones sobre una foto
-  // incompleta.
-  const dias = (a: string, b: string) =>
-    Math.round(
-      (new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) /
-        86_400_000,
-    ) + 1;
-
-  const diasPeriodo = dias(periodo.desde, periodo.hasta);
-  const diasConVenta = equilibrio?.ultima_venta
-    ? dias(periodo.desde, equilibrio.ultima_venta)
-    : null;
-  const parcial =
-    diasConVenta !== null && diasConVenta < diasPeriodo - 1 && diasPeriodo > 0;
-
-  const proyeccion =
-    parcial && equilibrio?.tarifa_media_clp
-      ? Math.round(
-          (equilibrio.asegurados_reales / diasConVenta!) * diasPeriodo,
-        )
-      : null;
+  const ultimoProyectado = proyeccion.at(-1)?.proyectado ?? null;
 
   return (
-    <div className="space-y-6">
-      {/* ---------------- Resultado del periodo ---------------- */}
-      <div className="grid gap-4 lg:grid-cols-3">
+    <div className="space-y-8">
+      <section className="space-y-4">
+        <Titulo numero="1" titulo="El resultado" pregunta="¿Qué dejó el periodo?" />
+        <div className="grid gap-4 lg:grid-cols-3">
         {[
           { t: "Ingreso del periodo", i: ingreso, tono: "var(--tono-venta)" },
           { t: "Costo total", i: costo, tono: "var(--tono-asistencia)" },
@@ -222,9 +228,9 @@ export function Tablero({
             </p>
           </motion.div>
         ))}
-      </div>
+        </div>
 
-      {sinCostos ? (
+        {sinCostos ? (
         <p
           className="rounded-xl px-3.5 py-2.5 text-xs"
           style={{
@@ -236,9 +242,9 @@ export function Tablero({
           igual al ingreso. Cárgalos en Mantenedor · Economía del negocio
           para que este tablero diga algo sobre rentabilidad.
         </p>
-      ) : null}
+        ) : null}
 
-      {brecha !== null && brecha > 0 ? (
+        {brecha !== null && brecha > 0 ? (
         <p
           className="rounded-xl px-3.5 py-2.5 text-xs"
           style={{
@@ -253,16 +259,17 @@ export function Tablero({
           exceden. Son unas {fmt.decimal((onco!.asegurados + brecha) * 0.1, 1)} UF
           adicionales por cruzar esa línea.
         </p>
-      ) : null}
+        ) : null}
 
-      {equilibrio?.asegurados_equilibrio ? (
-        <div
-          data-tono
-          style={{ "--tono": "var(--tono-asistencia)" } as React.CSSProperties}
-          className="vidrio rounded-2xl p-5"
-        >
-          <p className="etiqueta">Punto de equilibrio</p>
-          <div className="mt-2.5 flex flex-wrap items-baseline gap-x-8 gap-y-3">
+        <div className="grid gap-4 xl:grid-cols-[1fr_1.35fr]">
+          {equilibrio?.asegurados_equilibrio ? (
+            <div
+              data-tono
+              style={{ "--tono": "var(--tono-asistencia)" } as React.CSSProperties}
+              className="vidrio rounded-2xl p-5"
+            >
+              <p className="etiqueta">Punto de equilibrio</p>
+              <div className="mt-2.5 flex flex-wrap items-baseline gap-x-8 gap-y-3">
             <div>
               <p className="cifra text-[2.1rem]">
                 {fmt.decimal(equilibrio.asegurados_equilibrio, 0)}
@@ -287,40 +294,59 @@ export function Tablero({
                 producidos hasta ahora
               </p>
             </div>
-            {proyeccion !== null ? (
-              <div>
-                <p
-                  className="cifra text-[2.1rem]"
-                  style={{
-                    color:
-                      proyeccion >= equilibrio.asegurados_equilibrio
-                        ? ESTADO.good
-                        : ESTADO.serious,
-                  }}
-                >
-                  {fmt.entero(proyeccion)}
-                </p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                  proyectados al cierre, al ritmo actual
-                </p>
+                {ultimoProyectado !== null ? (
+                  <div>
+                    <p
+                      className="cifra text-[2.1rem]"
+                      style={{
+                        color:
+                          ultimoProyectado >= equilibrio.asegurados_equilibrio
+                            ? ESTADO.good
+                            : ESTADO.serious,
+                      }}
+                    >
+                      {fmt.decimal(ultimoProyectado, 1)}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                      proyectados al cierre
+                    </p>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+
+              <p className="mt-3 text-xs text-[var(--text-secondary)]">
+                A la tarifa media del mes, {fmt.clp(equilibrio.tarifa_media_clp ?? 0)} por
+                asegurado, la campaña se paga sola desde el asegurado{" "}
+                {fmt.decimal(equilibrio.asegurados_equilibrio, 0)}. Todo lo que venga
+                después es margen.
+              </p>
+            </div>
+          ) : (
+            <div className="vidrio rounded-2xl p-5 text-xs text-[var(--text-muted)]">
+              El punto de equilibrio aparecerá cuando existan costos y producción valorizada.
+            </div>
+          )}
+
+          <div
+            data-tono
+            style={{ "--tono": "var(--tono-cotizacion)" } as React.CSSProperties}
+            className="vidrio overflow-x-auto rounded-2xl p-5"
+          >
+            <h3 className="mb-3 text-[13px] font-semibold">Ingreso por línea</h3>
+            <TablaLineas lineas={lineas} />
           </div>
-
-          <p className="mt-3 text-xs text-[var(--text-secondary)]">
-            A la tarifa media del mes, {fmt.clp(equilibrio.tarifa_media_clp ?? 0)} por
-            asegurado, la campaña se paga sola desde el asegurado{" "}
-            {fmt.decimal(equilibrio.asegurados_equilibrio, 0)}. Todo lo que venga
-            después es margen.
-            {parcial
-              ? ` Ojo: el costo va por el periodo completo y las ventas llegan hasta el ${equilibrio.ultima_venta}, así que el margen de arriba está peor que el real.`
-              : ""}
-          </p>
         </div>
-      ) : null}
+      </section>
 
-      {/* ---------------- Las cuatro perspectivas ---------------- */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="space-y-4">
+        <Titulo numero="2" titulo="La trayectoria" pregunta="¿A dónde llegaremos si no cambia el ritmo?" />
+        <Proyeccion puntos={proyeccion} />
+      </section>
+
+      <section className="space-y-4">
+        <Titulo numero="3" titulo="Las causas" pregunta="¿Dónde se rompe el resultado?" />
+        <Embudo etapas={embudo} />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {PERSPECTIVAS.map((p, k) => {
           const lista = porPerspectiva.get(p.nombre) ?? [];
           const Icono = p.icono;
@@ -394,10 +420,9 @@ export function Tablero({
             </motion.div>
           );
         })}
-      </div>
+        </div>
 
-      {/* ---------------- Economía por ejecutivo ---------------- */}
-      <div
+        <div
         data-tono
         style={{ "--tono": "var(--tono-venta)" } as React.CSSProperties}
         className="vidrio rounded-2xl p-5"
@@ -500,68 +525,53 @@ export function Tablero({
             </p>
           </>
         )}
-      </div>
-
-      {/* ---------------- Ingreso por línea ---------------- */}
-      <div
-        data-tono
-        style={{ "--tono": "var(--tono-cotizacion)" } as React.CSSProperties}
-        className="vidrio rounded-2xl p-5"
-      >
-        <h3 className="mb-3 text-[13px] font-semibold">Ingreso por línea</h3>
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b text-left text-[var(--text-muted)]">
-              <th className="pb-1.5 font-medium">Línea</th>
-              <th className="pb-1.5 text-right font-medium">Asegurados</th>
-              <th className="pb-1.5 text-right font-medium">Meta</th>
-              <th className="pb-1.5 text-right font-medium">Cumplimiento</th>
-              <th className="pb-1.5 text-right font-medium">Tarifa</th>
-              <th className="pb-1.5 text-right font-medium">Ingreso UF</th>
-              <th className="pb-1.5 text-right font-medium">Ingreso</th>
-            </tr>
-          </thead>
-          <tbody className="tabular">
-            {lineas.map((l) => (
-              <tr key={l.agrupacion_meta} className="border-b last:border-0">
-                <td className="py-1.5 font-medium text-[var(--text-primary)]">
-                  {l.agrupacion_meta}
-                </td>
-                <td className="py-1.5 text-right">{fmt.entero(l.asegurados)}</td>
-                <td className="py-1.5 text-right text-[var(--text-secondary)]">
-                  {l.meta === null ? "—" : fmt.entero(l.meta)}
-                </td>
-                <td
-                  className="py-1.5 text-right font-medium"
-                  style={{
-                    color:
-                      l.cumplimiento_pct === null
-                        ? undefined
-                        : l.cumplimiento_pct >= 100
-                          ? ESTADO.good
-                          : l.cumplimiento_pct >= 85
-                            ? "var(--warning)"
-                            : ESTADO.serious,
-                  }}
-                >
-                  {l.cumplimiento_pct === null
-                    ? "—"
-                    : `${fmt.decimal(l.cumplimiento_pct, 1)}%`}
-                </td>
-                <td className="py-1.5 text-right text-[var(--text-secondary)]">
-                  {l.tarifa_uf === null
-                    ? "por edad"
-                    : `${fmt.decimal(l.tarifa_uf, 2)} UF`}
-                </td>
-                <td className="py-1.5 text-right">{fmt.decimal(l.ingreso_uf, 2)}</td>
-                <td className="py-1.5 text-right font-semibold">
-                  {fmt.clp(l.ingreso_clp)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        </div>
+      </section>
     </div>
+  );
+}
+
+function TablaLineas({ lineas }: { lineas: FilaLinea[] }) {
+  return (
+    <table className="w-full min-w-[620px] text-xs">
+      <thead>
+        <tr className="border-b text-left text-[var(--text-muted)]">
+          <th className="pb-1.5 font-medium">Línea</th>
+          <th className="pb-1.5 text-right font-medium">Asegurados</th>
+          <th className="pb-1.5 text-right font-medium">Meta</th>
+          <th className="pb-1.5 text-right font-medium">Cumplimiento</th>
+          <th className="pb-1.5 text-right font-medium">Tarifa</th>
+          <th className="pb-1.5 text-right font-medium">Ingreso UF</th>
+          <th className="pb-1.5 text-right font-medium">Ingreso</th>
+        </tr>
+      </thead>
+      <tbody className="tabular">
+        {lineas.map((l) => (
+          <tr key={l.agrupacion_meta} className="border-b last:border-0">
+            <td className="py-1.5 font-medium text-[var(--text-primary)]">{l.agrupacion_meta}</td>
+            <td className="py-1.5 text-right">{fmt.entero(l.asegurados)}</td>
+            <td className="py-1.5 text-right text-[var(--text-secondary)]">{l.meta === null ? "—" : fmt.entero(l.meta)}</td>
+            <td
+              className="py-1.5 text-right font-medium"
+              style={{
+                color:
+                  l.cumplimiento_pct === null
+                    ? undefined
+                    : l.cumplimiento_pct >= 100
+                      ? ESTADO.good
+                      : l.cumplimiento_pct >= 85
+                        ? "var(--warning)"
+                        : ESTADO.serious,
+              }}
+            >
+              {l.cumplimiento_pct === null ? "—" : `${fmt.decimal(l.cumplimiento_pct, 1)}%`}
+            </td>
+            <td className="py-1.5 text-right text-[var(--text-secondary)]">{l.tarifa_uf === null ? "por edad" : `${fmt.decimal(l.tarifa_uf, 2)} UF`}</td>
+            <td className="py-1.5 text-right">{fmt.decimal(l.ingreso_uf, 2)}</td>
+            <td className="py-1.5 text-right font-semibold">{fmt.clp(l.ingreso_clp)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

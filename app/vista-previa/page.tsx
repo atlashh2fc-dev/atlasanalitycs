@@ -11,6 +11,8 @@ import {
   type Indicador,
 } from "@/components/bsc/tablero";
 import { Control, type FilaControl } from "@/components/bsc/control";
+import { type EtapaEmbudo } from "@/components/bsc/embudo";
+import { type PuntoProyeccion } from "@/components/bsc/proyeccion";
 
 /**
  * Banco de pruebas visual.
@@ -108,6 +110,40 @@ const LINEAS: FilaLinea[] = [
   },
 ];
 
+const PROYECCION: PuntoProyeccion[] = [
+  ["2026-08-01", false, 0, 0, 0, 0, false],
+  ["2026-08-04", true, 21, 21, 21, 29.5, false],
+  ["2026-08-08", false, 0, 54, 54, 73.8, false],
+  ["2026-08-12", true, 17, 88, 88, 118.1, false],
+  ["2026-08-18", true, 0, 126, 126, 177.1, false],
+  ["2026-08-21", true, 0, 126, 157.5, 221.4, true],
+  ["2026-08-26", true, 0, 126, 189, 265.7, true],
+  ["2026-08-31", true, 0, 126, 220.5, 310, true],
+].map(([fecha, es_habil, asegurados_dia, acumulado, proyectado, linea_meta, es_futuro]) => ({
+  fecha: fecha as string,
+  es_habil: es_habil as boolean,
+  asegurados_dia: asegurados_dia as number,
+  acumulado: acumulado as number,
+  proyectado: proyectado as number,
+  linea_meta: linea_meta as number,
+  es_futuro: es_futuro as boolean,
+}));
+
+const EMBUDO: EtapaEmbudo[] = [
+  [1, "Gestiones", 8391, null, "Intentos de contacto registrados por el discador."],
+  [2, "Contactos", 5799, 69.1, "Conversaciones efectivas con la base."],
+  [3, "Compromisos", 3453, 59.5, "Rellamadas y seguimientos todavía vivos."],
+  [4, "Cotizaciones", 4818, 139.5, "Cotizaciones emitidas durante el periodo."],
+  [5, "Ventas", 102, 2.1, "Contratos ingresados durante el periodo."],
+  [6, "Asegurados", 126, 123.5, "Titulares y cargas cubiertos."],
+].map(([orden, etapa, valor, tasa_pct, detalle]) => ({
+  orden: orden as number,
+  etapa: etapa as string,
+  valor: valor as number,
+  tasa_pct: tasa_pct as number | null,
+  detalle: detalle as string,
+}));
+
 const CONTROL: FilaControl[] = [
   ["Marjorie Venegas Gonzalez", 30, 0, 0, 15, 20, 13.5, 148.1, 7.8, 1225407, 791274, 434133, 10.4, "en meta"],
   ["Marta Orellana Leiva", 30, 2, 2, 10, 13, 13.5, 96.3, 7.8, 816938, 647274, 169664, 9.6, "en ritmo"],
@@ -196,12 +232,20 @@ export default function VistaPrevia() {
             costo_total_clp: 11598102,
             ultima_venta: "2026-08-17",
           }}
+          proyeccion={PROYECCION}
+          embudo={EMBUDO}
           periodo={{ desde: "2026-08-01", hasta: "2026-08-31" }}
         />
 
-        <div className="mt-6">
+        <section className="mt-8 space-y-4">
+          <div className="flex items-baseline gap-3">
+            <span className="etiqueta shrink-0 text-[var(--text-muted)]">4</span>
+            <h2 className="text-[15px] font-semibold tracking-tight">Gestión del equipo</h2>
+            <span className="text-xs text-[var(--text-muted)]">¿Dónde intervenir primero?</span>
+            <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
+          </div>
           <Control filas={CONTROL} />
-        </div>
+        </section>
       </main>
     </>
   );

@@ -12,10 +12,6 @@
 -- Así no hay hueco posible, y la columna 'hasta' pasa a ser
 -- documentación de lo que dice el contrato en vez de una condición que
 -- puede dejar una venta sin tarifa.
---
--- El cuerpo de ingreso_periodo es el mismo que aplicó la migración
--- homónima en la base; se conserva acá para que el repositorio pueda
--- reconstruir el esquema completo.
 -- ---------------------------------------------------------------------
 
 create or replace function ingreso_periodo(
@@ -49,7 +45,11 @@ with ventas as (
     and (p_campana is null or v.campana_id = p_campana)
 ),
 personas as (
-  select ve.agrupacion_meta, ve.id as venta_id, va.parentesco, va.edad
+  select
+    ve.agrupacion_meta,
+    ve.id as venta_id,
+    va.parentesco,
+    va.edad
   from ventas ve
   join venta_asegurado va on va.venta_id = ve.id
 ),
@@ -101,6 +101,8 @@ por_edad as (
   from personas p
   group by 1
 ),
+-- Oncológico: todos los beneficiarios al mismo valor, que sube por
+-- tramo de cumplimiento. Sube para todos, no sólo para el excedente.
 tarifa_cumplimiento as (
   select
     a.agrupacion_meta,
@@ -116,18 +118,48 @@ tarifa_cumplimiento as (
 )
 select
   a.agrupacion_meta,
-  case when tc.tarifa_uf is not null then 'cumplimiento' else 'edad' end,
-  (select count(distinct p.venta_id)::int from personas p where p.agrupacion_meta = a.agrupacion_meta),
-  (select count(*)::int from personas p where p.agrupacion_meta = a.agrupacion_meta and p.parentesco = 'titular'),
-  (select count(*)::int from personas p where p.agrupacion_meta = a.agrupacion_meta and p.parentesco = 'carga'),
+  case when tc.tarifa_uf is not null then 'cumplimiento' else 'edad' end as criterio,
+  (select count(distinct p.venta_id)::int from personas p where p.agrupacion_meta = a.agrupacion_meta) as contratos,
+  (select count(*)::int from personas p where p.agrupacion_meta = a.agrupacion_meta and p.parentesco = 'titular') as titulares,
+  (select count(*)::int from personas p where p.agrupacion_meta = a.agrupacion_meta and p.parentesco = 'carga') as adicionales,
   a.asegurados,
   a.meta,
-  round(a.asegurados::numeric / nullif(a.meta, 0) * 100, 2),
+  round(a.asegurados::numeric / nullif(a.meta, 0) * 100, 2) as cumplimiento_pct,
   tc.tarifa_uf,
-  round(coalesce(tc.tarifa_uf * a.asegurados, pe.ingreso_uf, 0), 4),
-  round(coalesce(tc.tarifa_uf * a.asegurados, pe.ingreso_uf, 0) * uf_del_periodo(p_desde, p_hasta), 0)
+  round(coalesce(tc.tarifa_uf * a.asegurados, pe.ingreso_uf, 0), 4) as ingreso_uf,
+  round(coalesce(tc.tarifa_uf * a.asegurados, pe.ingreso_uf, 0) * uf_del_periodo(p_desde, p_hasta), 0) as ingreso_clp
 from avance a
 left join tarifa_cumplimiento tc on tc.agrupacion_meta = a.agrupacion_meta
 left join por_edad pe on pe.agrupacion_meta = a.agrupacion_meta
 order by 1;
 $$;
+
+-- El último tramo del oncológico arranca en 110,1% y no en 109: con la
+-- meta de 60, el 110% exacto son 66 beneficiarios, que la tabla del
+-- mandante deja fuera tanto de "63-65" como de "67+". Se toma la
+-- lectura conservadora —1,7 UF— y queda anotado para confirmarlo.
+update tarifa
+set desde = 110.1,
+    hasta = null,
+    notas = 'Sobre 110% (67 o más beneficiarios con meta 60). El 110% exacto, 66 beneficiarios, queda en el tramo anterior: la tabla del mandante salta del 65 al 67 y se toma la lectura conservadora.'
+where agrupacion_meta = 'ONCO'
+  and criterio = 'cumplimiento'
+  and desde = 109;
+
+update tarifa
+set notas = 'Hasta 60 beneficiarios (meta del mes)'
+where agrupacion_meta = 'ONCO' and criterio = 'cumplimiento' and desde = 0;
+
+update tarifa
+set notas = '61 a 62 beneficiarios'
+where agrupacion_meta = 'ONCO' and criterio = 'cumplimiento' and desde = 100.1;
+
+update tarifa
+set notas = '63 a 65 beneficiarios'
+where agrupacion_meta = 'ONCO' and criterio = 'cumplimiento' and desde = 105;
+
+-- El tramo superior de complementario no tiene tope: "60 a 60" en el
+-- contrato es el piso, no un tramo de un solo año.
+update tarifa
+set hasta = null, notas = 'Titular de 60 años en adelante'
+where agrupacion_meta = 'CM+CAT' and criterio = 'edad' and alcance = 'titular' and desde = 60;;

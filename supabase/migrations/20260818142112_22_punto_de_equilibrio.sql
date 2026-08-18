@@ -54,4 +54,4 @@ $$;
 
 comment on function punto_equilibrio is
   'Asegurados necesarios para que el ingreso cubra el costo del periodo,
-   a la tarifa media obtenida.';
+   a la tarifa media obtenida.';;

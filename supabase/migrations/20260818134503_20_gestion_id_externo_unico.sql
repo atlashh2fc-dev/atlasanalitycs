@@ -17,4 +17,4 @@ create index if not exists gestion_periodo
   on gestion (tenant_id, fecha, campana_id);
 
 create index if not exists gestion_ejecutivo_periodo
-  on gestion (tenant_id, ejecutivo_id, fecha);
+  on gestion (tenant_id, ejecutivo_id, fecha);;

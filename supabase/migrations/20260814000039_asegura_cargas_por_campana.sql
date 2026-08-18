@@ -27,7 +27,6 @@ begin
   end if;
 end;
 $$;
-
 with evidencia as (
   select d.id as dataset_id, min(ca.campana_id::text)::uuid as campana_id
     from public.dataset d
@@ -39,7 +38,6 @@ update public.dataset d
    set campana_id = evidencia.campana_id
   from evidencia
  where d.id = evidencia.dataset_id;
-
 -- Un dataset completamente huérfano sólo se adopta cuando su tenant tiene
 -- exactamente una campaña activa. Con varias campañas el deploy falla antes
 -- de esconder datos bajo una asociación inventada.
@@ -55,7 +53,6 @@ update public.dataset d
   from unica
  where d.tenant_id = unica.tenant_id
    and d.activo and d.campana_id is null;
-
 do $$
 declare
   v_huerfanos text;
@@ -69,7 +66,6 @@ begin
   end if;
 end;
 $$;
-
 -- Si una campaña heredó varias bases, todas sus cargas se consolidan en el
 -- contenedor con más historial. Se preservan filas, campos y paneles.
 create temporary table atlas_dataset_canonico on commit drop as
@@ -88,7 +84,6 @@ select c.id as campana_id,
        ) as dataset_id
   from public.campana c
  where c.activo;
-
 insert into public.dataset (id, tenant_id, campana_id, nombre, descripcion)
 select canon.dataset_id,
        c.tenant_id,
@@ -106,14 +101,12 @@ select canon.dataset_id,
  where not exists (
    select 1 from public.dataset d where d.id = canon.dataset_id
  );
-
 update public.carga ca
    set dataset_id = canon.dataset_id
   from public.dataset anterior
   join atlas_dataset_canonico canon on canon.campana_id = anterior.campana_id
  where ca.dataset_id = anterior.id
    and anterior.id <> canon.dataset_id;
-
 -- Fusiona el catálogo de campos antes de retirar los contenedores antiguos.
 insert into public.dataset_campo
   (tenant_id, dataset_id, clave, nombre, tipo, rol, agregacion, unidad,
@@ -134,7 +127,6 @@ select dc.tenant_id,
   join atlas_dataset_canonico canon on canon.campana_id = anterior.campana_id
  where dc.dataset_id <> canon.dataset_id
 on conflict (dataset_id, clave) do nothing;
-
 update public.carga_columna cc
    set dataset_campo_id = destino.id
   from public.dataset_campo origen
@@ -144,7 +136,6 @@ update public.carga_columna cc
     on destino.dataset_id = canon.dataset_id and destino.clave = origen.clave
  where cc.dataset_campo_id = origen.id
    and origen.dataset_id <> canon.dataset_id;
-
 -- Los widgets guardan también el UUID en JSON.
 update public.panel_widget pw
    set config = jsonb_set(pw.config, '{datasetId}', to_jsonb(canon.dataset_id), true)
@@ -153,7 +144,6 @@ update public.panel_widget pw
   join atlas_dataset_canonico canon on canon.campana_id = anterior.campana_id
  where pw.panel_id = p.id
    and anterior.id <> canon.dataset_id;
-
 -- Si el usuario ya tenía un panel para el contenedor canónico, se conserva
 -- ese panel y se retira sólo el duplicado técnico antes de mover el resto.
 delete from public.panel p
@@ -165,19 +155,16 @@ delete from public.panel p
      select 1 from public.panel otro
       where otro.perfil_id = p.perfil_id and otro.dataset_id = canon.dataset_id
    );
-
 update public.panel p
    set dataset_id = canon.dataset_id
   from public.dataset anterior
   join atlas_dataset_canonico canon on canon.campana_id = anterior.campana_id
  where p.dataset_id = anterior.id
    and anterior.id <> canon.dataset_id;
-
 delete from public.dataset d
  using atlas_dataset_canonico canon
  where d.campana_id = canon.campana_id
    and d.id <> canon.dataset_id;
-
 update public.dataset d
    set nombre = c.nombre,
        descripcion = coalesce(
@@ -187,11 +174,9 @@ update public.dataset d
   from atlas_dataset_canonico canon
   join public.campana c on c.id = canon.campana_id
  where d.id = canon.dataset_id;
-
 create unique index if not exists dataset_campana_unica
   on public.dataset (campana_id)
   where campana_id is not null and activo;
-
 -- Corrige cargas históricas cuyo dataset ya estaba asociado, pero cuya
 -- campaña se guardó vacía o distinta.
 update public.carga ca
@@ -206,7 +191,6 @@ update public.carga ca
  where d.id = ca.dataset_id
    and d.campana_id is not null
    and ca.campana_id is distinct from d.campana_id;
-
 update public.gestion g set campana_id = ca.campana_id
   from public.carga ca
  where ca.id = g.carga_id and g.campana_id is distinct from ca.campana_id;
@@ -225,7 +209,6 @@ update public.asistencia a set campana_id = ca.campana_id
 update public.plantilla_mapeo p set campana_id = d.campana_id
   from public.dataset d
  where d.id = p.dataset_id and p.campana_id is distinct from d.campana_id;
-
 create or replace function public.tg_carga_hereda_campana_dataset()
 returns trigger
 language plpgsql
@@ -261,18 +244,14 @@ begin
   return new;
 end;
 $$;
-
 revoke execute on function public.tg_carga_hereda_campana_dataset()
   from public, anon, authenticated;
-
 drop trigger if exists t_carga_00_hereda_campana_dataset on public.carga;
 create trigger t_carga_00_hereda_campana_dataset
   before insert or update of tenant_id, dataset_id, campana_id on public.carga
   for each row execute function public.tg_carga_hereda_campana_dataset();
-
 comment on function public.tg_carga_hereda_campana_dataset() is
   'Deriva siempre la campaña desde el contenedor técnico de la carga para impedir asociaciones divergentes.';
-
 -- El contenedor técnico y sus campos deben respetar exactamente los mismos
 -- accesos por campaña. Antes, cualquier supervisor del tenant podía leer la
 -- ficha de un dataset de otra campaña aunque no pudiera ver sus cargas.
@@ -286,7 +265,6 @@ create policy dataset_campana_lectura on public.dataset
       or campana_id in (select public.campanas_visibles())
     )
   );
-
 drop policy if exists dataset_campo_lectura on public.dataset_campo;
 create policy dataset_campo_campana_lectura on public.dataset_campo
   for select to authenticated
@@ -298,7 +276,6 @@ create policy dataset_campo_campana_lectura on public.dataset_campo
        where d.id = dataset_campo.dataset_id
     )
   );
-
 drop policy if exists carga_campana_visible on public.carga;
 create policy carga_campana_visible on public.carga
   for select to authenticated
@@ -309,7 +286,6 @@ create policy carga_campana_visible on public.carga
       or campana_id in (select public.campanas_visibles())
     )
   );
-
 drop policy if exists carga_campana_escritura on public.carga;
 create policy carga_campana_escritura on public.carga
   for all to authenticated
@@ -327,12 +303,10 @@ create policy carga_campana_escritura on public.carga
       or campana_id in (select public.campanas_visibles())
     )
   );
-
 -- Retira el flujo anterior que permitía reagrupar cargas en "bases" nuevas.
 -- Las cargas ya quedan listas para análisis dentro de su campaña desde el
 -- momento en que se registran.
 revoke execute on function public.usar_cargas_en_dataset(uuid[], uuid, text)
   from authenticated;
-
 revoke execute on function public.asignar_campana_dataset(uuid, uuid)
   from authenticated;

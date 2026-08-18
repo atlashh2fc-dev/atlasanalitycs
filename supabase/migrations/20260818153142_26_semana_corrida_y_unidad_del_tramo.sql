@@ -23,20 +23,6 @@
 --    función multiplicaba siempre por beneficiarios, lo que habría
 --    pagado de más en complementario apenas una póliza tuviera cargas.
 -- ---------------------------------------------------------------------
-
-alter table remuneracion
-  add column if not exists factor_semana_corrida numeric(6,4) not null default 0.2000;
-
-comment on column remuneracion.factor_semana_corrida is
-  'Proporción de la comisión que se paga como semana corrida. 0.20 = un
-   día de descanso por cada cinco trabajados. 0 la desactiva.';
-
-alter table remuneracion drop constraint if exists remuneracion_semana_corrida_valida;
-alter table remuneracion add constraint remuneracion_semana_corrida_valida
-  check (factor_semana_corrida >= 0 and factor_semana_corrida <= 1);
-
-drop function if exists comision_ejecutivo(date, date, uuid);
-
 create or replace function comision_ejecutivo(
   p_desde date,
   p_hasta date,
@@ -156,4 +142,4 @@ comment on function comision_ejecutivo is
   'Comisión, semana corrida y bonos por ejecutivo y línea. El tramo
    alcanzado se aplica a toda la producción del periodo, no sólo al
    excedente, y su unidad —beneficiario o venta efectiva— la define el
-   propio tramo. La semana corrida no incluye los bonos.';
+   propio tramo. La semana corrida no incluye los bonos.';;

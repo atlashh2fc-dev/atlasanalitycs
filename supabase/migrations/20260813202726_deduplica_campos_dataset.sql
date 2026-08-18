@@ -86,3 +86,4 @@ revoke execute on function public.sincronizar_campos_dataset(uuid)
   from public, anon;
 grant execute on function public.sincronizar_campos_dataset(uuid)
   to authenticated;
+;
