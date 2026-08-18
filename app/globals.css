@@ -265,6 +265,128 @@ body::before {
   background: var(--vidrio-alto);
 }
 
+/* Menús propios: los popups de <select> son dibujados por el sistema y en
+   Windows ignoran el tema oscuro. Este menú conserva el mismo vidrio en todos
+   los motores y sistemas operativos. */
+.glass-select {
+  position: relative;
+  z-index: 1;
+}
+
+.glass-select.is-open {
+  z-index: 50;
+}
+
+.glass-select-trigger {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 999px;
+  background: var(--vidrio);
+  box-shadow: inset 0 1px 0 var(--luz-cenital), 0 8px 28px rgba(0, 0, 0, 0.12);
+  padding: 0.4rem 0.78rem 0.4rem 0.85rem;
+  color: var(--text-primary);
+  font-size: 13px;
+  white-space: nowrap;
+  backdrop-filter: blur(18px) saturate(155%);
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.glass-select-trigger:hover,
+.glass-select.is-open .glass-select-trigger {
+  border-color: var(--vidrio-borde-alto);
+  background: var(--vidrio-alto);
+}
+
+.glass-select-prefix {
+  color: var(--text-muted);
+}
+
+.glass-select-value {
+  font-weight: 600;
+}
+
+.glass-select-chevron {
+  width: 15px;
+  height: 15px;
+  color: var(--text-secondary);
+  transition: transform 180ms ease;
+}
+
+.glass-select.is-open .glass-select-chevron {
+  transform: rotate(180deg);
+}
+
+.glass-select-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(340px, calc(100vw - 32px));
+  max-height: min(360px, 55vh);
+  overflow-y: auto;
+  border: 1px solid var(--vidrio-borde-alto);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--plano-alto) 72%, transparent);
+  box-shadow: inset 0 1px 0 var(--luz-cenital), var(--sombra-alta);
+  padding: 5px;
+  backdrop-filter: blur(30px) saturate(175%);
+  -webkit-backdrop-filter: blur(30px) saturate(175%);
+  animation: glass-select-in 140ms ease-out;
+}
+
+.glass-select-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  border-radius: 11px;
+  padding: 0.58rem 0.68rem;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.glass-select-option:hover,
+.glass-select-option.is-active,
+.glass-select-option[aria-selected="true"] {
+  background: var(--vidrio-alto);
+  color: var(--text-primary);
+}
+
+.glass-select-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.glass-select-check {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--series-1);
+  opacity: 0;
+}
+
+.glass-select-check.is-visible {
+  opacity: 1;
+}
+
+@keyframes glass-select-in {
+  from { opacity: 0; transform: translateY(-5px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-select-menu { animation: none; }
+  .glass-select-chevron { transition: none; }
+}
+
 .pildora input,
 .pildora select {
   background: transparent;
@@ -280,6 +402,13 @@ select,
 textarea {
   color: var(--text-primary);
   background-color: var(--vidrio-alto);
+}
+
+/* Respaldo legible para los formularios administrativos que todavía necesitan
+   el control nativo. Windows sí respeta estos colores aunque no permita blur. */
+select option {
+  color: var(--text-primary);
+  background-color: var(--plano-alto);
 }
 
 input[type="date"],

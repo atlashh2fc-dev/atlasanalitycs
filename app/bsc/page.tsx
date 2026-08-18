@@ -18,6 +18,7 @@ import {
 import { hayCredenciales } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
 import { getContexto, rangoMes } from "@/lib/datos";
+import { GlassSelect, type GlassSelectOption } from "@/components/ui/glass-select";
 
 export const dynamic = "force-dynamic";
 
@@ -222,39 +223,43 @@ export default async function CuadroDeMando({
           </div>
 
           <form className="flex flex-wrap items-center gap-2.5">
-            <label className="pildora cursor-pointer">
-              <span className="text-[var(--text-muted)]">Mes</span>
-              <select name="mes" defaultValue={mes} aria-label="Mes del dashboard">
-                {!(periodosDisponibles ?? []).some((p) => p.fecha_inicio?.slice(0, 7) === mes) ? (
-                  <option value={mes}>{mes}</option>
-                ) : null}
-                {(periodosDisponibles ?? []).map((p) => (
-                  <option key={p.fecha_inicio} value={p.fecha_inicio.slice(0, 7)}>
-                    {p.etiqueta}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <GlassSelect
+              name="mes"
+              defaultValue={mes}
+              ariaLabel="Mes del dashboard"
+              prefix="Mes"
+              options={[
+                ...(!(periodosDisponibles ?? []).some((p) => p.fecha_inicio?.slice(0, 7) === mes)
+                  ? [{ value: mes, label: mes }]
+                  : []),
+                ...(periodosDisponibles ?? []).map((p) => ({
+                  value: p.fecha_inicio.slice(0, 7),
+                  label: p.etiqueta,
+                })),
+              ] satisfies GlassSelectOption[]}
+            />
 
             {ctx.campanas.length > 1 ? (
-              <label className="pildora cursor-pointer">
-                <select name="campana" defaultValue={campana ?? ""} aria-label="Campaña">
-                  <option value="">Todas las campañas</option>
-                  {ctx.campanas.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <GlassSelect
+                name="campana"
+                defaultValue={campana ?? ""}
+                ariaLabel="Campaña"
+                options={[
+                  { value: "", label: "Todas las campañas" },
+                  ...ctx.campanas.map((c) => ({ value: c.id, label: c.nombre })),
+                ]}
+              />
             ) : null}
 
-            <label className="pildora cursor-pointer">
-              <select name="comparar" defaultValue={comparar ? "si" : "no"} aria-label="Comparación">
-                <option value="si">Vs. período anterior</option>
-                <option value="no">Sin comparación</option>
-              </select>
-            </label>
+            <GlassSelect
+              name="comparar"
+              defaultValue={comparar ? "si" : "no"}
+              ariaLabel="Comparación"
+              options={[
+                { value: "si", label: "Vs. período anterior" },
+                { value: "no", label: "Sin comparación" },
+              ]}
+            />
 
             <button
               type="submit"
