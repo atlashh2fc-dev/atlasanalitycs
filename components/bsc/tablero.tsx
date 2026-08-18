@@ -215,6 +215,7 @@ export function Tablero({
   equilibrio,
   proyeccion,
   proyeccionesLinea = [],
+  proyeccionesLineaAnterior = [],
   embudo,
   indicadoresAnteriores = [],
   analysisQuery = "",
@@ -225,6 +226,7 @@ export function Tablero({
   equilibrio: Equilibrio | null;
   proyeccion: PuntoProyeccion[];
   proyeccionesLinea?: ProyeccionPorLinea[];
+  proyeccionesLineaAnterior?: ProyeccionPorLinea[];
   embudo: EtapaEmbudo[];
   indicadoresAnteriores?: Indicador[];
   analysisQuery?: string;
@@ -252,6 +254,16 @@ export function Tablero({
         || a.localeCompare(b, "es");
     });
   }, [proyeccionesLinea]);
+
+  const proyeccionesAnterioresAgrupadas = useMemo(() => {
+    const grupos = new Map<string, PuntoProyeccion[]>();
+    for (const punto of proyeccionesLineaAnterior) {
+      const puntos = grupos.get(punto.agrupacion_meta) ?? [];
+      puntos.push(punto);
+      grupos.set(punto.agrupacion_meta, puntos);
+    }
+    return grupos;
+  }, [proyeccionesLineaAnterior]);
 
   const porPerspectiva = useMemo(() => {
     const m = new Map<string, Indicador[]>();
@@ -520,6 +532,7 @@ export function Tablero({
             <Proyeccion
               key={agrupacion}
               puntos={puntos}
+              puntosAnterior={proyeccionesAnterioresAgrupadas.get(agrupacion) ?? []}
               titulo={
                 agrupacion === "ONCO"
                   ? "Oncológico"

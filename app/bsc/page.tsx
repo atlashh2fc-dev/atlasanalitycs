@@ -113,6 +113,7 @@ export default async function CuadroDeMando({
     { data: control },
     { data: proyeccion },
     { data: proyeccionesLinea },
+    { data: proyeccionesLineaAnterior },
     { data: embudo },
     { data: indicadoresAnteriores },
     { data: costosCierre },
@@ -147,6 +148,12 @@ export default async function CuadroDeMando({
         p_desde: desde,
         p_corte: hasta,
         p_cierre: cierre,
+        p_campana: campana,
+      }),
+      supabase.rpc("proyeccion_cierre_por_linea", {
+        p_desde: anterior.desde,
+        p_corte: anterior.hasta,
+        p_cierre: anterior.cierre,
         p_campana: campana,
       }),
       supabase.rpc("embudo_periodo", {
@@ -270,6 +277,7 @@ export default async function CuadroDeMando({
           }
           proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
           proyeccionesLinea={(proyeccionesLinea ?? []) as unknown as ProyeccionPorLinea[]}
+          proyeccionesLineaAnterior={(proyeccionesLineaAnterior ?? []) as unknown as ProyeccionPorLinea[]}
           embudo={(embudo ?? []) as unknown as EtapaEmbudo[]}
           indicadoresAnteriores={comparar ? (indicadoresAnteriores ?? []) as unknown as Indicador[] : []}
           analysisQuery={contextoAnalisis.toString()}
