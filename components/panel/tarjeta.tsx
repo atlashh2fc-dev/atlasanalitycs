@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
+import { Download, Search } from "lucide-react";
 import {
   AreaChart,
   Bar,
@@ -50,6 +51,73 @@ function formatea(valor: number, unidad: Resultado["unidad"]): string {
 /** Etiquetas largas no se leen: se recortan con puntos suspensivos. */
 function corta(s: string, n = 18): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
+}
+
+function TablaAnalitica({ datos }: { datos: Resultado }) {
+  const [busqueda, setBusqueda] = useState("");
+  const [descendente, setDescendente] = useState(true);
+  const filas = useMemo(() => {
+    const termino = busqueda.trim().toLocaleLowerCase("es");
+    return [...datos.filas]
+      .filter((f) => !termino || f.clave.toLocaleLowerCase("es").includes(termino))
+      .sort((a, b) => descendente ? b.valor - a.valor : a.valor - b.valor);
+  }, [busqueda, datos.filas, descendente]);
+
+  function exportar() {
+    const csv = [["Categoria", "Valor", "Peso"], ...filas.map((f) => [f.clave, f.valor, datos.total ? f.valor / datos.total : 0])]
+      .map((fila) => fila.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(";"))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" }));
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = "tabla-panel.csv";
+    enlace.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="flex h-full flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-[var(--vidrio-borde)] px-2 py-1">
+          <Search className="size-3 text-[var(--text-muted)]" />
+          <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar…" className="min-w-0 flex-1 bg-transparent text-[11px] outline-none" />
+        </label>
+        <button type="button" onClick={() => setDescendente((v) => !v)} className="rounded-lg border border-[var(--vidrio-borde)] px-2 py-1 text-[10px]">
+          Valor {descendente ? "↓" : "↑"}
+        </button>
+        <button type="button" onClick={exportar} title="Exportar CSV" aria-label="Exportar tabla CSV" className="rounded-lg border border-[var(--vidrio-borde)] p-1.5">
+          <Download className="size-3" />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-[var(--surface-2)]">
+            <tr className="border-b text-left text-[var(--text-muted)]">
+              <th className="pb-1.5 font-medium">Categoría</th>
+              <th className="pb-1.5 text-right font-medium">Valor</th>
+              <th className="w-24 pb-1.5 text-right font-medium">Peso</th>
+            </tr>
+          </thead>
+          <tbody className="tabular">
+            {filas.map((f) => {
+              const peso = datos.total > 0 ? f.valor / datos.total : 0;
+              return (
+                <tr key={f.clave} className="border-b last:border-0">
+                  <td className="py-1.5 pr-2 text-[var(--text-primary)]">{f.clave}</td>
+                  <td className="py-1.5 text-right">{formatea(f.valor, datos.unidad)}</td>
+                  <td className="py-1.5 pl-2">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-0)]">
+                      <div className="h-full rounded-full" style={{ width: `${Math.min(100, peso * 100)}%`, background: "linear-gradient(90deg, color-mix(in srgb, var(--series-1) 55%, transparent), var(--series-1))" }} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 export function ContenidoTarjeta({
@@ -198,44 +266,7 @@ export function ContenidoTarjeta({
 
   /* ---------------- Tabla ---------------- */
   if (tipo === "tabla") {
-    return (
-      <div className="h-full overflow-auto">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-[var(--surface-2)]">
-            <tr className="border-b text-left text-[var(--text-muted)]">
-              <th className="pb-1.5 font-medium">Categoría</th>
-              <th className="pb-1.5 text-right font-medium">Valor</th>
-              <th className="w-24 pb-1.5 text-right font-medium">Peso</th>
-            </tr>
-          </thead>
-          <tbody className="tabular">
-            {datos.filas.map((f) => {
-              const peso = datos.total > 0 ? f.valor / datos.total : 0;
-              return (
-                <tr key={f.clave} className="border-b last:border-0">
-                  <td className="py-1.5 pr-2 text-[var(--text-primary)]">{f.clave}</td>
-                  <td className="py-1.5 text-right">
-                    {formatea(f.valor, datos.unidad)}
-                  </td>
-                  <td className="py-1.5 pl-2">
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-0)]">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.min(100, peso * 100)}%`,
-                          background:
-                            "linear-gradient(90deg, color-mix(in srgb, var(--series-1) 55%, transparent), var(--series-1))",
-                        }}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
+    return <TablaAnalitica datos={datos} />;
   }
 
   const tooltip = (

@@ -8,6 +8,7 @@ import {
   type Indicador,
 } from "@/components/bsc/tablero";
 import { Control, type FilaControl } from "@/components/bsc/control";
+import { Decisiones, type ControlCalidad } from "@/components/bsc/decisiones";
 import { type EtapaEmbudo } from "@/components/bsc/embudo";
 import { type PuntoProyeccion } from "@/components/bsc/proyeccion";
 import { hayCredenciales } from "@/lib/supabase/client";
@@ -15,6 +16,19 @@ import { createClient } from "@/lib/supabase/server";
 import { getContexto, rangoMes } from "@/lib/datos";
 
 export const dynamic = "force-dynamic";
+
+function isoUTC(fecha: Date) {
+  return fecha.toISOString().slice(0, 10);
+}
+
+function periodoAnterior(desde: string, hasta: string) {
+  const inicio = new Date(`${desde}T12:00:00Z`);
+  const fin = new Date(`${hasta}T12:00:00Z`);
+  const dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / 86_400_000) + 1);
+  const finAnterior = new Date(inicio.getTime() - 86_400_000);
+  const inicioAnterior = new Date(finAnterior.getTime() - (dias - 1) * 86_400_000);
+  return { desde: isoUTC(inicioAnterior), hasta: isoUTC(finAnterior) };
+}
 
 /**
  * Cuadro de mando integral.
@@ -29,7 +43,7 @@ export const dynamic = "force-dynamic";
 export default async function CuadroDeMando({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string; campana?: string }>;
+  searchParams: Promise<{ desde?: string; hasta?: string; campana?: string; comparar?: string }>;
 }) {
   if (!hayCredenciales()) redirect("/configuracion");
 
@@ -41,6 +55,8 @@ export default async function CuadroDeMando({
   const desde = sp.desde ?? rango.desde;
   const hasta = sp.hasta ?? rango.hasta;
   const campana = sp.campana ?? null;
+  const comparar = sp.comparar !== "no";
+  const anterior = periodoAnterior(desde, hasta);
 
   const supabase = await createClient();
 
@@ -52,6 +68,8 @@ export default async function CuadroDeMando({
     { data: control },
     { data: proyeccion },
     { data: embudo },
+    { data: indicadoresAnteriores },
+    { data: calidad },
   ] = await Promise.all([
       supabase.rpc("bsc_periodo", {
         p_desde: desde,
@@ -84,6 +102,16 @@ export default async function CuadroDeMando({
         p_campana: campana,
       }),
       supabase.rpc("embudo_periodo", {
+        p_desde: desde,
+        p_hasta: hasta,
+        p_campana: campana,
+      }),
+      supabase.rpc("bsc_periodo", {
+        p_desde: anterior.desde,
+        p_hasta: anterior.hasta,
+        p_campana: campana,
+      }),
+      supabase.rpc("calidad_bsc", {
         p_desde: desde,
         p_hasta: hasta,
         p_campana: campana,
@@ -135,6 +163,13 @@ export default async function CuadroDeMando({
               </label>
             ) : null}
 
+            <label className="pildora cursor-pointer">
+              <select name="comparar" defaultValue={comparar ? "si" : "no"} aria-label="Comparación">
+                <option value="si">Vs. período anterior</option>
+                <option value="no">Sin comparación</option>
+              </select>
+            </label>
+
             <button
               type="submit"
               className="rounded-full px-4 py-2 text-[13px] font-semibold text-white"
@@ -158,6 +193,8 @@ export default async function CuadroDeMando({
           proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
           embudo={(embudo ?? []) as unknown as EtapaEmbudo[]}
           periodo={{ desde, hasta }}
+          indicadoresAnteriores={comparar ? (indicadoresAnteriores ?? []) as unknown as Indicador[] : []}
+          periodoAnterior={comparar ? anterior : null}
         />
 
         <section className="mt-8 space-y-4">
@@ -172,6 +209,21 @@ export default async function CuadroDeMando({
             <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
           </div>
           <Control filas={(control ?? []) as unknown as FilaControl[]} />
+        </section>
+
+        <section className="mt-8 space-y-4">
+          <div className="flex items-baseline gap-3">
+            <span className="etiqueta shrink-0 text-[var(--text-muted)]">5</span>
+            <h2 className="text-[15px] font-semibold tracking-tight">Decisiones y seguimiento</h2>
+            <span className="text-xs text-[var(--text-muted)]">¿Qué hacemos ahora y quién lo toma?</span>
+            <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
+          </div>
+          <Decisiones
+            calidad={(calidad ?? []) as unknown as ControlCalidad[]}
+            control={(control ?? []) as unknown as FilaControl[]}
+            proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
+            campanaId={campana}
+          />
         </section>
       </main>
     </>

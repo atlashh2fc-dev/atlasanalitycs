@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Download, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { ESTADO } from "@/components/charts/base";
 import { usaMovimientoReducido } from "@/lib/animacion";
@@ -108,10 +109,36 @@ function Barra({ fila }: { fila: FilaControl }) {
 export function Control({ filas }: { filas: FilaControl[] }) {
   const reducido = usaMovimientoReducido();
   const [soloProblemas, setSoloProblemas] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [estado, setEstado] = useState("todos");
+  const [orden, setOrden] = useState("perdida");
 
-  const visibles = soloProblemas
-    ? filas.filter((f) => f.margen_clp < 0)
-    : filas;
+  const visibles = useMemo(() => {
+    const termino = busqueda.trim().toLocaleLowerCase("es");
+    return filas
+      .filter((f) => !soloProblemas || f.margen_clp < 0)
+      .filter((f) => estado === "todos" || f.estado === estado)
+      .filter((f) => !termino || f.ejecutivo.toLocaleLowerCase("es").includes(termino))
+      .sort((a, b) => {
+        if (orden === "nombre") return a.ejecutivo.localeCompare(b.ejecutivo, "es");
+        if (orden === "asegurados") return b.asegurados - a.asegurados;
+        if (orden === "gestiones") return b.gestiones - a.gestiones;
+        if (orden === "cumplimiento") return (b.cumplimiento_pct ?? -1) - (a.cumplimiento_pct ?? -1);
+        return a.margen_clp - b.margen_clp;
+      });
+  }, [busqueda, estado, filas, orden, soloProblemas]);
+
+  function exportar() {
+    const encabezado = ["Ejecutivo", "Jornada", "Gestiones", "Contactos", "Contactabilidad", "Cierre", "Contratos", "Asegurados", "Meta", "Proyeccion", "Equilibrio", "Ingreso", "Costo", "Margen", "Estado"];
+    const celdas = visibles.map((f) => [f.ejecutivo, f.jornada_horas, f.gestiones, f.contactos, f.contactabilidad_pct ?? "", f.conversion_pct ?? "", f.contratos, f.asegurados, f.meta_asignada, f.proyeccion ?? "", f.equilibrio_aseg ?? "", f.ingreso_clp, f.costo_total_clp, f.margen_clp, f.estado]);
+    const csv = [encabezado, ...celdas].map((fila) => fila.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(";")).join("\n");
+    const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" }));
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = "control-ejecutivos.csv";
+    enlace.click();
+    URL.revokeObjectURL(url);
+  }
 
   const cubren = filas.filter((f) => f.margen_clp >= 0).length;
   const sinProduccion = filas.filter((f) => f.asegurados === 0).length;
@@ -173,6 +200,31 @@ export function Control({ filas }: { filas: FilaControl[] }) {
             {fmt.clp(perdida)}
           </strong>
         </span>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label className="pildora flex min-w-[220px] flex-1 items-center gap-2">
+          <Search className="size-3.5 text-[var(--text-muted)]" />
+          <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar ejecutivo…" className="min-w-0 flex-1 bg-transparent text-xs outline-none" />
+        </label>
+        <label className="pildora">
+          <select value={estado} onChange={(e) => setEstado(e.target.value)} aria-label="Filtrar estado" className="text-xs">
+            <option value="todos">Todos los estados</option>
+            {Object.entries(ETIQUETA).map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
+          </select>
+        </label>
+        <label className="pildora">
+          <select value={orden} onChange={(e) => setOrden(e.target.value)} aria-label="Ordenar ejecutivos" className="text-xs">
+            <option value="perdida">Mayor pérdida primero</option>
+            <option value="cumplimiento">Mayor cumplimiento</option>
+            <option value="asegurados">Más asegurados</option>
+            <option value="gestiones">Más gestiones</option>
+            <option value="nombre">Nombre A–Z</option>
+          </select>
+        </label>
+        <button type="button" onClick={exportar} className="pildora inline-flex items-center gap-1.5 text-xs">
+          <Download className="size-3.5" /> Exportar CSV
+        </button>
       </div>
 
       <div className="overflow-x-auto">
@@ -267,6 +319,7 @@ export function Control({ filas }: { filas: FilaControl[] }) {
             ))}
           </tbody>
         </table>
+        {visibles.length === 0 ? <p className="py-8 text-center text-xs text-[var(--text-muted)]">No hay ejecutivos que coincidan con los filtros.</p> : null}
       </div>
 
       <p className="mt-3 text-xs text-[var(--text-muted)]">

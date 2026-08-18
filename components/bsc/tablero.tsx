@@ -158,6 +158,8 @@ export function Tablero({
   proyeccion,
   embudo,
   periodo,
+  indicadoresAnteriores = [],
+  periodoAnterior = null,
 }: {
   indicadores: Indicador[];
   economia: FilaEconomia[];
@@ -166,6 +168,8 @@ export function Tablero({
   proyeccion: PuntoProyeccion[];
   embudo: EtapaEmbudo[];
   periodo: { desde: string; hasta: string };
+  indicadoresAnteriores?: Indicador[];
+  periodoAnterior?: { desde: string; hasta: string } | null;
 }) {
   const reducido = usaMovimientoReducido();
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -182,6 +186,10 @@ export function Tablero({
   }, [indicadores]);
 
   const financiera = porPerspectiva.get("Financiera") ?? [];
+  const anteriores = useMemo(
+    () => new Map(indicadoresAnteriores.map((i) => [`${i.perspectiva}-${i.indicador}`, i])),
+    [indicadoresAnteriores],
+  );
   const ingreso = financiera.find((i) => i.indicador === "Ingreso del periodo");
   const costo = financiera.find((i) => i.indicador === "Costo total");
   const margen = financiera.find((i) => i.indicador === "Margen");
@@ -206,9 +214,9 @@ export function Tablero({
         <Titulo numero="1" titulo="El resultado" pregunta="¿Qué dejó el periodo?" />
         <div className="grid gap-4 lg:grid-cols-3">
         {[
-          { t: "Ingreso del periodo", i: ingreso, tono: "var(--tono-venta)" },
-          { t: "Costo total", i: costo, tono: "var(--tono-asistencia)" },
-          { t: "Margen", i: margen, tono: "var(--tono-cliente)" },
+          { t: "Ingreso del periodo", i: ingreso, tono: "var(--tono-venta)", mejorAlSubir: true },
+          { t: "Costo total", i: costo, tono: "var(--tono-asistencia)", mejorAlSubir: false },
+          { t: "Margen", i: margen, tono: "var(--tono-cliente)", mejorAlSubir: true },
         ].map((c, k) => (
           <motion.div
             key={c.t}
@@ -226,6 +234,18 @@ export function Tablero({
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
               {c.i?.detalle}
             </p>
+            {c.i && anteriores.has(`${c.i.perspectiva}-${c.i.indicador}`) ? (() => {
+              const previo = anteriores.get(`${c.i.perspectiva}-${c.i.indicador}`)?.valor;
+              if (previo === null || previo === undefined) return null;
+              const delta = (c.i.valor ?? 0) - previo;
+              const pct = previo === 0 ? null : (delta / Math.abs(previo)) * 100;
+              const favorable = c.mejorAlSubir ? delta >= 0 : delta <= 0;
+              return (
+                <p className="mt-3 border-t border-[var(--vidrio-borde)] pt-2 text-[11px]" style={{ color: favorable ? ESTADO.good : ESTADO.serious }}>
+                  {delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {pct === null ? formatea(Math.abs(delta), c.i.unidad) : `${Math.abs(pct).toFixed(1)}%`} vs. período anterior
+                </p>
+              );
+            })() : null}
           </motion.div>
         ))}
         </div>
@@ -432,6 +452,7 @@ export function Tablero({
           Ingreso que genera cada uno según la tarifa, contra lo que cuesta
           a la empresa. La barra es el ingreso; el número de la derecha, el
           margen. Del {periodo.desde} al {periodo.hasta}.
+          {periodoAnterior ? ` Comparado con ${periodoAnterior.desde} al ${periodoAnterior.hasta}.` : ""}
         </p>
 
         {topEconomia.length === 0 ? (

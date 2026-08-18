@@ -38,14 +38,23 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
     const ultimo = puntos.at(-1);
     const corte = puntos.findLast((p) => !p.es_futuro) ?? puntos[0];
     const habilesRestantes = puntos.filter((p) => p.es_futuro && p.es_habil).length;
+    const habilesTranscurridos = puntos.filter((p) => !p.es_futuro && p.es_habil).length;
     const cierre = ultimo?.proyectado ?? corte?.acumulado ?? 0;
     const meta = ultimo?.linea_meta ?? null;
+    const idealHoy = corte?.linea_meta ?? null;
     return {
       real: corte?.acumulado ?? 0,
       cierre,
       meta,
+      idealHoy,
       brecha: meta === null ? null : cierre - meta,
+      brechaHoy: idealHoy === null ? null : (corte?.acumulado ?? 0) - idealHoy,
       habilesRestantes,
+      ritmoActual: habilesTranscurridos > 0 ? (corte?.acumulado ?? 0) / habilesTranscurridos : 0,
+      ritmoNecesario:
+        meta !== null && habilesRestantes > 0
+          ? Math.max(0, (meta - (corte?.acumulado ?? 0)) / habilesRestantes)
+          : null,
       fechaCorte: corte?.fecha ?? null,
     };
   }, [puntos]);
@@ -86,13 +95,22 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
             observado sólo por los días hábiles que quedan.
           </p>
         </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-right">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-right lg:grid-cols-4">
           <div>
             <p className="etiqueta">Real a hoy</p>
             <p className="cifra mt-1 text-xl">{fmt.entero(resumen.real)}</p>
           </div>
           <div>
-            <p className="etiqueta">Cierre estimado</p>
+            <p className="etiqueta">Ideal a hoy</p>
+            <p className="cifra mt-1 text-xl">{resumen.idealHoy === null ? "—" : fmt.decimal(resumen.idealHoy, 1)}</p>
+            {resumen.brechaHoy !== null ? (
+              <p className="text-[10px]" style={{ color: resumen.brechaHoy >= 0 ? ESTADO.good : ESTADO.serious }}>
+                {resumen.brechaHoy > 0 ? "+" : ""}{fmt.decimal(resumen.brechaHoy, 1)} vs. ritmo ideal
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <p className="etiqueta">Cierre lineal</p>
             <p
               className="cifra mt-1 text-xl"
               style={{ color: resumen.meta === null ? SERIES[0] : cumple ? ESTADO.good : ESTADO.serious }}
@@ -102,12 +120,15 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
           </div>
           {resumen.brecha !== null ? (
             <div>
-              <p className="etiqueta">Brecha vs. meta</p>
+              <p className="etiqueta">Ideal al cierre</p>
               <p
                 className="cifra mt-1 text-xl"
-                style={{ color: resumen.brecha >= 0 ? ESTADO.good : ESTADO.serious }}
+                style={{ color: "var(--text-primary)" }}
               >
-                {resumen.brecha > 0 ? "+" : ""}{fmt.decimal(resumen.brecha, 1)}
+                {fmt.decimal(resumen.meta ?? 0, 1)}
+              </p>
+              <p className="text-[10px]" style={{ color: resumen.brecha >= 0 ? ESTADO.good : ESTADO.serious }}>
+                cierre lineal {resumen.brecha > 0 ? "+" : ""}{fmt.decimal(resumen.brecha, 1)}
               </p>
             </div>
           ) : null}
@@ -161,10 +182,13 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
         </ResponsiveContainer>
       </div>
 
-      <p className="mt-2 text-xs text-[var(--text-muted)]">
-        Quedan {fmt.entero(resumen.habilesRestantes)} días hábiles. La estimación
-        supone que el ritmo medio observado se mantiene; no incorpora estacionalidad
-        ni cambios futuros de dotación.
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 rounded-xl bg-[var(--surface-0)] px-3.5 py-2.5 text-xs">
+        <span>Ritmo real: <strong className="tabular">{fmt.decimal(resumen.ritmoActual, 2)}/día hábil</strong></span>
+        <span>Ritmo necesario: <strong className="tabular" style={{ color: resumen.ritmoNecesario !== null && resumen.ritmoNecesario > resumen.ritmoActual ? ESTADO.serious : ESTADO.good }}>{resumen.ritmoNecesario === null ? "—" : `${fmt.decimal(resumen.ritmoNecesario, 2)}/día hábil`}</strong></span>
+        <span className="text-[var(--text-muted)]">Quedan {fmt.entero(resumen.habilesRestantes)} días hábiles.</span>
+      </div>
+      <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+        El cierre lineal prolonga el ritmo observado sólo por días hábiles; el ideal distribuye la meta por jornada. No incorpora estacionalidad ni cambios futuros de dotación.
       </p>
     </div>
   );
