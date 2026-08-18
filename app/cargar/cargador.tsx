@@ -399,6 +399,7 @@ export function Cargador({
 
     let procesadasTotal = 0;
     let insertadasTotal = 0;
+    const periodosActualizados = new Set<string>();
 
     for (let posicion = 0; posicion < seleccionadas.length; posicion++) {
       const hojaIndice = seleccionadas[posicion];
@@ -479,6 +480,7 @@ export function Cargador({
         }
 
         insertadasTotal += json.insertadas ?? 0;
+        for (const mes of json.periodosActualizados ?? []) periodosActualizados.add(mes);
         const avanceHoja = json.total > 0 ? json.procesadas / json.total : 1;
         const avanceProceso = (posicion + avanceHoja) / seleccionadas.length;
         const progresoReal = 0.2 + avanceProceso * 0.8;
@@ -507,7 +509,7 @@ export function Cargador({
       estado: "cargado",
       progreso: 1,
       etapa: "Carga completa",
-      mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}`,
+      mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}${periodosActualizados.size ? ` · ${periodosActualizados.size} periodo${periodosActualizados.size === 1 ? "" : "s"} actualizado${periodosActualizados.size === 1 ? "" : "s"}` : ""}`,
     });
     return true;
   }

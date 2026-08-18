@@ -22,6 +22,8 @@ export interface PuntoProyeccion {
   proyectado: number;
   linea_meta: number | null;
   es_futuro: boolean;
+  ritmo_proyeccion?: number | null;
+  metodo_proyeccion?: "tendencia_ultima_semana" | "promedio_periodo";
 }
 
 const FORMATO_DIA = new Intl.DateTimeFormat("es-CL", {
@@ -46,6 +48,7 @@ export function Proyeccion({
     const habilesRestantes = puntos.filter((p) => p.es_futuro && p.es_habil).length;
     const habilesTranscurridos = puntos.filter((p) => !p.es_futuro && p.es_habil).length;
     const cierre = ultimo?.proyectado ?? corte?.acumulado ?? 0;
+    const usaTendencia = ultimo?.metodo_proyeccion === "tendencia_ultima_semana";
     const meta = ultimo?.linea_meta ?? null;
     const idealHoy = corte?.linea_meta ?? null;
     return {
@@ -57,6 +60,9 @@ export function Proyeccion({
       brechaHoy: idealHoy === null ? null : (corte?.acumulado ?? 0) - idealHoy,
       habilesRestantes,
       ritmoActual: habilesTranscurridos > 0 ? (corte?.acumulado ?? 0) / habilesTranscurridos : 0,
+      ritmoProyeccion: ultimo?.ritmo_proyeccion ??
+        (habilesTranscurridos > 0 ? (corte?.acumulado ?? 0) / habilesTranscurridos : 0),
+      usaTendencia,
       ritmoNecesario:
         meta !== null && habilesRestantes > 0
           ? Math.max(0, (meta - (corte?.acumulado ?? 0)) / habilesRestantes)
@@ -116,7 +122,7 @@ export function Proyeccion({
             ) : null}
           </div>
           <div>
-            <p className="etiqueta">Cierre lineal</p>
+            <p className="etiqueta">Cierre proyectado</p>
             <p
               className="cifra mt-1 text-xl"
               style={{ color: resumen.meta === null ? SERIES[0] : cumple ? ESTADO.good : ESTADO.serious }}
@@ -134,7 +140,7 @@ export function Proyeccion({
                 {fmt.decimal(resumen.meta ?? 0, 1)}
               </p>
               <p className="text-[10px]" style={{ color: resumen.brecha >= 0 ? ESTADO.good : ESTADO.serious }}>
-                cierre lineal {resumen.brecha > 0 ? "+" : ""}{fmt.decimal(resumen.brecha, 1)}
+                cierre proyectado {resumen.brecha > 0 ? "+" : ""}{fmt.decimal(resumen.brecha, 1)}
               </p>
             </div>
           ) : null}
@@ -143,7 +149,7 @@ export function Proyeccion({
 
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-[var(--text-secondary)]">
         <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 rounded" style={{ background: SERIES[0] }} /> Real hasta el corte</span>
-        <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 border-t-2 border-dashed" style={{ borderColor: "var(--tono-cotizacion)" }} /> Proyección lineal al cierre</span>
+        <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 border-t-2 border-dashed" style={{ borderColor: "var(--tono-cotizacion)" }} /> Proyección adaptativa al cierre</span>
         <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 border-t border-dashed border-[var(--text-muted)]" /> Ideal/meta acumulada</span>
       </div>
 
@@ -196,11 +202,15 @@ export function Proyeccion({
 
       <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 rounded-xl bg-[var(--surface-0)] px-3.5 py-2.5 text-xs">
         <span>Ritmo real: <strong className="tabular">{fmt.decimal(resumen.ritmoActual, 2)}/día hábil</strong></span>
+        <span>Ritmo proyectado: <strong className="tabular">{fmt.decimal(resumen.ritmoProyeccion, 2)}/día hábil</strong></span>
         <span>Ritmo necesario: <strong className="tabular" style={{ color: resumen.ritmoNecesario !== null && resumen.ritmoNecesario > resumen.ritmoActual ? ESTADO.serious : ESTADO.good }}>{resumen.ritmoNecesario === null ? "—" : `${fmt.decimal(resumen.ritmoNecesario, 2)}/día hábil`}</strong></span>
         <span className="text-[var(--text-muted)]">Quedan {fmt.entero(resumen.habilesRestantes)} días hábiles.</span>
       </div>
       <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-        El cierre lineal prolonga el ritmo observado sólo por días hábiles; el ideal distribuye la meta por jornada. No incorpora estacionalidad ni cambios futuros de dotación.
+        {resumen.usaTendencia
+          ? "Se detectó crecimiento sostenido en tres ventanas de cinco días hábiles; el forecast prolonga el ritmo de la última semana."
+          : "Sin una tendencia semanal sostenida, el forecast usa el promedio del periodo."}{" "}
+        El ideal distribuye la meta por jornada y no supone cambios futuros de dotación.
       </p>
     </div>
   );

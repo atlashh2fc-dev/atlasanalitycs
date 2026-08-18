@@ -25,7 +25,22 @@ export interface ResultadoLote {
   total: number;
   insertadas: number;
   terminado: boolean;
+  periodosActualizados?: string[];
 }
+
+type FilaCliente = {
+  tenant_id: string;
+  rut: string;
+  nombre?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  prevision?: string | null;
+  edad?: number | null;
+};
+
+const CACHE_HOJAS_MAX = 4;
+const CACHE_HOJAS_TTL_MS = 15 * 60 * 1_000;
+const cacheHojas = new Map<string, { matriz: unknown[][]; vence: number }>();
 
 /* ------------------------------------------------------------------ */
 /* Utilidades de valor                                                 */
@@ -235,6 +250,60 @@ async function mapaProductos(supabase: Supa, tenantId: string) {
   return new Map((data ?? []).map((p) => [normalizaTexto(p.nombre), p.id]));
 }
 
+/** Consolida RUT repetidos y resuelve todos los clientes del lote de una vez. */
+async function upsertClientes(
+  supabase: Supa,
+  filas: FilaCliente[],
+): Promise<Map<string, string>> {
+  const unicos = new Map<string, FilaCliente>();
+  for (const fila of filas) unicos.set(fila.rut, fila);
+  if (unicos.size === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("cliente")
+    .upsert([...unicos.values()], { onConflict: "tenant_id,rut" })
+    .select("id,rut");
+
+  if (error) throw new Error(`No se pudieron preparar los clientes: ${error.message}`);
+  return new Map((data ?? []).map((c) => [c.rut as string, c.id as string]));
+}
+
+function mesDeFecha(valor: unknown): string | null {
+  const iso = fecha(valor);
+  return iso ? iso.slice(0, 7) : null;
+}
+
+function deduplicaParaUpsert<T>(filas: T[], clave: (fila: T) => string | null): T[] {
+  const conClave = new Map<string, T>();
+  const sinClave: T[] = [];
+  for (const fila of filas) {
+    const k = clave(fila);
+    if (k === null) sinClave.push(fila);
+    else conClave.set(k, fila);
+  }
+  return [...conClave.values(), ...sinClave];
+}
+
+/** Actualiza los snapshots mensuales que pudieron cambiar con la carga. */
+async function recalculaPeriodos(
+  supabase: Supa,
+  _tenantId: string,
+  meses: Iterable<string>,
+): Promise<string[]> {
+  const actualizados = [...new Set(meses)]
+    .filter((mes) => /^\d{4}-\d{2}$/.test(mes))
+    .sort();
+  if (actualizados.length === 0) return [];
+
+  const { error } = await supabase.rpc("recalcular_periodos_carga", {
+    p_meses: actualizados.map((mes) => `${mes}-01`),
+  });
+  if (error) {
+    throw new Error(`La carga terminó, pero no se actualizaron sus periodos: ${error.message}`);
+  }
+  return actualizados;
+}
+
 /** Complementario y Catastrófico comparten meta; Oncológico va aparte. */
 function agrupacionSugerida(clave: string): string {
   if (clave.includes("onco")) return "ONCO";
@@ -331,6 +400,10 @@ export async function leeHoja(
   storagePath: string,
   hoja: string,
 ): Promise<unknown[][]> {
+  const claveCache = `${storagePath}\n${hoja}`;
+  const cacheada = cacheHojas.get(claveCache);
+  if (cacheada && cacheada.vence > Date.now()) return cacheada.matriz;
+
   const { data, error } = await supabase.storage.from("cargas").download(storagePath);
   if (error || !data) {
     throw new Error(error?.message ?? "No se pudo leer el archivo de Storage.");
@@ -341,11 +414,19 @@ export async function leeHoja(
   const sheet = libro.Sheets[hoja];
   if (!sheet) throw new Error(`La hoja «${hoja}» no está en el archivo.`);
 
-  return XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
     header: 1,
     defval: null,
     raw: true,
   });
+
+  cacheHojas.set(claveCache, { matriz, vence: Date.now() + CACHE_HOJAS_TTL_MS });
+  while (cacheHojas.size > CACHE_HOJAS_MAX) {
+    const primera = cacheHojas.keys().next().value as string | undefined;
+    if (!primera) break;
+    cacheHojas.delete(primera);
+  }
+  return matriz;
 }
 
 /* ------------------------------------------------------------------ */
@@ -412,7 +493,7 @@ export async function procesaLote(
 
     const ejecutivos = await mapaEjecutivos(supabase, tenantId);
     const jornadas = new Map<string, number>();
-    let insertadas = 0;
+    const asistencias: Record<string, unknown>[] = [];
 
     for (const f of largo.filas.slice(desde, hasta)) {
       const ejecutivoId = await resuelveEjecutivo(
@@ -423,19 +504,15 @@ export async function procesaLote(
       );
       if (!ejecutivoId) continue;
 
-      const { error } = await supabase.from("asistencia").upsert(
-        {
-          tenant_id: tenantId,
-          ejecutivo_id: ejecutivoId,
-          campana_id: cfg.campanaId,
-          fecha: f.fecha,
-          marca: f.marca,
-          jornada_horas: f.jornada,
-          carga_id: carga.id,
-        },
-        { onConflict: "ejecutivo_id,fecha" },
-      );
-      if (!error) insertadas++;
+      asistencias.push({
+        tenant_id: tenantId,
+        ejecutivo_id: ejecutivoId,
+        campana_id: cfg.campanaId,
+        fecha: f.fecha,
+        marca: f.marca,
+        jornada_horas: f.jornada,
+        carga_id: carga.id,
+      });
 
       // La jornada contractual viene en la planilla (42 hrs / 30 hrs).
       // Sin esto todos quedaban con el 42 por defecto de la tabla.
@@ -448,7 +525,24 @@ export async function procesaLote(
       }
     }
 
+    let insertadas = 0;
+    if (asistencias.length > 0) {
+      const { data, error } = await supabase
+        .from("asistencia")
+        .upsert(asistencias, { onConflict: "ejecutivo_id,fecha" })
+        .select("id");
+      if (error) throw new Error(`No se pudo guardar la asistencia: ${error.message}`);
+      insertadas = data?.length ?? 0;
+    }
+
     const terminado = hasta >= largo.filas.length;
+    const periodosActualizados = terminado
+      ? await recalculaPeriodos(
+          supabase,
+          tenantId,
+          largo.filas.map((f) => f.fecha.slice(0, 7)),
+        )
+      : undefined;
 
     await supabase
       .from("carga")
@@ -466,6 +560,7 @@ export async function procesaLote(
       total: largo.filas.length,
       insertadas,
       terminado,
+      periodosActualizados,
     };
   }
 
@@ -532,28 +627,23 @@ export async function procesaLote(
   if (tieneGestion) {
     const ejecutivos = await mapaEjecutivos(supabase, tenantId);
     const tipificaciones = await mapaTipificaciones(supabase, tenantId);
+    const preparadas = filas
+      .map((fila) => ({ fila, rut: normalizaRut(fila[inverso.rut_cliente ?? ""]) }))
+      .filter((x): x is { fila: Record<string, unknown>; rut: string } => Boolean(x.rut));
+    const clientes = await upsertClientes(
+      supabase,
+      preparadas.map(({ fila, rut }) => ({
+        tenant_id: tenantId,
+        rut,
+        nombre: texto(fila[inverso.nombre_cliente ?? ""]),
+        telefono: texto(fila[inverso.telefono_cliente ?? ""]),
+      })),
+    );
+    const gestiones: Record<string, unknown>[] = [];
 
-    for (const fila of filas) {
-      const rut = normalizaRut(fila[inverso.rut_cliente ?? ""]);
-      if (!rut) continue;
-
-      // El cliente se crea si no existe: una gestión sin contacto
-      // previo es exactamente el caso normal de una base nueva.
-      const { data: cliente } = await supabase
-        .from("cliente")
-        .upsert(
-          {
-            tenant_id: tenantId,
-            rut,
-            nombre: texto(fila[inverso.nombre_cliente ?? ""]),
-            telefono: texto(fila[inverso.telefono_cliente ?? ""]),
-          },
-          { onConflict: "tenant_id,rut" },
-        )
-        .select("id")
-        .single();
-
-      if (!cliente) continue;
+    for (const { fila, rut } of preparadas) {
+      const clienteId = clientes.get(rut);
+      if (!clienteId) continue;
 
       const ejecutivoNombre = texto(fila[inverso.ejecutivo ?? ""]);
       const ejecutivoId = ejecutivoNombre
@@ -573,11 +663,10 @@ export async function procesaLote(
         tipificaciones,
       );
 
-      const { error } = await supabase.from("gestion").upsert(
-        {
+      gestiones.push({
           tenant_id: tenantId,
           campana_id: cfg.campanaId,
-          cliente_id: cliente.id,
+          cliente_id: clienteId,
           ejecutivo_id: ejecutivoId,
           fecha: fecha(fila[inverso.fecha_gestion!]),
           tipificacion_id: tipificacionId,
@@ -585,45 +674,53 @@ export async function procesaLote(
             texto(fila[inverso.id_gestion ?? ""]) ??
             texto(fila[inverso.id_externo ?? ""]),
           carga_id: carga.id,
-        },
-        { onConflict: "tenant_id,id_externo" },
-      );
+      });
+    }
 
-      if (!error) insertadas++;
+    if (gestiones.length > 0) {
+      const gestionesUnicas = deduplicaParaUpsert(gestiones, (g) =>
+        typeof g.id_externo === "string" ? `${g.tenant_id}:${g.id_externo}` : null,
+      );
+      const { data, error } = await supabase
+        .from("gestion")
+        .upsert(gestionesUnicas, { onConflict: "tenant_id,id_externo" })
+        .select("id");
+      if (error) throw new Error(`No se pudieron guardar las gestiones: ${error.message}`);
+      insertadas += data?.length ?? 0;
     }
   }
 
   if (tieneAgenda) {
-    for (const fila of filas) {
-      const rut = normalizaRut(fila[inverso.rut_cliente!]);
-      if (!rut || !validaRut(rut)) continue;
+    const preparadas = filas
+      .map((fila) => ({ fila, rut: normalizaRut(fila[inverso.rut_cliente!]) }))
+      .filter(
+        (x): x is { fila: Record<string, unknown>; rut: string } =>
+          Boolean(x.rut && validaRut(x.rut)),
+      );
+    const clientes = await upsertClientes(
+      supabase,
+      preparadas.map(({ fila, rut }) => {
+        const edad = numero(fila[inverso.edad ?? ""]);
+        return {
+          tenant_id: tenantId,
+          rut,
+          nombre: texto(fila[inverso.nombre_cliente ?? ""]),
+          email: texto(fila[inverso.email_cliente ?? ""]),
+          telefono: texto(fila[inverso.telefono_cliente ?? ""]),
+          prevision: texto(fila[inverso.prevision ?? ""]),
+          edad: edad === null ? null : Math.round(edad),
+        };
+      }),
+    );
+    const agendas: Record<string, unknown>[] = [];
 
-      const edad = numero(fila[inverso.edad ?? ""]);
-
-      const { data: cliente } = await supabase
-        .from("cliente")
-        .upsert(
-          {
-            tenant_id: tenantId,
-            rut,
-            nombre: texto(fila[inverso.nombre_cliente ?? ""]),
-            email: texto(fila[inverso.email_cliente ?? ""]),
-            telefono: texto(fila[inverso.telefono_cliente ?? ""]),
-            prevision: texto(fila[inverso.prevision ?? ""]),
-            edad: edad === null ? null : Math.round(edad),
-          },
-          { onConflict: "tenant_id,rut" },
-        )
-        .select("id")
-        .single();
-
-      if (!cliente) continue;
-
-      const { error } = await supabase.from("agendamiento").upsert(
-        {
+    for (const { fila, rut } of preparadas) {
+      const clienteId = clientes.get(rut);
+      if (!clienteId) continue;
+      agendas.push({
           tenant_id: tenantId,
           campana_id: cfg.campanaId,
-          cliente_id: cliente.id,
+          cliente_id: clienteId,
           fecha_agenda: soloFecha(fila[inverso.fecha_agenda ?? ""]),
           presentado: booleano(fila[inverso.presentado ?? ""]),
           centro: texto(fila[inverso.centro ?? ""]),
@@ -633,17 +730,47 @@ export async function procesaLote(
           equipo: texto(fila[inverso.equipo ?? ""]),
           cluster: texto(fila[inverso.cluster ?? ""]),
           carga_id: carga.id,
-        },
-        { onConflict: "tenant_id,cliente_id,fecha_agenda,especialidad" },
-      );
+      });
+    }
 
-      if (!error) insertadas++;
+    if (agendas.length > 0) {
+      const agendasUnicas = deduplicaParaUpsert(agendas, (a) =>
+        a.fecha_agenda && typeof a.especialidad === "string"
+          ? `${a.tenant_id}:${a.cliente_id}:${a.fecha_agenda}:${a.especialidad}`
+          : null,
+      );
+      const { data, error } = await supabase
+        .from("agendamiento")
+        .upsert(agendasUnicas, {
+          onConflict: "tenant_id,cliente_id,fecha_agenda,especialidad",
+        })
+        .select("id");
+      if (error) throw new Error(`No se pudo guardar la base de clientes: ${error.message}`);
+      insertadas += data?.length ?? 0;
     }
   }
 
   if (tieneVenta || tieneCotizacion) {
     const ejecutivos = await mapaEjecutivos(supabase, tenantId);
     const productos = await mapaProductos(supabase, tenantId);
+    const clientesVenta = tieneVenta
+      ? await upsertClientes(
+          supabase,
+          filas.flatMap((fila) => {
+            const rut = normalizaRut(fila[inverso.rut_cliente!]);
+            if (!rut || !validaRut(rut)) return [];
+            return [{
+              tenant_id: tenantId,
+              rut,
+              nombre: texto(fila[inverso.nombre_cliente ?? ""]),
+              email: texto(fila[inverso.email_cliente ?? ""]),
+              telefono: texto(fila[inverso.telefono_cliente ?? ""]),
+            }];
+          }),
+        )
+      : new Map<string, string>();
+    const ventas: Record<string, unknown>[] = [];
+    const cotizaciones: Record<string, unknown>[] = [];
 
     for (const fila of filas) {
       const ejecutivoNombre = texto(fila[inverso.ejecutivo ?? ""]);
@@ -665,30 +792,13 @@ export async function procesaLote(
       if (tieneVenta) {
         const rut = normalizaRut(fila[inverso.rut_cliente!]);
         if (!rut || !validaRut(rut)) continue;
-
-        const { data: cliente } = await supabase
-          .from("cliente")
-          .upsert(
-            {
-              tenant_id: tenantId,
-              rut,
-              nombre: texto(fila[inverso.nombre_cliente ?? ""]),
-              email: texto(fila[inverso.email_cliente ?? ""]),
-              telefono: texto(fila[inverso.telefono_cliente ?? ""]),
-            },
-            { onConflict: "tenant_id,rut" },
-          )
-          .select("id")
-          .single();
-
-        if (!cliente) continue;
-
-        const { error } = await supabase.from("venta").upsert(
-          {
+        const clienteId = clientesVenta.get(rut);
+        if (!clienteId) continue;
+        ventas.push({
             tenant_id: tenantId,
             campana_id: cfg.campanaId,
             ejecutivo_id: ejecutivoId,
-            cliente_id: cliente.id,
+            cliente_id: clienteId,
             producto_id: productoId,
             nro_solicitud: texto(fila[inverso.nro_solicitud ?? ""]),
             fecha_solicitud: fecha(fila[inverso.fecha_venta!]),
@@ -699,13 +809,9 @@ export async function procesaLote(
               Math.round(numero(fila[inverso.n_asegurados ?? ""]) ?? 1),
             ),
             carga_id: carga.id,
-          },
-          { onConflict: "tenant_id,nro_solicitud" },
-        );
-
-        if (!error) insertadas++;
+        });
       } else {
-        const { error } = await supabase.from("cotizacion").insert({
+        cotizaciones.push({
           tenant_id: tenantId,
           campana_id: cfg.campanaId,
           ejecutivo_id: ejecutivoId,
@@ -718,9 +824,29 @@ export async function procesaLote(
           precio_clp: numero(fila[inverso.monto_clp ?? ""], "clp"),
           carga_id: carga.id,
         });
-
-        if (!error) insertadas++;
       }
+    }
+
+    if (ventas.length > 0) {
+      const ventasUnicas = deduplicaParaUpsert(ventas, (v) =>
+        typeof v.nro_solicitud === "string"
+          ? `${v.tenant_id}:${v.nro_solicitud}`
+          : null,
+      );
+      const { data, error } = await supabase
+        .from("venta")
+        .upsert(ventasUnicas, { onConflict: "tenant_id,nro_solicitud" })
+        .select("id");
+      if (error) throw new Error(`No se pudieron guardar las ventas: ${error.message}`);
+      insertadas += data?.length ?? 0;
+    }
+    if (cotizaciones.length > 0) {
+      const { data, error } = await supabase
+        .from("cotizacion")
+        .insert(cotizaciones)
+        .select("id");
+      if (error) throw new Error(`No se pudieron guardar las cotizaciones: ${error.message}`);
+      insertadas += data?.length ?? 0;
     }
   }
 
@@ -731,8 +857,30 @@ export async function procesaLote(
   // sola implementación: la tarifa por tramo etario y el catálogo de
   // preexistencias dependen de que esto quede bien.
   if (terminado && tieneVenta) {
-    await supabase.rpc("poblar_asegurados_de_carga", { p_carga_id: carga.id });
+    const { error } = await supabase.rpc("poblar_asegurados_de_carga", {
+      p_carga_id: carga.id,
+    });
+    if (error) throw new Error(`No se pudieron derivar los asegurados: ${error.message}`);
   }
+
+  const columnaFechaKpi = tieneGestion
+    ? inverso.fecha_gestion
+    : tieneVenta
+      ? inverso.fecha_venta
+      : tieneCotizacion
+        ? inverso.fecha_cotizacion
+        : null;
+  const posicionFechaKpi = columnaFechaKpi ? encabezado.indexOf(columnaFechaKpi) : -1;
+  const periodosActualizados = terminado && posicionFechaKpi >= 0
+    ? await recalculaPeriodos(
+        supabase,
+        tenantId,
+        cuerpo.flatMap((fila) => {
+          const mes = mesDeFecha(fila[posicionFechaKpi]);
+          return mes ? [mes] : [];
+        }),
+      )
+    : undefined;
 
   await supabase
     .from("carga")
@@ -745,5 +893,11 @@ export async function procesaLote(
     })
     .eq("id", carga.id);
 
-  return { procesadas: hasta, total: cuerpo.length, insertadas, terminado };
+  return {
+    procesadas: hasta,
+    total: cuerpo.length,
+    insertadas,
+    terminado,
+    periodosActualizados,
+  };
 }

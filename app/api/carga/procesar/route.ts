@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       },
       // Una matriz genera muchas filas al hacer unpivot. Dos mil por vuelta
       // mantiene progreso visible sin descargar el Excel decenas de veces.
-      config.modo === "matriz" ? 2_000 : 400,
+      config.modo === "matriz" ? 2_000 : 1_000,
     );
     return NextResponse.json(resultado);
   } catch (e) {

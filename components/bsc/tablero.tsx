@@ -360,7 +360,7 @@ export function Tablero({
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--vidrio-borde)] pt-3">
               <div>
-                <p className="etiqueta">Cierre lineal</p>
+                <p className="etiqueta">Cierre proyectado</p>
                 <p className="tabular mt-1 text-sm font-semibold">{c.lineal === null || c.lineal === undefined ? "—" : fmt.clp(c.lineal)}</p>
               </div>
               <div>
@@ -398,7 +398,7 @@ export function Tablero({
           >
             <div className="grid gap-4 border-b border-[var(--vidrio-borde)] p-5 lg:grid-cols-[1.35fr_repeat(3,minmax(130px,0.65fr))] lg:items-end">
               <div>
-                <p className="etiqueta">Estructura de costo · cierre lineal</p>
+                <p className="etiqueta">Estructura de costo · cierre proyectado</p>
                 <h3 className="mt-1 text-sm font-semibold">Qué compone el costo y cuánto pesa</h3>
                 <p className="mt-1 text-xs text-[var(--text-secondary)]">
                   Separa compromisos fijos, costo variable y carga legal para explicar el margen proyectado.
