@@ -6,6 +6,7 @@ import {
   type Equilibrio,
   type FilaLinea,
   type Indicador,
+  type ProyeccionPorLinea,
 } from "@/components/bsc/tablero";
 import { Control, type FilaControl } from "@/components/bsc/control";
 import { type EtapaEmbudo } from "@/components/bsc/embudo";
@@ -73,6 +74,7 @@ export default async function CuadroDeMando({
     { data: equilibrio },
     { data: control },
     { data: proyeccion },
+    { data: proyeccionesLinea },
     { data: embudo },
     { data: indicadoresAnteriores },
     { data: costosCierre },
@@ -98,6 +100,12 @@ export default async function CuadroDeMando({
         p_campana: campana,
       }),
       supabase.rpc("proyeccion_cierre", {
+        p_desde: desde,
+        p_corte: hasta,
+        p_cierre: cierre,
+        p_campana: campana,
+      }),
+      supabase.rpc("proyeccion_cierre_por_linea", {
         p_desde: desde,
         p_corte: hasta,
         p_cierre: cierre,
@@ -192,6 +200,7 @@ export default async function CuadroDeMando({
             ((equilibrio ?? [])[0] as unknown as Equilibrio | undefined) ?? null
           }
           proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
+          proyeccionesLinea={(proyeccionesLinea ?? []) as unknown as ProyeccionPorLinea[]}
           embudo={(embudo ?? []) as unknown as EtapaEmbudo[]}
           indicadoresAnteriores={comparar ? (indicadoresAnteriores ?? []) as unknown as Indicador[] : []}
           analysisQuery={contextoAnalisis.toString()}

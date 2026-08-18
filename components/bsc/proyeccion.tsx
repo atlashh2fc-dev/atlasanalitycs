@@ -33,7 +33,13 @@ function diaMes(fecha: string): string {
   return FORMATO_DIA.format(new Date(`${fecha}T12:00:00`)).replace(".", "");
 }
 
-export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
+export function Proyeccion({
+  puntos,
+  titulo = "Trayectoria de cierre",
+}: {
+  puntos: PuntoProyeccion[];
+  titulo?: string;
+}) {
   const resumen = useMemo(() => {
     const ultimo = puntos.at(-1);
     const corte = puntos.findLast((p) => !p.es_futuro) ?? puntos[0];
@@ -72,7 +78,7 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
   if (puntos.length === 0) {
     return (
       <div className="vidrio rounded-2xl p-5">
-        <h3 className="text-[13px] font-semibold">Trayectoria de cierre</h3>
+        <h3 className="text-[13px] font-semibold">{titulo}</h3>
         <p className="py-12 text-center text-xs text-[var(--text-muted)]">
           Sin datos suficientes para proyectar el periodo.
         </p>
@@ -90,7 +96,7 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-[13px] font-semibold">Trayectoria de cierre</h3>
+          <h3 className="text-[13px] font-semibold">{titulo}</h3>
           <p className="mt-0.5 max-w-2xl text-xs text-[var(--text-secondary)]">
             Datos reales hasta {resumen.fechaCorte ? diaMes(resumen.fechaCorte) : "el corte"}; horizonte de cierre {resumen.fechaCierre ? diaMes(resumen.fechaCierre) : "—"}.
           </p>
@@ -141,7 +147,7 @@ export function Proyeccion({ puntos }: { puntos: PuntoProyeccion[] }) {
         <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 border-t border-dashed border-[var(--text-muted)]" /> Ideal/meta acumulada</span>
       </div>
 
-      <div className="mt-2 h-[290px]" role="img" aria-label="Asegurados acumulados, proyección y trayectoria de meta por día">
+      <div className="mt-2 h-[290px]" role="img" aria-label={`${titulo}: asegurados acumulados, proyección y trayectoria de meta por día`}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={datosGrafico} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--vidrio-borde)" strokeDasharray="3 4" />

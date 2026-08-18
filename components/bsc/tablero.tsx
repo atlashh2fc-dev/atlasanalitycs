@@ -53,6 +53,10 @@ export interface CostoCierre {
   monto_clp: number;
 }
 
+export interface ProyeccionPorLinea extends PuntoProyeccion {
+  agrupacion_meta: string;
+}
+
 /**
  * Las cuatro perspectivas de Kaplan y Norton, en el orden en que se leen:
  * la financiera es el resultado, y las tres de abajo son las causas.
@@ -207,6 +211,7 @@ export function Tablero({
   lineas,
   equilibrio,
   proyeccion,
+  proyeccionesLinea = [],
   embudo,
   indicadoresAnteriores = [],
   analysisQuery = "",
@@ -216,6 +221,7 @@ export function Tablero({
   lineas: FilaLinea[];
   equilibrio: Equilibrio | null;
   proyeccion: PuntoProyeccion[];
+  proyeccionesLinea?: ProyeccionPorLinea[];
   embudo: EtapaEmbudo[];
   indicadoresAnteriores?: Indicador[];
   analysisQuery?: string;
@@ -223,6 +229,22 @@ export function Tablero({
 }) {
   const reducido = usaMovimientoReducido();
   const [abierto, setAbierto] = useState<string | null>(null);
+
+  const proyeccionesAgrupadas = useMemo(() => {
+    const grupos = new Map<string, PuntoProyeccion[]>();
+    for (const punto of proyeccionesLinea) {
+      const puntos = grupos.get(punto.agrupacion_meta) ?? [];
+      puntos.push(punto);
+      grupos.set(punto.agrupacion_meta, puntos);
+    }
+    const orden = ["ONCO", "CM+CAT"];
+    return [...grupos.entries()].sort(([a], [b]) => {
+      const ia = orden.indexOf(a);
+      const ib = orden.indexOf(b);
+      return (ia === -1 ? orden.length : ia) - (ib === -1 ? orden.length : ib)
+        || a.localeCompare(b, "es");
+    });
+  }, [proyeccionesLinea]);
 
   const porPerspectiva = useMemo(() => {
     const m = new Map<string, Indicador[]>();
@@ -448,7 +470,21 @@ export function Tablero({
         </p>
         ) : null}
 
-        <Proyeccion puntos={proyeccion} />
+        <div className="grid gap-4 xl:grid-cols-2">
+          {proyeccionesAgrupadas.map(([agrupacion, puntos]) => (
+            <Proyeccion
+              key={agrupacion}
+              puntos={puntos}
+              titulo={
+                agrupacion === "ONCO"
+                  ? "Oncológico"
+                  : agrupacion === "CM+CAT"
+                    ? "Complementario + Catastrófico"
+                    : agrupacion
+              }
+            />
+          ))}
+        </div>
 
         {brecha !== null && brecha > 0 ? (
         <p
