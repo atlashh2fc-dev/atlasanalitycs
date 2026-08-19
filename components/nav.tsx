@@ -2,18 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Database, LogOut, Settings2, Target, Upload, Users } from "lucide-react";
+import type { CSSProperties } from "react";
+import { BarChart3, Database, LogOut, Settings2, Target, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SelectorTema } from "./tema";
 
-const LINKS = [
-  { href: "/bsc", label: "Control", detalle: "Resultado ejecutivo", icono: Target, rutas: ["/bsc"] },
-  { href: "/analisis", label: "Análisis", detalle: "Causas y tendencias", icono: BarChart3, rutas: ["/analisis", "/dashboard"] },
-  { href: "/datos", label: "Datos", detalle: "Cobertura y calidad", icono: Database, rutas: ["/datos"] },
-  { href: "/cargar", label: "Cargar", detalle: "Ingesta e historial", icono: Upload, rutas: ["/cargar"] },
-  { href: "/equipo", label: "Equipo", detalle: "Desempeño y movilidad", icono: Users, rutas: ["/equipo"] },
-  { href: "/administracion", label: "Administración", detalle: "Reglas y accesos", icono: Settings2, rutas: ["/administracion", "/mantenedor"] },
+const GESTION = [
+  { href: "/bsc", label: "Control", detalle: "Resultado ejecutivo", icono: Target, rutas: ["/bsc"], tono: "var(--series-1)" },
+  { href: "/analisis", label: "Análisis", detalle: "Causas y tendencias", icono: BarChart3, rutas: ["/analisis", "/dashboard"], tono: "var(--series-4)" },
+  { href: "/equipo", label: "Equipo", detalle: "Desempeño y movilidad", icono: Users, rutas: ["/equipo"], tono: "var(--series-3)" },
 ];
+
+const OPERACION = [
+  { href: "/datos", label: "Datos", detalle: "Calidad, cobertura y cargas", icono: Database, rutas: ["/datos", "/cargar"], tono: "var(--series-5)" },
+];
+
+const SISTEMA = [
+  { href: "/administracion", label: "Administración", detalle: "Reglas y accesos", icono: Settings2, rutas: ["/administracion", "/mantenedor"], tono: "var(--series-2)" },
+];
+
+const LINKS = [...GESTION, ...OPERACION, ...SISTEMA];
+type ItemNav = (typeof LINKS)[number];
 
 function Marca() {
   return (
@@ -30,6 +39,38 @@ function Marca() {
   );
 }
 
+function EnlaceSidebar({ item, path }: { item: ItemNav; path: string }) {
+  const activo = item.rutas.some((ruta) => path === ruta || path.startsWith(`${ruta}/`));
+  const Icono = item.icono;
+
+  return (
+    <Link
+      href={item.href}
+      aria-current={activo ? "page" : undefined}
+      style={{ "--nav-tone": item.tono } as CSSProperties}
+      className={cn(
+        "group relative flex min-h-[50px] items-center gap-3 rounded-xl border px-2.5 py-1.5 transition-[background-color,border-color,color,transform] duration-200",
+        activo
+          ? "border-[color-mix(in_srgb,var(--nav-tone)_28%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--nav-tone)_9%,var(--vidrio-alto))] text-[var(--text-primary)] shadow-[inset_3px_0_0_var(--nav-tone)]"
+          : "border-transparent text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--nav-tone)_20%,var(--vidrio-borde))] hover:bg-[color-mix(in_srgb,var(--nav-tone)_5%,var(--surface-0))] hover:text-[var(--text-primary)]",
+      )}
+    >
+      <span className={cn(
+        "grid size-8 shrink-0 place-items-center rounded-[9px] border text-[var(--nav-tone)] transition-colors",
+        activo
+          ? "border-[color-mix(in_srgb,var(--nav-tone)_55%,transparent)] bg-[color-mix(in_srgb,var(--nav-tone)_18%,transparent)] shadow-[0_5px_14px_color-mix(in_srgb,var(--nav-tone)_16%,transparent)]"
+          : "border-[color-mix(in_srgb,var(--nav-tone)_24%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--nav-tone)_7%,var(--surface-0))] group-hover:border-[color-mix(in_srgb,var(--nav-tone)_42%,var(--vidrio-borde))] group-hover:bg-[color-mix(in_srgb,var(--nav-tone)_12%,var(--surface-0))]",
+      )}>
+        <Icono className="size-[17px]" strokeWidth={1.9} />
+      </span>
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate text-[13px] font-semibold tracking-[-0.01em]">{item.label}</span>
+        <span className="mt-0.5 block truncate text-[10px] font-medium text-[var(--text-muted)]">{item.detalle}</span>
+      </span>
+    </Link>
+  );
+}
+
 export function Nav({ email }: { email: string | null }) {
   const path = usePathname();
   const actual = LINKS.find((item) => item.rutas.some((ruta) => path === ruta || path.startsWith(`${ruta}/`)));
@@ -38,41 +79,23 @@ export function Nav({ email }: { email: string | null }) {
     <>
       <aside className="atlas-sidebar fixed inset-y-0 left-0 z-50 hidden w-[var(--atlas-sidebar-width)] flex-col border-r border-[var(--vidrio-borde)] bg-[var(--plano-alto)] px-3 py-4 lg:flex">
         <Marca />
-        <p className="etiqueta mb-2 mt-6 px-2.5">Navegación</p>
-        <nav className="space-y-1">
-          {LINKS.map((l) => {
-            const activo = l.rutas.some((ruta) => path === ruta || path.startsWith(`${ruta}/`));
-            const Icono = l.icono;
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                aria-current={activo ? "page" : undefined}
-                className={cn(
-                  "group relative flex min-h-[50px] items-center gap-3 rounded-xl border px-2.5 py-1.5 transition-[background-color,border-color,color,transform] duration-200",
-                  activo
-                    ? "border-[color-mix(in_srgb,var(--series-1)_24%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--series-1)_9%,var(--vidrio-alto))] text-[var(--text-primary)] shadow-[inset_3px_0_0_var(--series-1)]"
-                    : "border-transparent text-[var(--text-secondary)] hover:border-[var(--vidrio-borde)] hover:bg-[var(--surface-0)] hover:text-[var(--text-primary)]",
-                )}
-              >
-                <span className={cn(
-                  "grid size-8 shrink-0 place-items-center rounded-[9px] border transition-colors",
-                  activo
-                    ? "border-[color-mix(in_srgb,var(--series-1)_45%,transparent)] bg-[var(--series-1)] text-white shadow-[0_5px_14px_color-mix(in_srgb,var(--series-1)_22%,transparent)]"
-                    : "border-[var(--vidrio-borde)] bg-[var(--surface-0)] text-[var(--text-secondary)] group-hover:border-[var(--vidrio-borde-alto)] group-hover:text-[var(--text-primary)]",
-                )}>
-                  <Icono className="size-[17px]" strokeWidth={1.9} />
-                </span>
-                <span className="min-w-0 leading-tight">
-                  <span className="block truncate text-[13px] font-semibold tracking-[-0.01em]">{l.label}</span>
-                  <span className="mt-0.5 block truncate text-[10px] font-medium text-[var(--text-muted)]">{l.detalle}</span>
-                </span>
-              </Link>
-            );
-          })}
+        <p className="etiqueta mb-2 mt-6 px-2.5">Gestión</p>
+        <nav className="flex min-h-0 flex-1 flex-col">
+          <div className="space-y-1">
+            {GESTION.map((item) => <EnlaceSidebar key={item.href} item={item} path={path} />)}
+          </div>
+
+          <div className="mt-5 border-t border-[var(--vidrio-borde)] pt-3">
+            <p className="etiqueta mb-2 px-2.5">Operación</p>
+            {OPERACION.map((item) => <EnlaceSidebar key={item.href} item={item} path={path} />)}
+          </div>
+
+          <div className="mt-auto border-t border-[var(--vidrio-borde)] pt-3">
+            {SISTEMA.map((item) => <EnlaceSidebar key={item.href} item={item} path={path} />)}
+          </div>
         </nav>
 
-        <div className="mt-auto border-t border-[var(--vidrio-borde)] px-2 pt-3">
+        <div className="mt-3 border-t border-[var(--vidrio-borde)] px-2 pt-3">
           <div className="mb-3 flex items-center justify-between"><SelectorTema /></div>
           {email ? <p className="mb-2 truncate text-[11px] text-[var(--text-muted)]">{email}</p> : null}
           <form action="/api/salir" method="post">
@@ -97,7 +120,7 @@ export function Nav({ email }: { email: string | null }) {
             {LINKS.map((l) => {
               const activo = l.rutas.some((ruta) => path === ruta || path.startsWith(`${ruta}/`));
               const Icono = l.icono;
-              return <Link key={l.href} href={l.href} aria-label={l.label} className={cn("grid size-9 place-items-center rounded-lg", activo ? "bg-[var(--vidrio-alto)] text-[var(--series-1)]" : "text-[var(--text-secondary)]")}><Icono className="size-4" /></Link>;
+              return <Link key={l.href} href={l.href} aria-label={l.label} style={{ "--nav-tone": l.tono } as CSSProperties} className={cn("grid size-9 place-items-center rounded-lg text-[var(--nav-tone)]", activo ? "bg-[color-mix(in_srgb,var(--nav-tone)_14%,var(--vidrio-alto))] ring-1 ring-[color-mix(in_srgb,var(--nav-tone)_32%,transparent)]" : "hover:bg-[color-mix(in_srgb,var(--nav-tone)_8%,var(--surface-0))]")}><Icono className="size-4" /></Link>;
             })}
           </nav>
         </div>

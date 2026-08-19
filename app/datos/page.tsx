@@ -45,7 +45,7 @@ export default async function Datos() {
 
         <nav className="mt-2 flex flex-wrap items-center gap-1.5 border-b border-[var(--vidrio-borde)] pb-2" aria-label="Acciones de datos">
           {[
-            { t: "Agregar datos", icono: Upload, href: "#campanas" },
+            { t: "Cargar datos", icono: Upload, href: "/cargar" },
             { t: "Analizar operación", icono: BarChart3, href: "/analisis" },
             { t: "Administrar reglas", icono: Settings2, href: "/administracion" },
           ].map((paso) => {
