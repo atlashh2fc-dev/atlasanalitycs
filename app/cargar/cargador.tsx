@@ -399,6 +399,7 @@ export function Cargador({
 
     let procesadasTotal = 0;
     let insertadasTotal = 0;
+    let rechazadasTotal = 0;
     const periodosActualizados = new Set<string>();
 
     for (let posicion = 0; posicion < seleccionadas.length; posicion++) {
@@ -480,6 +481,7 @@ export function Cargador({
         }
 
         insertadasTotal += json.insertadas ?? 0;
+        rechazadasTotal += json.rechazadas ?? 0;
         for (const mes of json.periodosActualizados ?? []) periodosActualizados.add(mes);
         const avanceHoja = json.total > 0 ? json.procesadas / json.total : 1;
         const avanceProceso = (posicion + avanceHoja) / seleccionadas.length;
@@ -509,7 +511,7 @@ export function Cargador({
       estado: "cargado",
       progreso: 1,
       etapa: "Carga completa",
-      mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}${periodosActualizados.size ? ` · ${periodosActualizados.size} periodo${periodosActualizados.size === 1 ? "" : "s"} actualizado${periodosActualizados.size === 1 ? "" : "s"}` : ""}`,
+      mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}${rechazadasTotal ? ` · ${fmt.entero(rechazadasTotal)} fila${rechazadasTotal === 1 ? "" : "s"} con RUT inválido conservada${rechazadasTotal === 1 ? "" : "s"} para revisión` : ""}${periodosActualizados.size ? ` · ${periodosActualizados.size} periodo${periodosActualizados.size === 1 ? "" : "s"} actualizado${periodosActualizados.size === 1 ? "" : "s"}` : ""}`,
     });
     return true;
   }

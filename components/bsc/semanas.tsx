@@ -18,6 +18,12 @@ const METRICAS = [
   "Margen",
 ] as const;
 
+const METRICAS_DE_GESTION = new Set<string>([
+  "Gestiones",
+  "Contactabilidad",
+  "Conversión gestión a venta",
+]);
+
 function valor(semana: SemanaComparacion, indicador: string) {
   return semana.indicadores.find((i) => i.indicador === indicador) ?? null;
 }
@@ -36,7 +42,28 @@ function fechaCorta(fecha: string) {
     .replace(".", "");
 }
 
-export function ComparacionSemanal({ semanas }: { semanas: SemanaComparacion[] }) {
+function sinCobertura(
+  semana: SemanaComparacion,
+  metrica: string,
+  datosHasta: string,
+  gestionesHasta: string | null,
+) {
+  if (semana.desde > datosHasta) return "Semana todavía no transcurrida";
+  if (METRICAS_DE_GESTION.has(metrica) && (!gestionesHasta || semana.desde > gestionesHasta)) {
+    return "Gestiones todavía no cargadas para esta semana";
+  }
+  return null;
+}
+
+export function ComparacionSemanal({
+  semanas,
+  datosHasta,
+  gestionesHasta,
+}: {
+  semanas: SemanaComparacion[];
+  datosHasta: string;
+  gestionesHasta: string | null;
+}) {
   if (semanas.length === 0) return null;
 
   return (
@@ -44,7 +71,8 @@ export function ComparacionSemanal({ semanas }: { semanas: SemanaComparacion[] }
       <div className="flex items-baseline gap-3">
         <h2 className="text-[15px] font-semibold tracking-tight">Comparación semanal</h2>
         <span className="text-xs text-[var(--text-muted)]">
-          Evolución dentro del mes seleccionado
+          Mes completo · datos hasta {fechaCorta(datosHasta)}
+          {gestionesHasta ? ` · gestiones hasta ${fechaCorta(gestionesHasta)}` : " · sin gestiones cargadas"}
         </span>
         <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
       </div>
@@ -68,11 +96,18 @@ export function ComparacionSemanal({ semanas }: { semanas: SemanaComparacion[] }
             {METRICAS.map((metrica) => (
               <tr key={metrica} className="border-b border-[var(--vidrio-borde)] last:border-0">
                 <th className="py-3 text-left font-medium text-[var(--text-secondary)]">{metrica}</th>
-                {semanas.map((semana) => (
-                  <td key={semana.desde} className="tabular py-3 text-right font-semibold">
-                    {formatea(valor(semana, metrica))}
-                  </td>
-                ))}
+                {semanas.map((semana) => {
+                  const motivo = sinCobertura(semana, metrica, datosHasta, gestionesHasta);
+                  return (
+                    <td
+                      key={semana.desde}
+                      className={`tabular py-3 text-right font-semibold ${motivo ? "text-[var(--text-muted)]" : ""}`}
+                      title={motivo ?? undefined}
+                    >
+                      {motivo ? "—" : formatea(valor(semana, metrica))}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

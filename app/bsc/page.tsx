@@ -95,7 +95,10 @@ export default async function CuadroDeMando({
   const comparar = sp.comparar !== "no";
   const anterior = mesAnterior(mes);
   const cierre = cierreDelMes(hasta);
-  const semanas = semanasDelRango(desde, hasta);
+  // La comparación conserva el calendario mensual completo. `hasta` sigue
+  // siendo el corte real de los indicadores; las semanas posteriores se
+  // muestran sin datos en vez de desaparecer o fingir ceros.
+  const semanas = semanasDelRango(desde, cierre);
   const contextoAnalisis = new URLSearchParams({ desde, hasta });
   if (campana) contextoAnalisis.set("campana", campana);
 
@@ -106,6 +109,17 @@ export default async function CuadroDeMando({
     .select("fecha_inicio, etiqueta")
     .eq("tipo", "mes")
     .order("fecha_inicio", { ascending: false });
+
+  let ultimaGestionQuery = supabase
+    .from("gestion")
+    .select("fecha")
+    .gte("fecha", `${desde}T00:00:00`)
+    .lte("fecha", `${cierre}T23:59:59`)
+    .order("fecha", { ascending: false })
+    .limit(1);
+  if (campana) ultimaGestionQuery = ultimaGestionQuery.eq("campana_id", campana);
+  const { data: ultimaGestion } = await ultimaGestionQuery.maybeSingle();
+  const gestionesHasta = ultimaGestion?.fecha?.slice(0, 10) ?? null;
 
   const [
     { data: indicadores },
@@ -176,15 +190,19 @@ export default async function CuadroDeMando({
 
   const resultadosSemanales = await Promise.all(
     semanas.map(async (semana) => {
+      if (semana.desde > hasta) {
+        return { resultadoBsc: { data: [] }, resultadoIngreso: { data: [] } };
+      }
+      const semanaHasta = semana.hasta > hasta ? hasta : semana.hasta;
       const [resultadoBsc, resultadoIngreso] = await Promise.all([
         supabase.rpc("bsc_periodo", {
           p_desde: semana.desde,
-          p_hasta: semana.hasta,
+          p_hasta: semanaHasta,
           p_campana: campana,
         }),
         supabase.rpc("ingreso_periodo", {
           p_desde: semana.desde,
-          p_hasta: semana.hasta,
+          p_hasta: semanaHasta,
           p_campana: campana,
         }),
       ]);
@@ -289,7 +307,11 @@ export default async function CuadroDeMando({
           costosCierre={(costosCierre ?? []) as unknown as CostoCierre[]}
         />
 
-        <ComparacionSemanal semanas={comparacionSemanal} />
+        <ComparacionSemanal
+          semanas={comparacionSemanal}
+          datosHasta={hasta}
+          gestionesHasta={gestionesHasta}
+        />
 
         <section className="mt-8 space-y-4">
           <div className="flex items-baseline gap-3">

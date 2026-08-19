@@ -24,6 +24,7 @@ export interface ResultadoLote {
   procesadas: number;
   total: number;
   insertadas: number;
+  rechazadas: number;
   terminado: boolean;
   periodosActualizados?: string[];
 }
@@ -559,6 +560,7 @@ export async function procesaLote(
       procesadas: hasta,
       total: largo.filas.length,
       insertadas,
+      rechazadas: 0,
       terminado,
       periodosActualizados,
     };
@@ -586,29 +588,6 @@ export async function procesaLote(
     return o;
   });
 
-  // Filas crudas: fuente de verdad, se conservan siempre
-  if (filas.length > 0) {
-    // Un corte entre el INSERT y la actualización de filas_procesadas no
-    // puede duplicar el primer lote al reanudar.
-    if (desde === 0) {
-      const { error: errorLimpieza } = await supabase
-        .from("fila_cruda")
-        .delete()
-        .eq("carga_id", carga.id);
-      if (errorLimpieza) {
-        throw new Error(`No se pudo reanudar la copia cruda: ${errorLimpieza.message}`);
-      }
-    }
-    const { error } = await supabase.from("fila_cruda").insert(
-      filas.map((f, i) => ({
-        carga_id: carga.id,
-        nro_fila: desde + i + 1,
-        datos: f,
-      })),
-    );
-    if (error) throw new Error(`No se pudieron conservar las filas: ${error.message}`);
-  }
-
   const inverso = invertir(cfg.mapeo);
   // Gestiones del discador: una fila por intento de contacto, con su
   // tipificación. Se evalúa primero porque el archivo también trae RUT
@@ -622,6 +601,39 @@ export async function procesaLote(
     !tieneGestion && !tieneVenta && !tieneCotizacion && inverso.rut_cliente &&
       (inverso.fecha_agenda || inverso.presentado),
   );
+  const requiereRutValido = tieneGestion || tieneVenta || tieneAgenda;
+  const erroresFila = filas.map((fila) => {
+    if (!requiereRutValido || !inverso.rut_cliente) return null;
+    return validaRut(fila[inverso.rut_cliente])
+      ? null
+      : "RUT de cliente ausente o inválido; fila conservada sin derivar al modelo analítico.";
+  });
+  const rechazadasLote = erroresFila.filter(Boolean).length;
+
+  // Filas crudas: fuente de verdad, se conservan siempre
+  if (filas.length > 0) {
+    // Un corte entre el INSERT y la actualización de filas_procesadas no
+    // puede duplicar el lote al reanudar. Limpiamos sólo el rango que se va
+    // a reconstruir; los lotes ya confirmados permanecen intactos.
+    const { error: errorLimpieza } = await supabase
+      .from("fila_cruda")
+      .delete()
+      .eq("carga_id", carga.id)
+      .gte("nro_fila", desde + 1)
+      .lte("nro_fila", hasta);
+    if (errorLimpieza) {
+      throw new Error(`No se pudo reanudar la copia cruda: ${errorLimpieza.message}`);
+    }
+    const { error } = await supabase.from("fila_cruda").insert(
+      filas.map((f, i) => ({
+        carga_id: carga.id,
+        nro_fila: desde + i + 1,
+        datos: f,
+        error: erroresFila[i],
+      })),
+    );
+    if (error) throw new Error(`No se pudieron conservar las filas: ${error.message}`);
+  }
   let insertadas = 0;
 
   if (tieneGestion) {
@@ -629,7 +641,10 @@ export async function procesaLote(
     const tipificaciones = await mapaTipificaciones(supabase, tenantId);
     const preparadas = filas
       .map((fila) => ({ fila, rut: normalizaRut(fila[inverso.rut_cliente ?? ""]) }))
-      .filter((x): x is { fila: Record<string, unknown>; rut: string } => Boolean(x.rut));
+      .filter(
+        (x): x is { fila: Record<string, unknown>; rut: string } =>
+          Boolean(x.rut && validaRut(x.rut)),
+      );
     const clientes = await upsertClientes(
       supabase,
       preparadas.map(({ fila, rut }) => ({
@@ -882,14 +897,24 @@ export async function procesaLote(
       )
     : undefined;
 
+  const { count: rechazadasAcumuladas, error: errorConteo } = await supabase
+    .from("fila_cruda")
+    .select("id", { count: "exact", head: true })
+    .eq("carga_id", carga.id)
+    .not("error", "is", null);
+  if (errorConteo) {
+    throw new Error(`La carga avanzó, pero no se pudieron contar sus filas rechazadas: ${errorConteo.message}`);
+  }
+
   await supabase
     .from("carga")
     .update({
       filas_procesadas: hasta,
       filas_totales: cuerpo.length,
-      filas_validas: cuerpo.length,
-      filas_rechazadas: 0,
+      filas_validas: Math.max(0, cuerpo.length - (rechazadasAcumuladas ?? 0)),
+      filas_rechazadas: rechazadasAcumuladas ?? 0,
       estado: terminado ? "procesada" : "mapeada",
+      error_detalle: null,
     })
     .eq("id", carga.id);
 
@@ -897,6 +922,7 @@ export async function procesaLote(
     procesadas: hasta,
     total: cuerpo.length,
     insertadas,
+    rechazadas: rechazadasLote,
     terminado,
     periodosActualizados,
   };
