@@ -21,6 +21,8 @@
 :root {
   color-scheme: dark;
 
+  --atlas-sidebar-width: 224px;
+
   /* Plano: azul-noche, no negro. El negro plano apaga los colores. */
   --plano: #0d1016;
   --plano-alto: #141820;
@@ -146,9 +148,9 @@ body {
 
 @media (min-width: 1024px) {
   body .atlas-sidebar ~ main {
-    width: calc(100% - 156px);
+    width: calc(100% - var(--atlas-sidebar-width));
     max-width: none !important;
-    margin-left: 156px !important;
+    margin-left: var(--atlas-sidebar-width) !important;
     margin-right: 0 !important;
     padding: 54px 16px 14px !important;
   }
