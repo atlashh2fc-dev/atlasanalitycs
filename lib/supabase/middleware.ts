@@ -32,14 +32,16 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  let usuario = null;
+  let usuarioId: string | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    usuario = data.user;
+    // Verifica la firma/expiración del JWT usando JWKS cacheable. A diferencia
+    // de getUser(), no exige una ida al servicio Auth en cada navegación.
+    const { data } = await supabase.auth.getClaims();
+    usuarioId = typeof data?.claims?.sub === "string" ? data.claims.sub : null;
   } catch {
     // Un error de red hacia Supabase no debe tumbar el sitio: se trata
     // como sesión ausente y la ruta protegida redirige al login.
-    usuario = null;
+    usuarioId = null;
   }
 
   const publica =
@@ -48,7 +50,7 @@ export async function updateSession(request: NextRequest) {
     // Sólo existe en desarrollo: su layout devuelve 404 en producción.
     request.nextUrl.pathname.startsWith("/vista-previa");
 
-  if (!usuario && !publica) {
+  if (!usuarioId && !publica) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
