@@ -15,11 +15,11 @@ export interface Contexto {
 
 export async function getContexto(): Promise<Contexto> {
   const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const claims = claimsData?.claims;
-  const userId = typeof claims?.sub === "string" ? claims.sub : null;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!userId) {
+  if (!user) {
     return { userId: null, email: null, tenantId: null, esAdmin: false, campanas: [] };
   }
 
@@ -27,7 +27,7 @@ export async function getContexto(): Promise<Contexto> {
     supabase
       .from("perfil")
       .select("tenant_id, rol")
-      .eq("id", userId)
+      .eq("id", user.id)
       .maybeSingle(),
     supabase
       .from("campana")
@@ -36,8 +36,8 @@ export async function getContexto(): Promise<Contexto> {
   ]);
 
   return {
-    userId,
-    email: typeof claims?.email === "string" ? claims.email : null,
+    userId: user.id,
+    email: user.email ?? null,
     tenantId: perfil?.tenant_id ?? null,
     esAdmin: perfil?.rol === "admin",
     campanas: campanas ?? [],
