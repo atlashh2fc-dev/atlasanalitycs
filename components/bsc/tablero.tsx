@@ -155,7 +155,7 @@ function ResumenPerspectivas({
   analysisQuery: string;
 }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="vidrio grid overflow-hidden rounded-2xl md:grid-cols-2 xl:grid-cols-4">
       {PERSPECTIVAS.map((p, k) => {
         const lista = porPerspectiva.get(p.nombre) ?? [];
         const Icono = p.icono;
@@ -166,9 +166,8 @@ function ResumenPerspectivas({
             initial={reducido ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: k * 0.05, type: "spring", stiffness: 260, damping: 26 }}
-            data-tono
             style={{ "--tono": p.tono } as React.CSSProperties}
-            className="vidrio flex flex-col rounded-xl p-4"
+            className="flex flex-col border-b border-[var(--vidrio-borde)] p-5 last:border-b-0 md:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0"
           >
             <div className="mb-3 flex items-center gap-2">
               <span className="grid size-7 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, var(--tono) 18%, transparent)", border: "1px solid color-mix(in srgb, var(--tono) 38%, transparent)", color: "var(--tono)" }}>
@@ -379,7 +378,7 @@ export function Tablero({
   const ultimoProyectado = proyeccion.at(-1)?.proyectado ?? null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <section className="space-y-4">
         <Titulo numero="1" titulo="Resumen ejecutivo BSC" subtitulo="Financiera · Cliente · Procesos · Personas" />
         <ResumenPerspectivas porPerspectiva={porPerspectiva} abierto={abierto} setAbierto={setAbierto} reducido={reducido} analysisQuery={analysisQuery} />
@@ -387,7 +386,7 @@ export function Tablero({
 
       <section className="space-y-4">
         <Titulo numero="2" titulo="Resultado financiero y forecast" subtitulo="Real al corte, cierre esperado, meta y sostenibilidad" />
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="vidrio grid overflow-hidden rounded-2xl lg:grid-cols-3 lg:divide-x lg:divide-[var(--vidrio-borde)]">
         {[
           { t: "Ingreso del periodo", i: ingreso, tono: "var(--tono-venta)", mejorAlSubir: true, lineal: forecastFinanciero?.ingresoLineal, ideal: forecastFinanciero?.ingresoIdeal },
           { t: "Costo total", i: costo, tono: "var(--tono-asistencia)", mejorAlSubir: false, lineal: forecastFinanciero?.costoLineal, ideal: forecastFinanciero?.costoIdeal },
@@ -398,9 +397,8 @@ export function Tablero({
             initial={reducido ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: k * 0.05, type: "spring", stiffness: 260, damping: 26 }}
-            data-tono
             style={{ "--tono": c.tono } as React.CSSProperties}
-            className="vidrio rounded-2xl p-5"
+            className="border-b border-[var(--vidrio-borde)] p-5 last:border-b-0 lg:border-b-0"
           >
             <p className="etiqueta">{c.t}</p>
             <p className="cifra mt-2.5 text-[2.1rem]">

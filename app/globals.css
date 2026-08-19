@@ -144,6 +144,15 @@ body {
   font-feature-settings: "kern" 1, "liga" 1, "cv11" 1;
 }
 
+@media (min-width: 1024px) {
+  body .atlas-sidebar ~ main {
+    width: calc(100% - 220px);
+    max-width: none !important;
+    margin-left: 220px !important;
+    margin-right: 0 !important;
+  }
+}
+
 /* Profundidad contenida: una sola luz ambiental, fuera del área de lectura. */
 body::before {
   content: "";
