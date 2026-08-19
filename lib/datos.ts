@@ -3,7 +3,10 @@ import { diasHabiles } from "@/lib/utils";
 import type { FilaCumplimiento } from "@/components/charts/cumplimiento";
 import type { PuntoEjecutivo } from "@/components/charts/cuadrantes";
 import type { FilaRanking } from "@/components/charts/ranking";
-import type { FilaMovilidad } from "@/components/charts/movilidad";
+import type {
+  FilaMovilidad,
+  PuntoTendenciaEquipo,
+} from "@/components/charts/movilidad";
 
 export interface Contexto {
   userId: string | null;
@@ -290,13 +293,14 @@ export async function getMovilidad(
 ): Promise<{
   filas: FilaMovilidad[];
   transicion: { de: number; a: number; ejecutivos: number }[];
+  tendencia: PuntoTendenciaEquipo[];
 }> {
   const supabase = await createClient();
 
   let q = supabase
     .from("v_movilidad_cuartil")
     .select(
-      "ejecutivo_id, periodo_anterior, etiqueta, cuartil_anterior, cuartil_ip_d, delta_ip_d, movimiento, fecha_inicio",
+      "ejecutivo_id, periodo_id, periodo_anterior, etiqueta, cuartil_anterior, cuartil_ip_d, ip_d, delta_ip_d, movimiento, fecha_inicio",
     )
     .order("fecha_inicio", { ascending: false })
     .limit(500);
@@ -305,10 +309,30 @@ export async function getMovilidad(
   else q = q.is("campana_id", null);
   if (mes) q = q.eq("fecha_inicio", `${mes}-01`);
 
-  const [{ data: mov }, { data: ejec }] = await Promise.all([
+  let qPeriodos = supabase
+    .from("periodo")
+    .select("id, etiqueta, fecha_inicio")
+    .eq("tipo", "mes")
+    .order("fecha_inicio", { ascending: false })
+    .limit(6);
+  if (mes) qPeriodos = qPeriodos.lte("fecha_inicio", `${mes}-01`);
+
+  const [{ data: mov }, { data: ejec }, { data: periodos }] = await Promise.all([
     q,
     supabase.from("ejecutivo").select("id, nombre_canonico"),
+    qPeriodos,
   ]);
+
+  const periodoIds = (periodos ?? []).map((p) => p.id);
+  let qKpi = supabase
+    .from("kpi_ejecutivo")
+    .select(
+      "periodo_id, ejecutivo_id, dg, cotizaciones, ip_d, tasa_cierre, profundidad, indice_venta_sana, cuartil_ip_d",
+    )
+    .in("periodo_id", periodoIds.length > 0 ? periodoIds : ["00000000-0000-0000-0000-000000000000"]);
+  if (campanaId) qKpi = qKpi.eq("campana_id", campanaId);
+  else qKpi = qKpi.is("campana_id", null);
+  const { data: kpis } = await qKpi;
 
   const nombre = new Map((ejec ?? []).map((e) => [e.id, e.nombre_canonico]));
 
@@ -317,17 +341,53 @@ export async function getMovilidad(
     ? (mov ?? [])[0]?.etiqueta ?? null
     : (mov ?? []).find((m) => m.periodo_anterior)?.etiqueta ?? null;
 
+  const periodoActualId = (mov ?? []).find((m) => m.etiqueta === ultimo)?.periodo_id ?? null;
+  const ordenPeriodos = new Map(
+    (periodos ?? []).map((p, indice) => [p.id, indice]),
+  );
+  const rachaQ1 = new Map<string, number>();
+  for (const ejecutivoId of new Set((kpis ?? []).map((k) => k.ejecutivo_id))) {
+    const serie = (kpis ?? [])
+      .filter((k) => k.ejecutivo_id === ejecutivoId)
+      .sort((a, b) => (ordenPeriodos.get(a.periodo_id) ?? 99) - (ordenPeriodos.get(b.periodo_id) ?? 99));
+    let racha = 0;
+    for (const k of serie) {
+      if (k.cuartil_ip_d !== 1) break;
+      racha += 1;
+    }
+    rachaQ1.set(ejecutivoId, racha);
+  }
+  const kpiActual = new Map(
+    (kpis ?? [])
+      .filter((k) => k.periodo_id === periodoActualId)
+      .map((k) => [k.ejecutivo_id, k]),
+  );
+
   const filas: FilaMovilidad[] = (mov ?? [])
     .filter((m) => m.etiqueta === ultimo && m.periodo_anterior)
-    .map((m) => ({
-      ejecutivo: nombre.get(m.ejecutivo_id) ?? "Sin identificar",
-      periodoAnterior: m.periodo_anterior,
-      periodoActual: m.etiqueta,
-      cuartilAnterior: m.cuartil_anterior,
-      cuartilActual: m.cuartil_ip_d,
-      deltaIpD: m.delta_ip_d === null ? null : Number(m.delta_ip_d),
-      movimiento: m.movimiento,
-    }));
+    .map((m) => {
+      const k = kpiActual.get(m.ejecutivo_id);
+      return {
+        ejecutivoId: m.ejecutivo_id,
+        ejecutivo: nombre.get(m.ejecutivo_id) ?? "Sin identificar",
+        periodoAnterior: m.periodo_anterior,
+        periodoActual: m.etiqueta,
+        cuartilAnterior: m.cuartil_anterior,
+        cuartilActual: m.cuartil_ip_d,
+        ipD: m.ip_d === null ? null : Number(m.ip_d),
+        deltaIpD: m.delta_ip_d === null ? null : Number(m.delta_ip_d),
+        dg: Number(k?.dg ?? 0),
+        cotizaciones: Number(k?.cotizaciones ?? 0),
+        tasaCierre: k?.tasa_cierre === null || k?.tasa_cierre === undefined ? null : Number(k.tasa_cierre),
+        profundidad: k?.profundidad === null || k?.profundidad === undefined ? null : Number(k.profundidad),
+        indiceVentaSana:
+          k?.indice_venta_sana === null || k?.indice_venta_sana === undefined
+            ? null
+            : Number(k.indice_venta_sana),
+        rachaQ1: rachaQ1.get(m.ejecutivo_id) ?? 0,
+        movimiento: m.movimiento,
+      };
+    });
 
   const mapa = new Map<string, number>();
   for (const f of filas) {
@@ -342,7 +402,29 @@ export async function getMovilidad(
     return { de, a, ejecutivos };
   });
 
-  return { filas, transicion };
+  const etiquetaPeriodo = new Map((periodos ?? []).map((p) => [p.id, p]));
+  const porPeriodo = new Map<string, number[]>();
+  for (const k of kpis ?? []) {
+    if (k.ip_d === null) continue;
+    const xs = porPeriodo.get(k.periodo_id) ?? [];
+    xs.push(Number(k.ip_d));
+    porPeriodo.set(k.periodo_id, xs);
+  }
+  const tendencia: PuntoTendenciaEquipo[] = [...porPeriodo.entries()]
+    .map(([periodoId, xs]) => {
+      const p = etiquetaPeriodo.get(periodoId)!;
+      return {
+        periodo: p.etiqueta,
+        fechaInicio: p.fecha_inicio,
+        medianaIpD: percentil(xs, 0.5),
+        q1IpD: percentil(xs, 0.25),
+        q3IpD: percentil(xs, 0.75),
+        ejecutivos: xs.length,
+      };
+    })
+    .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+
+  return { filas, transicion, tendencia };
 }
 
 function mediana(xs: number[]): number {
@@ -350,6 +432,17 @@ function mediana(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function percentil(xs: number[], p: number): number {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const posicion = (s.length - 1) * p;
+  const inferior = Math.floor(posicion);
+  const fraccion = posicion - inferior;
+  return s[inferior + 1] === undefined
+    ? s[inferior]
+    : s[inferior] + fraccion * (s[inferior + 1] - s[inferior]);
 }
 
 function coefVar(xs: number[]): number | null {
