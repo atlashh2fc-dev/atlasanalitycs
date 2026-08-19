@@ -73,20 +73,20 @@ export default function Login() {
 
   return (
     <main className="flex min-h-screen w-full flex-col bg-[#f7f7f8] text-[#1d1d1f] lg:flex-row">
-      <aside className="flex shrink-0 flex-col justify-between gap-9 bg-[#09090a] px-6 py-7 text-white sm:px-9 lg:min-h-screen lg:w-[390px] lg:px-10 lg:py-11">
+      <aside className="flex shrink-0 flex-col justify-between gap-9 bg-black px-6 py-7 text-white sm:px-9 lg:min-h-screen lg:w-[390px] lg:px-10 lg:py-11">
         <div>
           <div className="flex items-center gap-3.5">
             <a
               href="https://www.altiusignite.com/"
               target="_blank"
               rel="noreferrer"
-              className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-md border border-white/10 bg-black"
+              className="block size-14 shrink-0 bg-black"
               aria-label="Altius Ignite"
             >
               <img
                 src={LOGO_ALTIUS}
                 alt="Altius"
-                className="size-[54px] object-contain"
+                className="block size-14 object-contain"
               />
             </a>
             <div>
