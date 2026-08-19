@@ -30,6 +30,7 @@ export interface ResultadoLote {
   rechazadas: number;
   terminado: boolean;
   periodosActualizados?: string[];
+  ventasRetiradas?: number;
 }
 
 type FilaCliente = {
@@ -870,6 +871,21 @@ export async function procesaLote(
 
   const terminado = hasta >= cuerpo.length;
 
+  let ventasRetiradas: number | undefined;
+
+  // Un export de ventas puede ser una fotografia actualizada del mismo
+  // periodo o un archivo incremental. La base distingue ambos casos por
+  // solapamiento y cobertura; solo una fotografia comprobada retira las
+  // solicitudes que ya no vienen en el origen.
+  if (terminado && tieneVenta) {
+    const { data, error } = await supabase.rpc("reconciliar_ventas_carga", {
+      p_carga_id: carga.id,
+    });
+    if (error) throw new Error(`No se pudieron reconciliar las ventas: ${error.message}`);
+    const resultado = data as { retiradas?: number } | null;
+    ventasRetiradas = resultado?.retiradas ?? 0;
+  }
+
   // Al cerrar una carga de ventas se desarman las columnas de titular y
   // beneficiarios en personas. El parseo vive en SQL para que haya una
   // sola implementación: la tarifa por tramo etario y el catálogo de
@@ -928,5 +944,6 @@ export async function procesaLote(
     rechazadas: rechazadasLote,
     terminado,
     periodosActualizados,
+    ventasRetiradas,
   };
 }

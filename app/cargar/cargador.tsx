@@ -460,6 +460,7 @@ export function Cargador({
     let procesadasTotal = 0;
     let insertadasTotal = 0;
     let rechazadasTotal = 0;
+    let ventasRetiradasTotal = 0;
     const periodosActualizados = new Set<string>();
 
     for (let posicion = 0; posicion < seleccionadas.length; posicion++) {
@@ -544,6 +545,7 @@ export function Cargador({
 
         insertadasTotal += json.insertadas ?? 0;
         rechazadasTotal += json.rechazadas ?? 0;
+        ventasRetiradasTotal += json.ventasRetiradas ?? 0;
         for (const mes of json.periodosActualizados ?? []) periodosActualizados.add(mes);
         const avanceHoja = json.total > 0 ? json.procesadas / json.total : 1;
         const avanceProceso = (posicion + avanceHoja) / seleccionadas.length;
@@ -573,7 +575,7 @@ export function Cargador({
       estado: "cargado",
       progreso: 1,
       etapa: "Carga completa",
-      mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}${rechazadasTotal ? ` · ${fmt.entero(rechazadasTotal)} fila${rechazadasTotal === 1 ? "" : "s"} con RUT inválido conservada${rechazadasTotal === 1 ? "" : "s"} para revisión` : ""}${periodosActualizados.size ? ` · ${periodosActualizados.size} periodo${periodosActualizados.size === 1 ? "" : "s"} actualizado${periodosActualizados.size === 1 ? "" : "s"}` : ""}`,
+      mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}${ventasRetiradasTotal ? ` · ${fmt.entero(ventasRetiradasTotal)} venta${ventasRetiradasTotal === 1 ? "" : "s"} retirada${ventasRetiradasTotal === 1 ? "" : "s"} por actualización del origen` : ""}${rechazadasTotal ? ` · ${fmt.entero(rechazadasTotal)} fila${rechazadasTotal === 1 ? "" : "s"} con RUT inválido conservada${rechazadasTotal === 1 ? "" : "s"} para revisión` : ""}${periodosActualizados.size ? ` · ${periodosActualizados.size} periodo${periodosActualizados.size === 1 ? "" : "s"} actualizado${periodosActualizados.size === 1 ? "" : "s"}` : ""}`,
     });
     return true;
   }
@@ -663,7 +665,7 @@ export function Cargador({
       <Card className="border border-[color-mix(in_srgb,var(--series-1)_38%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--series-1)_7%,var(--surface-0))]">
         <CardTitle
           impacto="Control y Análisis operativo"
-          hint="Todos los archivos de este lote se agregan al historial de la campaña elegida. No reemplazan cargas anteriores."
+          hint="Los archivos se conservan en el historial. Si una base de ventas es una actualización completa del mismo período, Atlas la reconcilia sin duplicar ni mantener solicitudes retiradas."
         >
           Destino de la carga
         </CardTitle>
@@ -684,7 +686,7 @@ export function Cargador({
             </label>
             <p className="rounded-lg border border-[var(--vidrio-borde)] bg-[var(--surface-0)] px-2.5 py-1.5 text-[11px] leading-snug text-[var(--text-secondary)]">
               <strong className="text-[var(--text-primary)]">{campanaSeleccionada?.nombre}</strong>{" "}
-              conservará sus reglas, equipo, metas y costos. Esta carga sólo suma registros y recalcula sus KPI.
+              conservará sus reglas, equipo, metas y costos. Las cargas incrementales suman registros; las actualizaciones completas de ventas sincronizan el período cubierto y recalculan sus KPI.
             </p>
           </div>
         ) : (
