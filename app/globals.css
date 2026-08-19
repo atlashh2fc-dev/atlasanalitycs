@@ -22,14 +22,14 @@
   color-scheme: dark;
 
   /* Plano: azul-noche, no negro. El negro plano apaga los colores. */
-  --plano: #080b14;
-  --plano-alto: #0d1220;
+  --plano: #0b0d12;
+  --plano-alto: #11141a;
 
   /* Vidrio */
-  --vidrio: rgba(255, 255, 255, 0.045);
-  --vidrio-alto: rgba(255, 255, 255, 0.07);
-  --vidrio-borde: rgba(255, 255, 255, 0.09);
-  --vidrio-borde-alto: rgba(255, 255, 255, 0.16);
+  --vidrio: rgba(255, 255, 255, 0.035);
+  --vidrio-alto: rgba(255, 255, 255, 0.055);
+  --vidrio-borde: rgba(255, 255, 255, 0.08);
+  --vidrio-borde-alto: rgba(255, 255, 255, 0.13);
   --luz-cenital: rgba(255, 255, 255, 0.14);
   --desenfoque: 22px;
 
@@ -41,8 +41,8 @@
   --border-strong: rgba(255, 255, 255, 0.2);
 
   --text-primary: #f7f9fc;
-  --text-secondary: #9aa7bd;
-  --text-muted: #64718a;
+  --text-secondary: #aeb6c4;
+  --text-muted: #818b9d;
 
   /* Marcas de datos */
   --series-1: #3d8bfd;
@@ -66,8 +66,8 @@
   --tono-asistencia: #f5b52a;
   --tono-cliente: #1eb489;
 
-  --sombra-tarjeta: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.35);
-  --sombra-alta: 0 1px 1px rgba(0, 0, 0, 0.5), 0 20px 50px rgba(0, 0, 0, 0.5);
+  --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --sombra-alta: 0 1px 2px rgba(0, 0, 0, 0.28);
   --brillo-fino: drop-shadow(0 0 9px color-mix(in srgb, var(--tono, var(--series-1)) 45%, transparent));
   --brillo-solido: drop-shadow(0 2px 7px color-mix(in srgb, var(--tono, var(--series-1)) 28%, transparent));
 }
@@ -144,8 +144,7 @@ body {
   font-feature-settings: "kern" 1, "liga" 1, "cv11" 1;
 }
 
-/* Profundidad del plano: dos focos fríos y uno cálido abajo. Fijos, para
-   que el fondo no se mueva con el scroll y compita con los datos. */
+/* Profundidad contenida: una sola luz ambiental, fuera del área de lectura. */
 body::before {
   content: "";
   position: fixed;
@@ -153,9 +152,7 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(1100px 620px at 8% -12%, color-mix(in srgb, var(--tono-venta) 22%, transparent), transparent 70%),
-    radial-gradient(900px 520px at 94% -6%, color-mix(in srgb, var(--tono-cotizacion) 17%, transparent), transparent 70%),
-    radial-gradient(1000px 700px at 50% 118%, color-mix(in srgb, var(--tono-agendamiento) 10%, transparent), transparent 72%);
+    radial-gradient(1000px 520px at 50% -18%, color-mix(in srgb, var(--tono-venta) 13%, transparent), transparent 72%);
 }
 
 :root[data-theme="light"] body::before {
@@ -168,8 +165,8 @@ body::before {
 .vidrio {
   position: relative;
   background: var(--vidrio);
-  backdrop-filter: blur(var(--desenfoque)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--desenfoque)) saturate(150%);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--vidrio-borde);
   box-shadow: var(--sombra-tarjeta);
   transition: box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
@@ -194,7 +191,7 @@ body::before {
 }
 
 .vidrio:hover {
-  box-shadow: var(--sombra-alta);
+  box-shadow: var(--sombra-tarjeta);
   border-color: var(--vidrio-borde-alto);
 }
 
@@ -209,7 +206,7 @@ body::before {
   pointer-events: none;
   background: radial-gradient(
     420px 220px at 0% 0%,
-    color-mix(in srgb, var(--tono) 15%, transparent),
+    color-mix(in srgb, var(--tono) 8%, transparent),
     transparent 68%
   );
 }

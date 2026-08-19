@@ -155,10 +155,11 @@ function ResumenPerspectivas({
   analysisQuery: string;
 }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       {PERSPECTIVAS.map((p, k) => {
         const lista = porPerspectiva.get(p.nombre) ?? [];
         const Icono = p.icono;
+        const visibles = lista.slice(0, 4);
         return (
           <motion.div
             key={p.nombre}
@@ -167,7 +168,7 @@ function ResumenPerspectivas({
             transition={{ delay: k * 0.05, type: "spring", stiffness: 260, damping: 26 }}
             data-tono
             style={{ "--tono": p.tono } as React.CSSProperties}
-            className="vidrio flex flex-col rounded-2xl p-4"
+            className="vidrio flex flex-col rounded-xl p-4"
           >
             <div className="mb-3 flex items-center gap-2">
               <span className="grid size-7 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, var(--tono) 18%, transparent)", border: "1px solid color-mix(in srgb, var(--tono) 38%, transparent)", color: "var(--tono)" }}>
@@ -179,7 +180,7 @@ function ResumenPerspectivas({
               </div>
             </div>
             <ul className="flex-1 space-y-0.5">
-              {lista.map((i) => {
+              {visibles.map((i) => {
                 const color = colorEstado(i);
                 const clave = `${i.perspectiva}-${i.indicador}`;
                 const activo = abierto === clave;
@@ -194,6 +195,11 @@ function ResumenPerspectivas({
                 );
               })}
             </ul>
+            {lista.length > visibles.length ? (
+              <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                + {lista.length - visibles.length} indicadores en el análisis
+              </p>
+            ) : null}
             <Link
               href={`/analisis?${analysisQuery}&foco=${encodeURIComponent(p.nombre.toLocaleLowerCase("es"))}`}
               className="mt-3 border-t border-[var(--vidrio-borde)] pt-2 text-[11px] font-medium text-[var(--tono)]"

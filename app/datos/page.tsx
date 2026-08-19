@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BarChart3, Layers3, Settings2, ShieldCheck, Upload } from "lucide-react";
+import { BarChart3, Layers3, Settings2, Upload } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { CampanaCard } from "@/components/datos/dataset-card";
 import { EstadoVacioDatos } from "@/components/datos/estado-vacio";
@@ -43,22 +43,21 @@ export default async function Datos() {
           </div>
         </section>
 
-        <section className="mt-7 grid gap-2 sm:grid-cols-4" aria-label="Flujo de puesta en marcha">
+        <nav className="mt-5 flex flex-wrap items-center gap-2 border-y border-[var(--vidrio-borde)] py-3" aria-label="Acciones de datos">
           {[
-            { n: "1", t: "Administrar", d: "Campaña, equipo, metas y economía", icono: Settings2, href: "/administracion" },
-            { n: "2", t: "Agregar datos", d: "Elige una campaña abajo; la información se acumula", icono: Upload, href: "#campanas" },
-            { n: "3", t: "Validar", d: "Cobertura, calidad, errores y frescura", icono: ShieldCheck, href: "#campanas" },
-            { n: "4", t: "Analizar", d: "KPI operativos elegidos por cada usuario", icono: BarChart3, href: "/analisis" },
+            { t: "Agregar datos", icono: Upload, href: "#campanas" },
+            { t: "Analizar operación", icono: BarChart3, href: "/analisis" },
+            { t: "Administrar reglas", icono: Settings2, href: "/administracion" },
           ].map((paso) => {
             const Icono = paso.icono;
             return (
-              <Link key={paso.n} href={paso.href} className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--surface-0)] p-3 transition-colors hover:bg-[var(--vidrio)]">
-                <div className="flex items-center gap-2"><span className="etiqueta">{paso.n}</span><Icono className="size-3.5 text-[var(--series-1)]" /><strong className="text-xs">{paso.t}</strong></div>
-                <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-muted)]">{paso.d}</p>
+              <Link key={paso.t} href={paso.href} className="pildora text-xs font-medium">
+                <Icono className="size-3.5 text-[var(--series-1)]" />
+                {paso.t}
               </Link>
             );
           })}
-        </section>
+        </nav>
 
         {campanas.length === 0 ? (
           <div className="mt-8">

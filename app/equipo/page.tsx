@@ -30,7 +30,7 @@ export default async function Equipo({
       <Nav email={ctx.email} />
 
       <main className="mx-auto max-w-[1400px] px-6 py-6">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">
               Movilidad del equipo
@@ -45,7 +45,7 @@ export default async function Equipo({
         </div>
 
         {filas.length > 0 ? (
-          <div className="mb-5 grid gap-4 sm:grid-cols-3">
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
             <ResumenMovimiento
               titulo="Suben de cuartil"
               valor={suben}
@@ -64,7 +64,7 @@ export default async function Equipo({
           </div>
         ) : null}
 
-        <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[1.55fr_.85fr]">
           <Card>
             <CardTitle hint="Cuartil 4 es el mejor desempeño; 1, el más bajo.">
               Movimiento por ejecutivo
@@ -94,7 +94,7 @@ function ResumenMovimiento({
   detalle: string;
 }) {
   return (
-    <div className="rounded-lg border bg-[var(--surface-2)] p-5">
+    <div className="rounded-xl border bg-[var(--surface-0)] p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
         {titulo}
       </p>

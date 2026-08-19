@@ -37,8 +37,8 @@ export function Nav({ email }: { email: string | null }) {
   const path = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--vidrio-borde)] bg-[color-mix(in_srgb,var(--plano)_72%,transparent)] backdrop-blur-xl">
-      <div className="mx-auto flex min-h-14 max-w-[1560px] items-center gap-3 px-4 py-2 sm:gap-6 sm:px-6">
+    <header className="sticky top-0 z-40 border-b border-[var(--vidrio-borde)] bg-[color-mix(in_srgb,var(--plano)_88%,transparent)] backdrop-blur-xl">
+      <div className="mx-auto flex min-h-[52px] max-w-[1400px] items-center gap-3 px-4 py-1.5 sm:gap-6 sm:px-6">
         <Link
           href="/bsc"
           className="group flex shrink-0 items-center gap-2.5"
@@ -47,12 +47,9 @@ export function Nav({ email }: { email: string | null }) {
               acento de la suite. Es lo que hace que Analytics se lea
               como hermano de Atlas 360 y no como otro producto. */}
           <span
-            className="grid size-7 place-items-center rounded-lg text-[13px] font-bold text-white"
+            className="grid size-7 place-items-center rounded-lg bg-[var(--series-1)] text-[13px] font-bold text-white"
             style={{
-              background:
-                "linear-gradient(140deg, color-mix(in srgb, var(--tono-venta) 92%, white), color-mix(in srgb, var(--tono-cotizacion) 85%, black))",
-              boxShadow:
-                "0 3px 12px color-mix(in srgb, var(--tono-venta) 45%, transparent)",
+              boxShadow: "0 1px 2px rgba(0,0,0,.25)",
             }}
           >
             A
@@ -78,7 +75,7 @@ export function Nav({ email }: { email: string | null }) {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "relative flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[13px] transition-colors sm:px-3",
+                  "relative flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors sm:px-3",
                   activo
                     ? "text-[var(--text-primary)]"
                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
@@ -87,7 +84,7 @@ export function Nav({ email }: { email: string | null }) {
                 {activo ? (
                   <span
                     aria-hidden
-                    className="absolute inset-0 rounded-full border border-[var(--vidrio-borde-alto)] bg-[var(--vidrio-alto)]"
+                    className="absolute inset-0 rounded-lg border border-[var(--vidrio-borde-alto)] bg-[var(--vidrio-alto)]"
                   />
                 ) : null}
                 <Icono className="relative size-3.5" strokeWidth={2} />

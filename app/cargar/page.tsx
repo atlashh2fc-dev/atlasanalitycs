@@ -134,8 +134,8 @@ export default async function Cargar({
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1100px] px-6 py-6">
-        <div className="mb-6">
+      <main className="mx-auto max-w-[1200px] px-6 py-6">
+        <div className="mb-5">
           <h1 className="text-xl font-semibold tracking-tight">Cargar datos</h1>
           <p className="mt-0.5 max-w-2xl text-sm text-[var(--text-secondary)]">
             Sube los archivos diarios de una campaña. Atlas perfila las columnas por su contenido
@@ -146,18 +146,20 @@ export default async function Cargar({
 
         {ctx.campanas.length > 0 ? (
           <>
-            <MapaCobertura
-              dias={dias}
-              mes={mes}
-              campana={campanaInicial!}
-              campanas={ctx.campanas}
-            />
             <Cargador
               campanas={ctx.campanas}
               datasets={datasets ?? []}
               tenantId={ctx.tenantId}
               campanaInicial={campanaInicial}
             />
+            <div className="mt-6">
+              <MapaCobertura
+                dias={dias}
+                mes={mes}
+                campana={campanaInicial!}
+                campanas={ctx.campanas}
+              />
+            </div>
           </>
         ) : (
           <Card>

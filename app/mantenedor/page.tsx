@@ -237,7 +237,7 @@ export default async function Mantenedor({
   return (
     <>
       <Nav email={ctx.email} />
-      <main className="mx-auto max-w-[1200px] px-6 py-6">
+      <main className="mx-auto max-w-[1320px] px-6 py-6">
         <p className="etiqueta">Administración del negocio</p>
         <div className="mt-1.5 flex flex-wrap items-end justify-between gap-4">
           <div>
