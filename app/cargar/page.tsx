@@ -138,7 +138,7 @@ export default async function Cargar({
         <div className="mb-3">
           <p className="etiqueta">Ingesta controlada</p>
           <h1 className="mt-0.5 text-[20px] font-semibold leading-none tracking-[-0.025em]">Cargar datos</h1>
-          <p className="mt-1 max-w-2xl text-[11px] leading-snug text-[var(--text-secondary)]">
+          <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
             Sube archivos a una campaña. Atlas detecta la estructura, propone el mapeo y conserva el historial.
           </p>
         </div>

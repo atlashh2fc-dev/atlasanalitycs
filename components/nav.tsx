@@ -18,10 +18,10 @@ const LINKS = [
 function Marca() {
   return (
     <Link href="/bsc" className="flex items-center gap-2">
-      <span className="grid size-7 place-items-center rounded-lg bg-[var(--series-1)] text-xs font-bold text-white shadow-sm">A</span>
+      <span className="grid size-7 place-items-center rounded-lg bg-[var(--series-1)] text-sm font-bold text-white shadow-sm">A</span>
       <span className="flex items-baseline gap-1.5">
-        <span className="text-[13px] font-semibold tracking-tight">Atlas</span>
-        <span className="text-[13px] font-light text-[var(--text-secondary)]">Analytics</span>
+        <span className="text-[15px] font-semibold tracking-tight">Atlas</span>
+        <span className="text-[15px] font-light text-[var(--text-secondary)]">Analytics</span>
       </span>
     </Link>
   );
@@ -53,7 +53,7 @@ export function Nav({ email }: { email: string | null }) {
                   <Icono className="size-3.5" strokeWidth={2} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-xs font-semibold">{l.label}</span>
+                  <span className="block text-[13px] font-semibold">{l.label}</span>
                 </span>
               </Link>
             );

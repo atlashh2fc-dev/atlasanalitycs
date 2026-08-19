@@ -396,7 +396,7 @@ export function Tablero({
             className="border-b border-[var(--vidrio-borde)] p-2.5 last:border-b-0 lg:border-b-0"
           >
             <p className="etiqueta">{c.t}</p>
-            <p className="cifra mt-1.5 text-[22px]">
+            <p className="cifra mt-1.5 text-[25px]">
               {formatea(
                 faltaTarifa && (c.t === "Ingreso del periodo" || c.t === "Margen")
                   ? null
@@ -404,7 +404,7 @@ export function Tablero({
                 c.i?.unidad ?? "clp",
               )}
             </p>
-            <p className="mt-1.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">
+            <p className="mt-1.5 line-clamp-1 text-xs text-[var(--text-secondary)]">
               {c.i?.detalle}
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[var(--vidrio-borde)] pt-2">
@@ -626,7 +626,7 @@ export function Tablero({
               </p>
             </div>
           ) : (
-            <div className="vidrio rounded-[10px] p-3 text-[11px] text-[var(--text-muted)]">
+            <div className="vidrio rounded-[10px] p-3 text-xs text-[var(--text-muted)]">
               El punto de equilibrio aparecerá cuando existan costos y producción valorizada.
             </div>
           )}

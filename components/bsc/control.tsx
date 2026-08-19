@@ -181,7 +181,7 @@ export function Control({ filas }: { filas: FilaControl[] }) {
         </button>
       </div>
 
-      <div className="mb-2 mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px]">
+      <div className="mb-2 mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
         <span className="text-[var(--text-secondary)]">
           Se pagan solos{" "}
           <strong className="tabular text-[var(--text-primary)]">
@@ -326,7 +326,7 @@ export function Control({ filas }: { filas: FilaControl[] }) {
         {visibles.length === 0 ? <p className="py-8 text-center text-xs text-[var(--text-muted)]">No hay ejecutivos que coincidan con los filtros.</p> : null}
       </div>
 
-      <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
+      <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
         Contacto y cierre salen del archivo del discador y separan tres
         problemas distintos: quien marca poco, quien marca mucho y no
         alcanza a nadie, y quien conversa pero no cierra. El asterisco

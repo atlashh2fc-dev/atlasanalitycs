@@ -80,7 +80,7 @@ export default async function Analisis({
             <h1 className="mt-0.5 text-[20px] font-semibold leading-none tracking-[-0.025em]">
               {catalogoTipado.dataset.nombre}
             </h1>
-            <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+            <p className="mt-1.5 text-[12px] text-[var(--text-secondary)]">
               Vista independiente para explorar campos de una carga · {Number(catalogoTipado.resumen.filas ?? 0).toLocaleString("es-CL")} registros
             </p>
           </div>

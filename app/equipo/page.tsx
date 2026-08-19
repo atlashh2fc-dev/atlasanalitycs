@@ -40,7 +40,7 @@ export default async function Equipo({
             <h1 className="mt-0.5 text-[20px] font-semibold leading-none tracking-[-0.025em]">
               Equipo
             </h1>
-            <p className="mt-1 max-w-2xl text-[11px] leading-snug text-[var(--text-secondary)]">
+            <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
               El ranking de un mes es ruidoso. Lo que se gestiona es el
               movimiento: quién sube de cuartil, quién retrocede y quién lleva
               varios periodos estancado abajo.
@@ -105,10 +105,10 @@ function ResumenMovimiento({
 }) {
   return (
     <Link href={href} className="grid min-h-[58px] grid-cols-[1fr_auto] items-center rounded-lg border bg-[var(--surface-1)] px-3 py-2 transition-colors hover:border-[var(--border-strong)]">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
         {titulo}
       </p>
-      <p className="tabular row-span-2 text-[22px] font-semibold leading-none">{valor}</p>
+      <p className="tabular row-span-2 text-[25px] font-semibold leading-none">{valor}</p>
       <p className="text-[11px] leading-tight text-[var(--text-secondary)]">{detalle}</p>
     </Link>
   );

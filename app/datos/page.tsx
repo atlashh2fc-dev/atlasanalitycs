@@ -26,7 +26,7 @@ export default async function Datos() {
             <h1 className="mt-0.5 text-[20px] font-semibold leading-none tracking-[-0.025em]">
               Datos y calidad
             </h1>
-            <p className="mt-1 max-w-2xl text-[11px] text-[var(--text-secondary)]">
+            <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
               Controla fuentes, cobertura, frescura, calidad e historial de cargas.
               Los parámetros del negocio y los usuarios viven en Administración.
             </p>

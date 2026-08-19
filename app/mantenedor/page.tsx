@@ -244,7 +244,7 @@ export default async function Mantenedor({
             <h1 className="text-[20px] font-semibold leading-none tracking-[-0.025em]">
               {seleccionada ? seleccionada.nombre : "Campañas"}
             </h1>
-            <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+            <p className="mt-1.5 text-[12px] text-[var(--text-secondary)]">
               {seleccionada
                 ? "Define equipo, metas, economía y accesos. Las cargas y su calidad se controlan en Datos."
                 : "Crea una campaña para definir su equipo, metas, economía y usuarios."}
