@@ -145,10 +145,14 @@ body {
 }
 
 @media (min-width: 1024px) {
+  html {
+    font-size: 14px;
+  }
+
   body .atlas-sidebar ~ main {
-    width: calc(100% - 220px);
+    width: calc(100% - 196px);
     max-width: none !important;
-    margin-left: 220px !important;
+    margin-left: 196px !important;
     margin-right: 0 !important;
   }
 }

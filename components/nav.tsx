@@ -30,9 +30,9 @@ export function Nav({ email }: { email: string | null }) {
 
   return (
     <>
-      <aside className="atlas-sidebar fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col border-r border-[var(--vidrio-borde)] bg-[color-mix(in_srgb,var(--plano-alto)_94%,transparent)] px-3 py-4 backdrop-blur-xl lg:flex">
+      <aside className="atlas-sidebar fixed inset-y-0 left-0 z-50 hidden w-[196px] flex-col border-r border-[var(--vidrio-borde)] bg-[color-mix(in_srgb,var(--plano-alto)_94%,transparent)] px-2.5 py-3.5 backdrop-blur-xl lg:flex">
         <div className="px-2"><Marca /></div>
-        <p className="etiqueta mb-2 mt-8 px-3">Navegación</p>
+        <p className="etiqueta mb-1.5 mt-6 px-2.5">Navegación</p>
         <nav className="space-y-1">
           {LINKS.map((l) => {
             const activo = l.rutas.some((ruta) => path === ruta || path.startsWith(`${ruta}/`));
@@ -42,11 +42,11 @@ export function Nav({ email }: { email: string | null }) {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors",
+                  "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
                   activo ? "bg-[var(--vidrio-alto)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-0)] hover:text-[var(--text-primary)]",
                 )}
               >
-                <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", activo ? "bg-[color-mix(in_srgb,var(--series-1)_16%,transparent)] text-[var(--series-1)]" : "bg-[var(--surface-0)]")}>
+                <span className={cn("grid size-7 shrink-0 place-items-center rounded-md", activo ? "bg-[color-mix(in_srgb,var(--series-1)_16%,transparent)] text-[var(--series-1)]" : "bg-[var(--surface-0)]")}>
                   <Icono className="size-4" strokeWidth={2} />
                 </span>
                 <span className="min-w-0">

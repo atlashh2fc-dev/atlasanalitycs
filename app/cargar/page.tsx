@@ -134,7 +134,7 @@ export default async function Cargar({
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1200px] px-6 py-6">
+      <main className="mx-auto max-w-[1200px] px-5 py-4">
         <div className="mb-5">
           <h1 className="text-xl font-semibold tracking-tight">Cargar datos</h1>
           <p className="mt-0.5 max-w-2xl text-sm text-[var(--text-secondary)]">

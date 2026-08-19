@@ -92,7 +92,7 @@ export function Leyenda({
 
 export function SinDatos({ mensaje }: { mensaje: string }) {
   return (
-    <div className="flex h-[240px] items-center justify-center rounded-xl border border-dashed">
+    <div className="flex h-[210px] items-center justify-center rounded-xl border border-dashed">
       <p className="max-w-xs text-center text-sm text-[var(--text-muted)]">
         {mensaje}
       </p>

@@ -197,7 +197,7 @@ export function Economia({
     .reduce((s, c) => s + Number(c.monto_clp), 0);
 
   return (
-    <div className={`space-y-7 ${ocupado ? "opacity-70" : ""}`}>
+    <div className={`space-y-5 ${ocupado ? "opacity-70" : ""}`}>
       {/* ---------------------------------------------------------- */}
       <section>
         <h3 className="text-[13px] font-semibold">Tarifa del mandante</h3>

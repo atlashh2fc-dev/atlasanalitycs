@@ -19,11 +19,11 @@ export default async function Datos() {
   return (
     <>
       <Nav email={ctx.email} />
-      <main className="mx-auto max-w-[1200px] px-6 py-8">
+      <main className="mx-auto max-w-[1200px] px-5 py-4">
         <div>
           <div>
             <p className="etiqueta">Gobierno de datos</p>
-            <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">
+            <h1 className="mt-1 text-[23px] font-semibold leading-none tracking-[-0.03em]">
               Datos y calidad
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">

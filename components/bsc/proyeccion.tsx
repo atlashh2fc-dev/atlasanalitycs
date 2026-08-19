@@ -220,7 +220,7 @@ export function Proyeccion({
         ) : null}
       </div>
 
-      <div className="mt-2 h-[290px]" role="img" aria-label={`${titulo}: asegurados acumulados, proyección y trayectoria de meta por día`}>
+      <div className="mt-2 h-[230px]" role="img" aria-label={`${titulo}: asegurados acumulados, proyección y trayectoria de meta por día`}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={datosGrafico} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--vidrio-borde)" strokeDasharray="3 4" />

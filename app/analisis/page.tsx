@@ -73,11 +73,11 @@ export default async function Analisis({
   return (
     <>
       <Nav email={ctx.email} />
-      <main className="mx-auto max-w-[1400px] px-6 py-6">
+      <main className="mx-auto max-w-[1400px] px-5 py-4">
         <div className="mb-5">
           <div>
             <p className="etiqueta">Explorador de base</p>
-            <h1 className="mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.03em]">
+            <h1 className="mt-1 text-[23px] font-semibold leading-none tracking-[-0.03em]">
               {catalogoTipado.dataset.nombre}
             </h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">

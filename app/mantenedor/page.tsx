@@ -237,11 +237,11 @@ export default async function Mantenedor({
   return (
     <>
       <Nav email={ctx.email} />
-      <main className="mx-auto max-w-[1320px] px-6 py-6">
+      <main className="mx-auto max-w-[1320px] px-5 py-4">
         <p className="etiqueta">Administración del negocio</p>
         <div className="mt-1.5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[27px] font-semibold leading-none tracking-[-0.03em]">
+            <h1 className="text-[23px] font-semibold leading-none tracking-[-0.03em]">
               {seleccionada ? seleccionada.nombre : "Campañas"}
             </h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
