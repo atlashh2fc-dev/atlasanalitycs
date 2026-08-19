@@ -29,46 +29,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const [anio, m] = mes.split("-").map(Number);
-  const inicio = new Date(Date.UTC(anio, m - 1, 1));
-  const fin = new Date(Date.UTC(anio, m, 0));
-  const etiqueta = inicio.toLocaleDateString("es-CL", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-
-  // El periodo es único por (tenant, tipo, fecha_inicio): recalcular el
-  // mismo mes actualiza el snapshot en vez de duplicarlo.
-  const { data: periodo, error: errPeriodo } = await supabase
-    .from("periodo")
-    .upsert(
-      {
-        tenant_id: perfil.tenant_id,
-        tipo: "mes",
-        fecha_inicio: inicio.toISOString().slice(0, 10),
-        fecha_fin: fin.toISOString().slice(0, 10),
-        etiqueta: etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1),
-      },
-      { onConflict: "tenant_id,tipo,fecha_inicio" },
-    )
-    .select("id")
-    .single();
-
-  if (errPeriodo || !periodo) {
-    return NextResponse.json(
-      { error: errPeriodo?.message ?? "No se pudo crear el periodo." },
-      { status: 500 },
-    );
-  }
-
-  const { data: filas, error } = await supabase.rpc("calcular_kpi_periodo", {
-    p_periodo_id: periodo.id,
+  // El wrapper deriva el tenant desde la sesión. La función interna no queda
+  // expuesta a UUID de periodos arbitrarios.
+  const { data: periodos, error } = await supabase.rpc("recalcular_periodos_carga", {
+    p_meses: [`${mes}-01`],
   });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ filas, periodo: periodo.id });
+  return NextResponse.json({ periodos });
 }

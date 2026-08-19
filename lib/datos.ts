@@ -268,7 +268,26 @@ export async function getResumenVentas(
   };
 }
 
-export async function getMovilidad(campanaId: string | null): Promise<{
+export async function getPeriodosMovilidad(): Promise<
+  { fechaInicio: string; etiqueta: string }[]
+> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("periodo")
+    .select("fecha_inicio, etiqueta")
+    .eq("tipo", "mes")
+    .order("fecha_inicio", { ascending: false });
+
+  return (data ?? []).map((p) => ({
+    fechaInicio: p.fecha_inicio,
+    etiqueta: p.etiqueta,
+  }));
+}
+
+export async function getMovilidad(
+  campanaId: string | null,
+  mes: string | null,
+): Promise<{
   filas: FilaMovilidad[];
   transicion: { de: number; a: number; ejecutivos: number }[];
 }> {
@@ -280,9 +299,11 @@ export async function getMovilidad(campanaId: string | null): Promise<{
       "ejecutivo_id, periodo_anterior, etiqueta, cuartil_anterior, cuartil_ip_d, delta_ip_d, movimiento, fecha_inicio",
     )
     .order("fecha_inicio", { ascending: false })
-    .limit(200);
+    .limit(500);
 
   if (campanaId) q = q.eq("campana_id", campanaId);
+  else q = q.is("campana_id", null);
+  if (mes) q = q.eq("fecha_inicio", `${mes}-01`);
 
   const [{ data: mov }, { data: ejec }] = await Promise.all([
     q,
@@ -291,8 +312,10 @@ export async function getMovilidad(campanaId: string | null): Promise<{
 
   const nombre = new Map((ejec ?? []).map((e) => [e.id, e.nombre_canonico]));
 
-  // Sólo el periodo más reciente con historia
-  const ultimo = (mov ?? []).find((m) => m.periodo_anterior)?.etiqueta ?? null;
+  // Si no se solicitó un mes, usa el último que tenga comparación válida.
+  const ultimo = mes
+    ? (mov ?? [])[0]?.etiqueta ?? null
+    : (mov ?? []).find((m) => m.periodo_anterior)?.etiqueta ?? null;
 
   const filas: FilaMovilidad[] = (mov ?? [])
     .filter((m) => m.etiqueta === ultimo && m.periodo_anterior)

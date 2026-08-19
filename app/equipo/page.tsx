@@ -3,8 +3,8 @@ import { Nav } from "@/components/nav";
 import { MatrizTransicion, TablaMovilidad } from "@/components/charts/movilidad";
 import { redirect } from "next/navigation";
 import { hayCredenciales } from "@/lib/supabase/client";
-import { getContexto, getMovilidad } from "@/lib/datos";
-import { RecalcularPeriodo } from "./recalcular";
+import { getContexto, getMovilidad, getPeriodosMovilidad } from "@/lib/datos";
+import { GlassSelect } from "@/components/ui/glass-select";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -12,22 +12,34 @@ export const dynamic = "force-dynamic";
 export default async function Equipo({
   searchParams,
 }: {
-  searchParams: Promise<{ campana?: string; movimiento?: string }>;
+  searchParams: Promise<{ campana?: string; mes?: string; movimiento?: string }>;
 }) {
   if (!hayCredenciales()) redirect("/configuracion");
 
   const sp = await searchParams;
-  const ctx = await getContexto();
-  const campanaId = sp.campana || null;
+  const [ctx, periodos] = await Promise.all([getContexto(), getPeriodosMovilidad()]);
+  const campanaId = ctx.campanas.some((c) => c.id === sp.campana)
+    ? sp.campana!
+    : (ctx.campanas[0]?.id ?? null);
+  const mes = periodos.some((p) => p.fechaInicio.slice(0, 7) === sp.mes)
+    ? sp.mes!
+    : (periodos[0]?.fechaInicio.slice(0, 7) ?? null);
 
-  const { filas, transicion } = await getMovilidad(campanaId);
+  const { filas, transicion } = await getMovilidad(campanaId, mes);
 
   const estancados = filas.filter((f) => f.movimiento === "estable_bajo").length;
   const suben = filas.filter((f) => f.movimiento === "sube").length;
   const bajan = filas.filter((f) => f.movimiento === "baja").length;
   const movimiento = ["sube", "baja", "estable_bajo"].includes(sp.movimiento ?? "") ? sp.movimiento! : null;
   const filasVisibles = movimiento ? filas.filter((fila) => fila.movimiento === movimiento) : filas;
-  const enlaceMovimiento = (valor: string) => `?${new URLSearchParams({ ...(campanaId ? { campana: campanaId } : {}), movimiento: valor })}#tabla-equipo`;
+  const enlaceMovimiento = (valor: string) => `?${new URLSearchParams({
+    ...(campanaId ? { campana: campanaId } : {}),
+    ...(mes ? { mes } : {}),
+    movimiento: valor,
+  })}#tabla-equipo`;
+  const periodoComparado = filas[0]
+    ? `${filas[0].periodoAnterior} → ${filas[0].periodoActual}`
+    : "Comparación mensual por datos cargados";
 
   return (
     <>
@@ -46,7 +58,32 @@ export default async function Equipo({
               varios periodos estancado abajo.
             </p>
           </div>
-          {ctx.esAdmin ? <RecalcularPeriodo /> : null}
+          <form className="flex flex-wrap items-center gap-2">
+            <GlassSelect
+              name="mes"
+              defaultValue={mes ?? ""}
+              ariaLabel="Mes del equipo"
+              prefix="Mes"
+              options={periodos.map((p) => ({
+                value: p.fechaInicio.slice(0, 7),
+                label: p.etiqueta,
+              }))}
+            />
+            {ctx.campanas.length > 1 ? (
+              <GlassSelect
+                name="campana"
+                defaultValue={campanaId ?? ""}
+                ariaLabel="Campaña del equipo"
+                prefix="Campaña"
+                options={ctx.campanas.map((c) => ({ value: c.id, label: c.nombre }))}
+              />
+            ) : campanaId ? (
+              <input type="hidden" name="campana" value={campanaId} />
+            ) : null}
+            <button type="submit" className="min-h-7 rounded-lg bg-[var(--series-1)] px-3 text-[11px] font-semibold text-white">
+              Aplicar
+            </button>
+          </form>
         </div>
 
         {filas.length > 0 ? (
@@ -74,7 +111,7 @@ export default async function Equipo({
 
         <div id="tabla-equipo" className="grid scroll-mt-20 gap-3 lg:grid-cols-[1.65fr_.75fr]">
           <Card>
-            <CardTitle hint="Cuartil 4 es el mejor desempeño; 1, el más bajo.">
+            <CardTitle hint={`Cuartil 4 es el mejor desempeño; 1, el más bajo. ${periodoComparado}.`}>
               Movimiento por ejecutivo
             </CardTitle>
             <TablaMovilidad datos={filasVisibles} />

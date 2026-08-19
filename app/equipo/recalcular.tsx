@@ -26,7 +26,7 @@ export function RecalcularPeriodo() {
     });
 
     const json = await res.json();
-    setEstado(res.ok ? `Listo: ${json.filas} ejecutivos calculados.` : json.error);
+    setEstado(res.ok ? "Listo: período actualizado." : json.error);
     setCargando(false);
     if (res.ok) router.refresh();
   }
