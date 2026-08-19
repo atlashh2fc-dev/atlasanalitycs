@@ -172,6 +172,7 @@ export function Cargador({
       : (campanas[0]?.id ?? ""),
   );
   const [ocupado, setOcupado] = useState(false);
+  const [mostrarMapeoCompleto, setMostrarMapeoCompleto] = useState(false);
 
   // Cerrar la pestaña a mitad de carga deja el lote incompleto.
   useEffect(() => {
@@ -544,6 +545,11 @@ export function Cargador({
         (c) => !c.descartada && (!rolesHoja[c.posicion] || c.confianza < 0.8),
       )
     : [];
+  const columnasMapeo = hoja
+    ? mostrarMapeoCompleto
+      ? hoja.columnas
+      : columnasRevision
+    : [];
   const pendientes = archivos.filter((a) => a.estado !== "cargado").length;
   const campanaSeleccionada = campanas.find((c) => c.id === campana);
 
@@ -761,20 +767,37 @@ export function Cargador({
             <CardTitle
               hint={`${usadas} de ${hoja.columnas.length} columnas interpretadas. Atlas conserva todas las columnas, incluso las que no alimentan un pack especializado.`}
             >
-              3 · Confirma sólo las dudas
+              3 · Revisa el mapeo
             </CardTitle>
 
-            {columnasRevision.length === 0 ? (
-              <div className="rounded-md border border-[var(--good)]/30 bg-[color-mix(in_srgb,var(--good)_8%,transparent)] px-3 py-2 text-sm">
-                Atlas interpretó esta hoja sin dudas. Puedes cargarla directamente.
-              </div>
-            ) : (
-              <p className="mb-3 text-xs text-[var(--text-secondary)]">
-                Sólo mostramos {columnasRevision.length} columna{columnasRevision.length === 1 ? "" : "s"} que necesita{columnasRevision.length === 1 ? "" : "n"} confirmación. Las otras {hoja.columnas.length - columnasRevision.length} ya están listas.
-              </p>
-            )}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              {mostrarMapeoCompleto ? (
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Mostrando las {hoja.columnas.length} columnas de la hoja. Puedes corregir cualquier rol antes de cargar.
+                </p>
+              ) : columnasRevision.length === 0 ? (
+                <div className="rounded-md border border-[var(--good)]/30 bg-[color-mix(in_srgb,var(--good)_8%,transparent)] px-3 py-2 text-sm">
+                  Atlas interpretó esta hoja sin dudas. Puedes cargarla directamente.
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Mostramos {columnasRevision.length} columna{columnasRevision.length === 1 ? "" : "s"} que necesita{columnasRevision.length === 1 ? "" : "n"} confirmación. Las otras {hoja.columnas.length - columnasRevision.length} ya están listas.
+                </p>
+              )}
 
-            {columnasRevision.length > 0 ? <div className="overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setMostrarMapeoCompleto((actual) => !actual)}
+                disabled={ocupado}
+                className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:border-[var(--series-1)] disabled:opacity-50"
+              >
+                {mostrarMapeoCompleto
+                  ? "Mostrar sólo las dudas"
+                  : "Revisar / editar todo el mapeo"}
+              </button>
+            </div>
+
+            {columnasMapeo.length > 0 ? <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-[var(--text-muted)]">
@@ -786,7 +809,7 @@ export function Cargador({
                   </tr>
                 </thead>
                 <tbody>
-                  {columnasRevision.map((c) => (
+                  {columnasMapeo.map((c) => (
                     <tr
                       key={c.posicion}
                       className={`border-b last:border-0 ${c.descartada ? "opacity-45" : ""}`}
