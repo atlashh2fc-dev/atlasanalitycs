@@ -8,21 +8,31 @@ import { Cargador } from "./cargador";
 import { Pendientes, type CargaPendiente } from "./pendientes";
 import { createClient } from "@/lib/supabase/server";
 import { PrepararEspacio } from "./preparar-espacio";
+import { MapaCobertura, type CoberturaDia } from "./mapa-cobertura";
 
 export const dynamic = "force-dynamic";
 
 export default async function Cargar({
   searchParams,
 }: {
-  searchParams: Promise<{ campana?: string }>;
+  searchParams: Promise<{ campana?: string; mes?: string }>;
 }) {
   if (!hayCredenciales()) redirect("/configuracion");
 
   const ctx = await getContexto();
-  const { campana: campanaSolicitada } = await searchParams;
+  const { campana: campanaSolicitada, mes: mesSolicitado } = await searchParams;
   const campanaInicial = ctx.campanas.some((c) => c.id === campanaSolicitada)
     ? campanaSolicitada
     : ctx.campanas[0]?.id;
+  const hoyChile = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const mes = /^\d{4}-\d{2}$/.test(mesSolicitado ?? "")
+    ? mesSolicitado!
+    : hoyChile.slice(0, 7);
 
   // El espacio técnico se crea solo: la primera decisión del usuario es
   // su archivo, no campañas, productos ni configuración interna.
@@ -40,7 +50,11 @@ export default async function Cargar({
   }
 
   const supabase = await createClient();
-  const [{ data: filas }, { data: datasets }] = await Promise.all([
+  const inicioMes = `${mes}-01`;
+  const [anio, numeroMes] = mes.split("-").map(Number);
+  const finMes = new Date(Date.UTC(anio, numeroMes, 0)).toISOString().slice(0, 10);
+
+  const [{ data: filas }, { data: datasets }, { data: operacion }, { data: asistencias }, { data: feriados }] = await Promise.all([
     supabase
       .from("carga")
       .select(
@@ -53,7 +67,55 @@ export default async function Cargar({
       .eq("activo", true)
       .not("campana_id", "is", null)
       .order("updated_at", { ascending: false }),
+    campanaInicial
+      ? supabase
+          .from("v_operacion_diaria")
+          .select("fecha,gestiones,cotizaciones,contratos")
+          .eq("campana_id", campanaInicial)
+          .gte("fecha", inicioMes)
+          .lte("fecha", finMes)
+          .limit(5000)
+      : Promise.resolve({ data: [] }),
+    campanaInicial
+      ? supabase
+          .from("asistencia")
+          .select("fecha")
+          .eq("campana_id", campanaInicial)
+          .gte("fecha", inicioMes)
+          .lte("fecha", finMes)
+          .limit(5000)
+      : Promise.resolve({ data: [] }),
+    supabase.from("feriado").select("fecha").gte("fecha", inicioMes).lte("fecha", finMes),
   ]);
+
+  const totales = new Map<string, { gestiones: number; ventas: number; cotizaciones: number; asistencia: number }>();
+  const obtiene = (fecha: string) => {
+    const actual = totales.get(fecha) ?? { gestiones: 0, ventas: 0, cotizaciones: 0, asistencia: 0 };
+    totales.set(fecha, actual);
+    return actual;
+  };
+  for (const fila of operacion ?? []) {
+    const actual = obtiene(fila.fecha);
+    actual.gestiones += Number(fila.gestiones ?? 0);
+    actual.ventas += Number(fila.contratos ?? 0);
+    actual.cotizaciones += Number(fila.cotizaciones ?? 0);
+  }
+  for (const fila of asistencias ?? []) obtiene(fila.fecha).asistencia += 1;
+  const fechasFeriadas = new Set((feriados ?? []).map((fila) => fila.fecha));
+  const dias: CoberturaDia[] = [];
+  for (let dia = 1; dia <= Number(finMes.slice(-2)); dia += 1) {
+    const fecha = `${mes}-${String(dia).padStart(2, "0")}`;
+    const fechaUtc = new Date(`${fecha}T12:00:00Z`);
+    const semana = fechaUtc.getUTCDay();
+    const valores = totales.get(fecha) ?? { gestiones: 0, ventas: 0, cotizaciones: 0, asistencia: 0 };
+    dias.push({
+      fecha,
+      esHabil: semana >= 1 && semana <= 5,
+      esFeriado: fechasFeriadas.has(fecha),
+      esFuturo: fecha > hoyChile,
+      ...valores,
+    });
+  }
 
   const cargas: CargaPendiente[] = (filas ?? []).map((c) => ({
     id: c.id,
@@ -83,12 +145,20 @@ export default async function Cargar({
         </div>
 
         {ctx.campanas.length > 0 ? (
-          <Cargador
-            campanas={ctx.campanas}
-            datasets={datasets ?? []}
-            tenantId={ctx.tenantId}
-            campanaInicial={campanaInicial}
-          />
+          <>
+            <MapaCobertura
+              dias={dias}
+              mes={mes}
+              campana={campanaInicial!}
+              campanas={ctx.campanas}
+            />
+            <Cargador
+              campanas={ctx.campanas}
+              datasets={datasets ?? []}
+              tenantId={ctx.tenantId}
+              campanaInicial={campanaInicial}
+            />
+          </>
         ) : (
           <Card>
             <CardTitle hint="Toda carga debe quedar asociada desde el inicio.">
