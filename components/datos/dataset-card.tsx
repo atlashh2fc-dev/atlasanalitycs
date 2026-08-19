@@ -37,10 +37,10 @@ export function CampanaCard({ campana }: { campana: CampanaResumen }) {
   const alDia = campana.cobertura.length > 0 && campana.cobertura.every((fila) => fila.diasAtraso === 0);
 
   return (
-    <article className="vidrio overflow-hidden rounded-xl">
-      <div className="grid items-center gap-3 px-4 py-3 lg:grid-cols-[minmax(220px,1.4fr)_110px_100px_150px_auto]">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-0)] text-[var(--series-1)]"><Tags className="size-4" /></span>
+    <article className="vidrio overflow-hidden rounded-lg">
+      <div className="grid items-center gap-2 px-3 py-2 lg:grid-cols-[minmax(220px,1.4fr)_90px_70px_125px_auto]">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid size-7 shrink-0 place-items-center rounded-md bg-[var(--surface-0)] text-[var(--series-1)]"><Tags className="size-3.5" /></span>
           <div className="min-w-0">
             <div className="flex items-center gap-2"><h2 className="truncate text-[13px] font-semibold">{campana.nombre}</h2><span className="rounded-full border px-2 py-0.5 text-[11px] text-[var(--text-muted)]">{campana.tipo}</span></div>
             <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{campana.descripcion || "Contenedor permanente de datos e indicadores"}</p>
@@ -55,21 +55,19 @@ export function CampanaCard({ campana }: { campana: CampanaResumen }) {
         </div>
       </div>
 
-      {campana.cobertura.length > 0 ? <div className="border-t border-[var(--vidrio-borde)]">
-        <div className="grid min-h-8 grid-cols-[130px_180px_1fr_100px] items-center bg-[var(--surface-0)] px-4 font-mono text-[11px] uppercase tracking-[0.06em] text-[var(--text-muted)]"><span>Fuente</span><span>Frescura</span><span>KPI afectados</span><span>Estado</span></div>
+      {campana.cobertura.length > 0 ? <div className="grid border-t border-[var(--vidrio-borde)] sm:grid-cols-2 xl:grid-cols-4">
         {campana.cobertura.map((fila) => {
           const meta = FUENTES[fila.fuente] ?? { nombre: fila.fuente, impacto: "indicadores relacionados" };
           const fuenteAlDia = fila.diasAtraso === 0;
-          return <div key={fila.fuente} className="grid min-h-[38px] grid-cols-[130px_180px_1fr_100px] items-center border-t border-[var(--vidrio-borde)] px-4 text-[11px]">
+          return <div key={fila.fuente} title={`Afecta: ${meta.impacto}`} className="flex min-h-9 items-center gap-2 border-r border-[var(--vidrio-borde)] px-3 text-[11px] last:border-r-0">
+            <span className={fuenteAlDia ? "text-[var(--good)]" : "text-[var(--warning)]"}>●</span>
             <strong>{meta.nombre}</strong>
-            <span className="text-[var(--text-secondary)]">{fila.ultimaFecha ? fecha.format(new Date(`${fila.ultimaFecha}T12:00:00`)) : "Sin datos"}</span>
-            <span className="text-[var(--text-secondary)]">{meta.impacto}</span>
-            <span className={fuenteAlDia ? "text-[var(--good)]" : "text-[var(--warning)]"}>● {fuenteAlDia ? "Disponible" : "Incompleta"}</span>
+            <span className="ml-auto text-[var(--text-secondary)]">{fila.ultimaFecha ? fecha.format(new Date(`${fila.ultimaFecha}T12:00:00`)) : "Sin datos"}</span>
           </div>;
         })}
       </div> : null}
 
-      <div className="flex items-center gap-2 border-t border-[var(--vidrio-borde)] px-4 py-2">
+      <div className="flex items-center gap-2 border-t border-[var(--vidrio-borde)] px-3 py-1.5">
         <Link
           href={`/administracion?campana=${campana.id}`}
           className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)]"

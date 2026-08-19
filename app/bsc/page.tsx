@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
 import {
@@ -11,10 +12,6 @@ import {
 import { Control, type FilaControl } from "@/components/bsc/control";
 import { type EtapaEmbudo } from "@/components/bsc/embudo";
 import { type PuntoProyeccion } from "@/components/bsc/proyeccion";
-import {
-  ComparacionSemanal,
-  type SemanaComparacion,
-} from "@/components/bsc/semanas";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
 import { getContexto, rangoMes } from "@/lib/datos";
@@ -45,24 +42,109 @@ function mesAnterior(mes: string) {
   return rangoDeMes(fecha.toISOString().slice(0, 7), new Date("9999-12-31T12:00:00Z"));
 }
 
-function semanasDelRango(desde: string, hasta: string) {
-  const semanas: { desde: string; hasta: string; etiqueta: string }[] = [];
-  let cursor = new Date(`${desde}T12:00:00Z`);
-  const fin = new Date(`${hasta}T12:00:00Z`);
-  let numero = 1;
-  while (cursor <= fin) {
-    const finSemana = new Date(Math.min(
-      fin.getTime(),
-      cursor.getTime() + (7 - (cursor.getUTCDay() || 7)) * 86_400_000,
-    ));
-    semanas.push({
-      desde: isoUTC(cursor),
-      hasta: isoUTC(finSemana),
-      etiqueta: `Semana ${numero++}`,
-    });
-    cursor = new Date(finSemana.getTime() + 86_400_000);
-  }
-  return semanas;
+async function ContenidoPrincipal({
+  datos,
+  comparar,
+  analysisQuery,
+}: {
+  datos: Promise<any[]>;
+  comparar: boolean;
+  analysisQuery: string;
+}) {
+  const [
+    { data: indicadores }, { data: lineas }, { data: equilibrio },
+    { data: proyeccion }, { data: proyeccionesLinea }, { data: proyeccionesLineaAnterior },
+    { data: embudo }, { data: indicadoresAnteriores }, { data: costosCierre },
+  ] = await datos;
+  return <>
+    <Tablero
+      indicadores={(indicadores ?? []) as Indicador[]}
+      lineas={(lineas ?? []) as FilaLinea[]}
+      equilibrio={((equilibrio ?? [])[0] as Equilibrio | undefined) ?? null}
+      proyeccion={(proyeccion ?? []) as PuntoProyeccion[]}
+      proyeccionesLinea={(proyeccionesLinea ?? []) as ProyeccionPorLinea[]}
+      proyeccionesLineaAnterior={(proyeccionesLineaAnterior ?? []) as ProyeccionPorLinea[]}
+      embudo={(embudo ?? []) as EtapaEmbudo[]}
+      indicadoresAnteriores={comparar ? (indicadoresAnteriores ?? []) as Indicador[] : []}
+      analysisQuery={analysisQuery}
+      costosCierre={(costosCierre ?? []) as CostoCierre[]}
+    />
+  </>;
+}
+
+async function GestionEquipo({ datos }: { datos: PromiseLike<any> }) {
+  const { data: control } = await datos;
+  return <section className="mt-8 space-y-4">
+    <div className="flex items-baseline gap-3">
+      <span className="etiqueta shrink-0 text-[var(--text-muted)]">4</span>
+      <h2 className="text-[15px] font-semibold tracking-tight">Gestión del equipo</h2>
+      <span className="text-xs text-[var(--text-muted)]">Meta, ritmo, forecast y equilibrio en una sola vista</span>
+      <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
+    </div>
+    <Control filas={(control ?? []) as FilaControl[]} />
+  </section>;
+}
+
+function Cargando({ className = "h-40" }: { className?: string }) {
+  return <div className={`mt-3 ${className} animate-pulse rounded-[10px] border border-[var(--vidrio-borde)] bg-[var(--surface-1)]`} />;
+}
+
+async function FiltrosControl({
+  periodos,
+  mes,
+  campana,
+  comparar,
+  campanas,
+}: {
+  periodos: PromiseLike<{ data: { fecha_inicio: string; etiqueta: string }[] | null }>;
+  mes: string;
+  campana: string | null;
+  comparar: boolean;
+  campanas: { id: string; nombre: string }[];
+}) {
+  const { data: periodosDisponibles } = await periodos;
+  return (
+    <form className="flex flex-wrap items-center gap-2">
+      <GlassSelect
+        name="mes"
+        defaultValue={mes}
+        ariaLabel="Mes del dashboard"
+        prefix="Mes"
+        options={[
+          ...(!(periodosDisponibles ?? []).some((p) => p.fecha_inicio?.slice(0, 7) === mes)
+            ? [{ value: mes, label: mes }]
+            : []),
+          ...(periodosDisponibles ?? []).map((p) => ({
+            value: p.fecha_inicio.slice(0, 7),
+            label: p.etiqueta,
+          })),
+        ] satisfies GlassSelectOption[]}
+      />
+      {campanas.length > 1 ? (
+        <GlassSelect
+          name="campana"
+          defaultValue={campana ?? ""}
+          ariaLabel="Campaña"
+          options={[
+            { value: "", label: "Todas las campañas" },
+            ...campanas.map((c) => ({ value: c.id, label: c.nombre })),
+          ]}
+        />
+      ) : null}
+      <GlassSelect
+        name="comparar"
+        defaultValue={comparar ? "si" : "no"}
+        ariaLabel="Comparación"
+        options={[
+          { value: "si", label: "Vs. período anterior" },
+          { value: "no", label: "Sin comparación" },
+        ]}
+      />
+      <button type="submit" className="min-h-7 rounded-lg bg-[var(--series-1)] px-3 text-[11px] font-semibold text-white">
+        Aplicar
+      </button>
+    </form>
+  );
 }
 
 /**
@@ -82,10 +164,8 @@ export default async function CuadroDeMando({
 }) {
   if (!hayCredenciales()) redirect("/configuracion");
 
-  const ctx = await getContexto();
+  const [ctx, sp] = await Promise.all([getContexto(), searchParams]);
   if (!ctx.tenantId) redirect("/administracion");
-
-  const sp = await searchParams;
   const rango = rangoMes();
   const mes = /^\d{4}-\d{2}$/.test(sp.mes ?? "") ? sp.mes! : rango.desde.slice(0, 7);
   const rangoSeleccionado = rangoDeMes(mes);
@@ -95,44 +175,20 @@ export default async function CuadroDeMando({
   const comparar = sp.comparar !== "no";
   const anterior = mesAnterior(mes);
   const cierre = cierreDelMes(hasta);
-  // La comparación conserva el calendario mensual completo. `hasta` sigue
-  // siendo el corte real de los indicadores; las semanas posteriores se
-  // muestran sin datos en vez de desaparecer o fingir ceros.
-  const semanas = semanasDelRango(desde, cierre);
   const contextoAnalisis = new URLSearchParams({ desde, hasta });
   if (campana) contextoAnalisis.set("campana", campana);
 
   const supabase = await createClient();
 
-  const { data: periodosDisponibles } = await supabase
+  const periodosPromise = supabase
     .from("periodo")
     .select("fecha_inicio, etiqueta")
     .eq("tipo", "mes")
     .order("fecha_inicio", { ascending: false });
 
-  let ultimaGestionQuery = supabase
-    .from("gestion")
-    .select("fecha")
-    .gte("fecha", `${desde}T00:00:00`)
-    .lte("fecha", `${cierre}T23:59:59`)
-    .order("fecha", { ascending: false })
-    .limit(1);
-  if (campana) ultimaGestionQuery = ultimaGestionQuery.eq("campana_id", campana);
-  const { data: ultimaGestion } = await ultimaGestionQuery.maybeSingle();
-  const gestionesHasta = ultimaGestion?.fecha?.slice(0, 10) ?? null;
+  const sinComparacion = Promise.resolve({ data: [] });
 
-  const [
-    { data: indicadores },
-    { data: lineas },
-    { data: equilibrio },
-    { data: control },
-    { data: proyeccion },
-    { data: proyeccionesLinea },
-    { data: proyeccionesLineaAnterior },
-    { data: embudo },
-    { data: indicadoresAnteriores },
-    { data: costosCierre },
-  ] = await Promise.all([
+  const datosPrincipales = Promise.all([
       supabase.rpc("bsc_periodo", {
         p_desde: desde,
         p_hasta: hasta,
@@ -148,11 +204,6 @@ export default async function CuadroDeMando({
         p_hasta: hasta,
         p_campana: campana,
       }),
-      supabase.rpc("control_ejecutivo", {
-        p_desde: desde,
-        p_hasta: cierre,
-        p_campana: campana,
-      }),
       supabase.rpc("proyeccion_cierre", {
         p_desde: desde,
         p_corte: hasta,
@@ -165,22 +216,22 @@ export default async function CuadroDeMando({
         p_cierre: cierre,
         p_campana: campana,
       }),
-      supabase.rpc("proyeccion_cierre_por_linea", {
+      comparar ? supabase.rpc("proyeccion_cierre_por_linea", {
         p_desde: anterior.desde,
         p_corte: anterior.hasta,
         p_cierre: anterior.cierre,
         p_campana: campana,
-      }),
+      }) : sinComparacion,
       supabase.rpc("embudo_periodo", {
         p_desde: desde,
         p_hasta: hasta,
         p_campana: campana,
       }),
-      supabase.rpc("bsc_periodo", {
+      comparar ? supabase.rpc("bsc_periodo", {
         p_desde: anterior.desde,
         p_hasta: anterior.hasta,
         p_campana: campana,
-      }),
+      }) : sinComparacion,
       supabase.rpc("costos_periodo", {
         p_desde: desde,
         p_hasta: cierre,
@@ -188,43 +239,10 @@ export default async function CuadroDeMando({
       }),
     ]);
 
-  const resultadosSemanales = await Promise.all(
-    semanas.map(async (semana) => {
-      if (semana.desde > hasta) {
-        return { resultadoBsc: { data: [] }, resultadoIngreso: { data: [] } };
-      }
-      const semanaHasta = semana.hasta > hasta ? hasta : semana.hasta;
-      const [resultadoBsc, resultadoIngreso] = await Promise.all([
-        supabase.rpc("bsc_periodo", {
-          p_desde: semana.desde,
-          p_hasta: semanaHasta,
-          p_campana: campana,
-        }),
-        supabase.rpc("ingreso_periodo", {
-          p_desde: semana.desde,
-          p_hasta: semanaHasta,
-          p_campana: campana,
-        }),
-      ]);
-      return { resultadoBsc, resultadoIngreso };
-    }),
-  );
-  const comparacionSemanal: SemanaComparacion[] = semanas.map((semana, indice) => {
-    const resultado = resultadosSemanales[indice];
-    const filasIngreso = (resultado.resultadoIngreso.data ?? []) as unknown as FilaLinea[];
-    const ventas = filasIngreso.reduce((total, fila) => total + Number(fila.contratos ?? 0), 0);
-    const asegurados = filasIngreso.reduce((total, fila) => total + Number(fila.asegurados ?? 0), 0);
-    const indicadoresVolumen: Indicador[] = [
-      { perspectiva: "Procesos", orden: 0, indicador: "Ventas / contratos", valor: ventas, unidad: "entero", meta: null, cumplimiento: null, sentido: "mas_mejor", detalle: "Contratos de venta registrados durante la semana." },
-      { perspectiva: "Procesos", orden: 0.5, indicador: "Asegurados", valor: asegurados, unidad: "entero", meta: null, cumplimiento: null, sentido: "mas_mejor", detalle: "Titulares y cargas registrados durante la semana." },
-    ];
-    return {
-      ...semana,
-      indicadores: [
-        ...(resultado.resultadoBsc.data ?? []) as unknown as Indicador[],
-        ...indicadoresVolumen,
-      ],
-    };
+  const controlPromise = supabase.rpc("control_ejecutivo", {
+    p_desde: desde,
+    p_hasta: cierre,
+    p_campana: campana,
   });
 
   return (
@@ -240,88 +258,18 @@ export default async function CuadroDeMando({
             </h1>
           </div>
 
-          <form className="flex flex-wrap items-center gap-2.5">
-            <GlassSelect
-              name="mes"
-              defaultValue={mes}
-              ariaLabel="Mes del dashboard"
-              prefix="Mes"
-              options={[
-                ...(!(periodosDisponibles ?? []).some((p) => p.fecha_inicio?.slice(0, 7) === mes)
-                  ? [{ value: mes, label: mes }]
-                  : []),
-                ...(periodosDisponibles ?? []).map((p) => ({
-                  value: p.fecha_inicio.slice(0, 7),
-                  label: p.etiqueta,
-                })),
-              ] satisfies GlassSelectOption[]}
-            />
-
-            {ctx.campanas.length > 1 ? (
-              <GlassSelect
-                name="campana"
-                defaultValue={campana ?? ""}
-                ariaLabel="Campaña"
-                options={[
-                  { value: "", label: "Todas las campañas" },
-                  ...ctx.campanas.map((c) => ({ value: c.id, label: c.nombre })),
-                ]}
-              />
-            ) : null}
-
-            <GlassSelect
-              name="comparar"
-              defaultValue={comparar ? "si" : "no"}
-              ariaLabel="Comparación"
-              options={[
-                { value: "si", label: "Vs. período anterior" },
-                { value: "no", label: "Sin comparación" },
-              ]}
-            />
-
-            <button
-              type="submit"
-              className="rounded-full px-4 py-2 text-[13px] font-semibold text-white"
-              style={{
-                background:
-                  "linear-gradient(135deg, color-mix(in srgb, var(--tono-venta) 92%, white), color-mix(in srgb, var(--tono-cotizacion) 80%, black))",
-              }}
-            >
-              Aplicar
-            </button>
-          </form>
+          <Suspense fallback={<div className="h-7 w-80 animate-pulse rounded-lg bg-[var(--surface-1)]" />}>
+            <FiltrosControl periodos={periodosPromise} mes={mes} campana={campana} comparar={comparar} campanas={ctx.campanas} />
+          </Suspense>
         </div>
 
-        <Tablero
-          indicadores={(indicadores ?? []) as unknown as Indicador[]}
-          lineas={(lineas ?? []) as unknown as FilaLinea[]}
-          equilibrio={
-            ((equilibrio ?? [])[0] as unknown as Equilibrio | undefined) ?? null
-          }
-          proyeccion={(proyeccion ?? []) as unknown as PuntoProyeccion[]}
-          proyeccionesLinea={(proyeccionesLinea ?? []) as unknown as ProyeccionPorLinea[]}
-          proyeccionesLineaAnterior={(proyeccionesLineaAnterior ?? []) as unknown as ProyeccionPorLinea[]}
-          embudo={(embudo ?? []) as unknown as EtapaEmbudo[]}
-          indicadoresAnteriores={comparar ? (indicadoresAnteriores ?? []) as unknown as Indicador[] : []}
-          analysisQuery={contextoAnalisis.toString()}
-          costosCierre={(costosCierre ?? []) as unknown as CostoCierre[]}
-        />
+        <Suspense fallback={<Cargando className="h-56" />}>
+          <ContenidoPrincipal datos={datosPrincipales} comparar={comparar} analysisQuery={contextoAnalisis.toString()} />
+        </Suspense>
 
-        <ComparacionSemanal
-          semanas={comparacionSemanal}
-          datosHasta={hasta}
-          gestionesHasta={gestionesHasta}
-        />
-
-        <section className="mt-8 space-y-4">
-          <div className="flex items-baseline gap-3">
-            <span className="etiqueta shrink-0 text-[var(--text-muted)]">4</span>
-            <h2 className="text-[15px] font-semibold tracking-tight">Gestión del equipo</h2>
-            <span className="text-xs text-[var(--text-muted)]">Meta, ritmo, forecast y equilibrio en una sola vista</span>
-            <span className="h-px flex-1 bg-[var(--vidrio-borde)]" />
-          </div>
-          <Control filas={(control ?? []) as unknown as FilaControl[]} />
-        </section>
+        <Suspense fallback={<Cargando className="h-24" />}>
+          <GestionEquipo datos={controlPromise} />
+        </Suspense>
 
       </main>
     </>

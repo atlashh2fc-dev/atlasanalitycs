@@ -84,7 +84,7 @@ export function Panel({
         h: w.h,
         // Bajo estos mínimos la tarjeta deja de ser legible
         minW: 3,
-        minH: w.tipo === "kpi" ? 3 : 4,
+        minH: w.tipo === "kpi" ? 2 : 3,
       })),
     [widgets],
   );
@@ -120,7 +120,7 @@ export function Panel({
     config: ConfigWidget | ConfigWidgetDataset;
   } | NuevoWidgetDataset) {
     // El KPI necesita alto para la mini-serie; la tabla, para varias filas
-    const alto = t.tipo === "kpi" ? 4 : t.tipo === "tabla" ? 6 : 5;
+    const alto = t.tipo === "kpi" ? 3 : t.tipo === "tabla" ? 5 : 4;
     const ancho = t.tipo === "kpi" ? 3 : 6;
 
     const res = await fetch("/api/panel", {
@@ -166,7 +166,7 @@ export function Panel({
     <div>
       {/* Barra de filtros: píldoras de vidrio, no formularios sueltos.
           Lo que está filtrado se lee de un vistazo. */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <label className="pildora cursor-pointer">
           <CalendarRange className="size-3.5 text-[var(--text-muted)]" />
           <input
@@ -272,7 +272,7 @@ export function Panel({
 
           <button
             onClick={() => setAsistente(true)}
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white transition-transform active:scale-[0.98]"
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold text-white transition-transform active:scale-[0.98]"
             style={{
               background:
                 "linear-gradient(135deg, color-mix(in srgb, var(--tono-venta) 92%, white), color-mix(in srgb, var(--tono-cotizacion) 80%, black))",
@@ -312,8 +312,8 @@ export function Panel({
           layouts={{ lg: layout, md: layout, sm: layout }}
           breakpoints={{ lg: 1200, md: 900, sm: 640, xs: 0 }}
           cols={{ lg: 12, md: 8, sm: 4, xs: 2 }}
-          rowHeight={64}
-          margin={[18, 18]}
+          rowHeight={42}
+          margin={[10, 10]}
           isDraggable={!bloqueado}
           isResizable={!bloqueado}
           draggableHandle=".arrastrar"
@@ -340,10 +340,10 @@ export function Panel({
                   }}
                   data-tono
                   style={{ "--tono": t.css } as React.CSSProperties}
-                  className="vidrio flex h-full flex-col overflow-hidden rounded-2xl"
+                  className="vidrio flex h-full flex-col overflow-hidden rounded-xl"
                 >
                   <div
-                    className={`flex items-start justify-between gap-2 px-4 pb-2 pt-3.5 ${
+                    className={`flex items-start justify-between gap-2 px-3 pb-1.5 pt-2.5 ${
                       bloqueado ? "" : "arrastrar cursor-grab active:cursor-grabbing"
                     }`}
                   >
@@ -402,7 +402,7 @@ export function Panel({
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 px-4 pb-4">
+                  <div className="min-h-0 flex-1 px-3 pb-3">
                     <ContenidoTarjeta
                       tipo={w.tipo}
                       config={w.config as unknown as Record<string, unknown>}

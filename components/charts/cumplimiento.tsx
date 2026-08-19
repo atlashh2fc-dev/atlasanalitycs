@@ -74,7 +74,7 @@ export function GraficoCumplimiento({ datos }: { datos: FilaCumplimiento[] }) {
 
   return (
     <div>
-      <ResponsiveContainer width="100%" height={260}>
+      <ResponsiveContainer width="100%" height={190}>
         <BarChart data={filas} margin={{ top: 20, right: 78, bottom: 4, left: 4 }}>
           <defs>
             <linearGradient id={`cu-${id}`} x1="0" y1="0" x2="0" y2="1">

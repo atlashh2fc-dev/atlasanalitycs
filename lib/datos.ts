@@ -23,16 +23,17 @@ export async function getContexto(): Promise<Contexto> {
     return { userId: null, email: null, tenantId: null, esAdmin: false, campanas: [] };
   }
 
-  const { data: perfil } = await supabase
-    .from("perfil")
-    .select("tenant_id, rol")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const { data: campanas } = await supabase
-    .from("campana")
-    .select("id, nombre")
-    .order("nombre");
+  const [{ data: perfil }, { data: campanas }] = await Promise.all([
+    supabase
+      .from("perfil")
+      .select("tenant_id, rol")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("campana")
+      .select("id, nombre")
+      .order("nombre"),
+  ]);
 
   return {
     userId: user.id,

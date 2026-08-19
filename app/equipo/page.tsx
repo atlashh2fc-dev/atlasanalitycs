@@ -33,14 +33,14 @@ export default async function Equipo({
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1400px] px-6 py-4">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+      <main className="mx-auto max-w-[1400px] px-5 py-3">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="etiqueta">Responsables y evolución</p>
-            <h1 className="mt-1 text-[24px] font-semibold leading-none tracking-[-0.03em]">
+            <h1 className="mt-0.5 text-[20px] font-semibold leading-none tracking-[-0.025em]">
               Equipo
             </h1>
-            <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
+            <p className="mt-1 max-w-2xl text-[11px] leading-snug text-[var(--text-secondary)]">
               El ranking de un mes es ruidoso. Lo que se gestiona es el
               movimiento: quién sube de cuartil, quién retrocede y quién lleva
               varios periodos estancado abajo.
@@ -50,7 +50,7 @@ export default async function Equipo({
         </div>
 
         {filas.length > 0 ? (
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          <div className="mb-3 grid gap-2 sm:grid-cols-3">
             <ResumenMovimiento
               titulo="Suben de cuartil"
               valor={suben}
@@ -72,7 +72,7 @@ export default async function Equipo({
           </div>
         ) : null}
 
-        <div id="tabla-equipo" className="grid scroll-mt-20 gap-4 lg:grid-cols-[1.55fr_.85fr]">
+        <div id="tabla-equipo" className="grid scroll-mt-20 gap-3 lg:grid-cols-[1.65fr_.75fr]">
           <Card>
             <CardTitle hint="Cuartil 4 es el mejor desempeño; 1, el más bajo.">
               Movimiento por ejecutivo
@@ -104,12 +104,12 @@ function ResumenMovimiento({
   href: string;
 }) {
   return (
-    <Link href={href} className="rounded-xl border bg-[var(--surface-1)] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)]">
-      <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+    <Link href={href} className="grid min-h-[58px] grid-cols-[1fr_auto] items-center rounded-lg border bg-[var(--surface-1)] px-3 py-2 transition-colors hover:border-[var(--border-strong)]">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
         {titulo}
       </p>
-      <p className="tabular mt-1.5 text-[25px] font-semibold leading-none">{valor}</p>
-      <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">{detalle}</p>
+      <p className="tabular row-span-2 text-[22px] font-semibold leading-none">{valor}</p>
+      <p className="text-[11px] leading-tight text-[var(--text-secondary)]">{detalle}</p>
     </Link>
   );
 }

@@ -120,7 +120,7 @@ export function Proyeccion({
 
   if (puntos.length === 0) {
     return (
-      <div className="vidrio rounded-2xl p-5">
+      <div className="vidrio rounded-lg p-2.5">
         <h3 className="text-[13px] font-semibold">{titulo}</h3>
         <p className="py-12 text-center text-xs text-[var(--text-muted)]">
           Sin datos suficientes para proyectar el periodo.
@@ -135,9 +135,9 @@ export function Proyeccion({
     <div
       data-tono
       style={{ "--tono": "var(--tono-venta)" } as React.CSSProperties}
-      className="vidrio rounded-2xl p-5"
+      className="vidrio rounded-lg p-2.5"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-[13px] font-semibold">{titulo}</h3>
           <p className="mt-0.5 max-w-2xl text-xs text-[var(--text-secondary)]">
@@ -211,7 +211,7 @@ export function Proyeccion({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-[var(--text-secondary)]">
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--text-secondary)]">
         <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 rounded" style={{ background: SERIES[0] }} /> Real hasta el corte</span>
         <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 border-t-2 border-dashed" style={{ borderColor: "var(--tono-cotizacion)" }} /> Proyección adaptativa al cierre</span>
         <span className="inline-flex items-center gap-1.5"><i className="h-0.5 w-5 border-t border-dashed border-[var(--text-muted)]" /> Ideal/meta acumulada</span>
@@ -220,7 +220,7 @@ export function Proyeccion({
         ) : null}
       </div>
 
-      <div className="mt-2 h-[230px]" role="img" aria-label={`${titulo}: asegurados acumulados, proyección y trayectoria de meta por día`}>
+      <div className="mt-1.5 h-[180px]" role="img" aria-label={`${titulo}: asegurados acumulados, proyección y trayectoria de meta por día`}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={datosGrafico} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--vidrio-borde)" strokeDasharray="3 4" />

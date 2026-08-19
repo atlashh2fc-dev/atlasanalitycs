@@ -41,8 +41,8 @@ export default async function Cargar({
       <>
         <Nav email={ctx.email} />
 
-        <main className="mx-auto max-w-[700px] px-6 py-6">
-          <h1 className="mb-6 text-xl font-semibold tracking-tight">Cargar datos</h1>
+        <main className="mx-auto max-w-[700px] px-5 py-4">
+          <h1 className="mb-3 text-[20px] font-semibold tracking-tight">Cargar datos</h1>
           <PrepararEspacio nombre={(ctx.email ?? "Mi espacio").split("@")[0] || "Mi espacio"} />
         </main>
       </>
@@ -134,19 +134,17 @@ export default async function Cargar({
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1400px] px-6 py-4">
-        <div className="mb-5">
+      <main className="mx-auto max-w-[1400px] px-5 py-3">
+        <div className="mb-3">
           <p className="etiqueta">Ingesta controlada</p>
-          <h1 className="mt-1 text-[24px] font-semibold leading-none tracking-[-0.03em]">Cargar datos</h1>
-          <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
-            Sube los archivos diarios de una campaña. Atlas perfila las columnas por su contenido
-            —no por su nombre—, propone el mapeo y tú lo confirmas una vez. La
-            próxima carga se suma al mismo historial y reutiliza esa estructura.
+          <h1 className="mt-0.5 text-[20px] font-semibold leading-none tracking-[-0.025em]">Cargar datos</h1>
+          <p className="mt-1 max-w-2xl text-[11px] leading-snug text-[var(--text-secondary)]">
+            Sube archivos a una campaña. Atlas detecta la estructura, propone el mapeo y conserva el historial.
           </p>
         </div>
 
         {ctx.campanas.length > 0 ? (
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(520px,.9fr)]">
+          <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(500px,.9fr)]">
             <div><Cargador
                 campanas={ctx.campanas}
                 datasets={datasets ?? []}
@@ -180,7 +178,7 @@ export default async function Cargar({
           </Card>
         )}
 
-        <Card className="mt-6">
+        <Card className="mt-3">
           <CardTitle hint="El archivo queda guardado y el avance vive en la base: puedes irte de la pantalla y volver a retomar.">
             Cargas registradas
           </CardTitle>

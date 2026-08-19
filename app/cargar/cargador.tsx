@@ -554,7 +554,8 @@ export function Cargador({
   const campanaSeleccionada = campanas.find((c) => c.id === campana);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
+      <div className="grid gap-3 lg:grid-cols-2">
       <Card className="border border-[color-mix(in_srgb,var(--series-1)_38%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--series-1)_7%,var(--surface-0))]">
         <CardTitle
           impacto="Control y Análisis operativo"
@@ -563,21 +564,21 @@ export function Cargador({
           Destino de la carga
         </CardTitle>
         {campanas.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-[minmax(240px,1fr)_1.5fr] sm:items-end">
+          <div className="grid gap-2">
             <label className="text-xs text-[var(--text-secondary)]">
               <span className="mb-1 block font-medium">Agregar información a</span>
               <select
                 value={campana}
                 onChange={(e) => setCampana(e.target.value)}
                 disabled={ocupado}
-                className="w-full rounded-xl border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-3 py-2 text-sm font-semibold disabled:opacity-60"
+                className="min-h-8 w-full rounded-lg border border-[var(--vidrio-borde)] bg-[var(--vidrio-alto)] px-2.5 text-[11px] font-semibold disabled:opacity-60"
               >
                 {campanas.map((c) => (
                   <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
               </select>
             </label>
-            <p className="rounded-xl border border-[var(--vidrio-borde)] bg-[var(--surface-0)] px-3 py-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+            <p className="rounded-lg border border-[var(--vidrio-borde)] bg-[var(--surface-0)] px-2.5 py-1.5 text-[11px] leading-snug text-[var(--text-secondary)]">
               <strong className="text-[var(--text-primary)]">{campanaSeleccionada?.nombre}</strong>{" "}
               conservará sus reglas, equipo, metas y costos. Esta carga sólo suma registros y recalcula sus KPI.
             </p>
@@ -601,15 +602,15 @@ export function Cargador({
           accept=".xlsx,.xls,.csv"
           multiple
           onChange={alSeleccionar}
-          className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-[var(--series-1)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+          className="block w-full text-[11px] file:mr-3 file:min-h-8 file:rounded-md file:border-0 file:bg-[var(--series-1)] file:px-3 file:text-[11px] file:font-medium file:text-white"
         />
 
         {archivos.length > 0 ? (
-          <div className="mt-4 space-y-1.5">
+          <div className="mt-2 space-y-1">
             {archivos.map((a, i) => (
               <div
                 key={a.id}
-                className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm ${
+                className={`flex min-h-8 items-center gap-2 rounded-md border px-2.5 py-1 text-[11px] ${
                   i === activo
                     ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_6%,transparent)]"
                     : "bg-[var(--surface-2)]"
@@ -669,6 +670,7 @@ export function Cargador({
           </div>
         ) : null}
       </Card>
+      </div>
 
       {archivo && hoja ? (
         <>

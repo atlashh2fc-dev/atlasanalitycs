@@ -148,12 +148,12 @@ export function Control({ filas }: { filas: FilaControl[] }) {
 
   return (
     <motion.div
-      initial={reducido ? false : { opacity: 0, y: 12 }}
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 26 }}
       data-tono
       style={{ "--tono": "var(--tono-cliente)" } as React.CSSProperties}
-      className="vidrio rounded-2xl p-5"
+      className="vidrio rounded-lg p-2.5"
     >
       <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -181,7 +181,7 @@ export function Control({ filas }: { filas: FilaControl[] }) {
         </button>
       </div>
 
-      <div className="mb-4 mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+      <div className="mb-2 mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px]">
         <span className="text-[var(--text-secondary)]">
           Se pagan solos{" "}
           <strong className="tabular text-[var(--text-primary)]">
@@ -202,7 +202,7 @@ export function Control({ filas }: { filas: FilaControl[] }) {
         </span>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <label className="pildora flex min-w-[220px] flex-1 items-center gap-2">
           <Search className="size-3.5 text-[var(--text-muted)]" />
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar ejecutivo…" className="min-w-0 flex-1 bg-transparent text-xs outline-none" />
@@ -227,9 +227,9 @@ export function Control({ filas }: { filas: FilaControl[] }) {
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="max-h-[360px] overflow-auto">
         <table className="w-full min-w-[1000px] text-xs">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-[var(--vidrio)]">
             <tr className="border-b text-left text-[var(--text-muted)]">
               <th className="pb-1.5 pr-2 font-medium">Ejecutivo</th>
               <th className="px-2 pb-1.5 text-right font-medium">Jorn.</th>
@@ -326,7 +326,7 @@ export function Control({ filas }: { filas: FilaControl[] }) {
         {visibles.length === 0 ? <p className="py-8 text-center text-xs text-[var(--text-muted)]">No hay ejecutivos que coincidan con los filtros.</p> : null}
       </div>
 
-      <p className="mt-3 text-xs text-[var(--text-muted)]">
+      <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
         Contacto y cierre salen del archivo del discador y separan tres
         problemas distintos: quien marca poco, quien marca mucho y no
         alcanza a nadie, y quien conversa pero no cierra. El asterisco

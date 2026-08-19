@@ -181,12 +181,12 @@ export default async function Dashboard({
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1400px] px-6 py-4">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+      <main className="mx-auto max-w-[1400px] px-5 py-3">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="etiqueta">Zoom operativo personalizable</p>
-            <h1 className="mt-1 text-[24px] font-semibold leading-none tracking-[-0.03em]">Análisis operativo</h1>
-            <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
+            <h1 className="mt-0.5 text-[20px] font-semibold leading-none tracking-[-0.025em]">Análisis operativo</h1>
+            <p className="mt-1 max-w-2xl text-[11px] text-[var(--text-secondary)]">
               Elige los KPI que te sirven, combínalos y ordena el panel según tu gestión. Las tarjetas y su disposición se guardan para tu usuario.
             </p>
             {foco ? <p className="mt-2 text-xs font-medium capitalize text-[var(--tono-venta)]">Contexto heredado desde {foco}</p> : null}
@@ -194,7 +194,7 @@ export default async function Dashboard({
           <Link href={`/bsc?${parametrosControl}`} className="pildora text-xs font-medium">Volver a Control</Link>
         </div>
 
-        <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-[var(--vidrio-borde)] bg-[var(--surface-1)] px-3.5 py-2 text-[11px]">
+        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-[var(--vidrio-borde)] bg-[var(--surface-1)] px-3 py-1.5 text-[11px]">
           <span><span className="text-[var(--text-muted)]">Origen</span> <strong>Control</strong></span>
           <span><span className="text-[var(--text-muted)]">Perspectiva</span> <strong className="capitalize">{foco ?? "Operación completa"}</strong></span>
           <span><span className="text-[var(--text-muted)]">Periodo</span> <strong className="tabular">{rangoPanel.desde} → {rangoPanel.hasta}</strong></span>

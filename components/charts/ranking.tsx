@@ -51,7 +51,7 @@ export function GraficoRanking({
 
   return (
     <div>
-      <ResponsiveContainer width="100%" height={Math.max(260, orden.length * 26)}>
+      <ResponsiveContainer width="100%" height={Math.max(190, orden.length * 22)}>
         <BarChart
           data={orden}
           layout="vertical"

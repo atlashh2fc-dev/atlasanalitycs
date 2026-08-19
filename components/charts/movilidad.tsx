@@ -55,9 +55,9 @@ export function TablaMovilidad({ datos }: { datos: FilaMovilidad[] }) {
   });
 
   return (
-    <table className="w-full text-sm">
+    <table className="w-full text-[11px]">
       <thead>
-        <tr className="border-b text-left text-xs text-[var(--text-muted)]">
+        <tr className="h-7 border-b text-left text-[11px] text-[var(--text-muted)]">
           <th className="pb-2 font-medium">Ejecutivo</th>
           <th className="pb-2 text-center font-medium">Cuartil anterior</th>
           <th className="pb-2 text-center font-medium">Cuartil actual</th>
@@ -68,19 +68,19 @@ export function TablaMovilidad({ datos }: { datos: FilaMovilidad[] }) {
       <tbody>
         {orden.map((d) => (
           <tr key={d.ejecutivo} className="border-b last:border-0">
-            <td className="py-2 text-[var(--text-primary)]">{d.ejecutivo}</td>
-            <td className="tabular py-2 text-center text-[var(--text-secondary)]">
+            <td className="h-8 text-[var(--text-primary)]">{d.ejecutivo}</td>
+            <td className="tabular text-center text-[var(--text-secondary)]">
               {d.cuartilAnterior ?? "—"}
             </td>
-            <td className="tabular py-2 text-center font-medium">
+            <td className="tabular text-center font-medium">
               {d.cuartilActual ?? "—"}
             </td>
-            <td className="tabular py-2 text-right text-[var(--text-secondary)]">
+            <td className="tabular text-right text-[var(--text-secondary)]">
               {d.deltaIpD === null
                 ? "—"
                 : `${d.deltaIpD > 0 ? "+" : ""}${fmt.decimal(d.deltaIpD)}`}
             </td>
-            <td className="py-2 text-right">
+            <td className="text-right">
               <Badge tono={TONO[d.movimiento] ?? "neutro"}>
                 {TEXTO[d.movimiento] ?? d.movimiento}
               </Badge>
@@ -111,7 +111,7 @@ export function MatrizTransicion({
 
   return (
     <div>
-      <div className="grid grid-cols-[auto_repeat(4,1fr)] gap-1 text-xs">
+      <div className="grid grid-cols-[auto_repeat(4,1fr)] gap-1 text-[11px]">
         <div />
         {[1, 2, 3, 4].map((a) => (
           <div key={a} className="pb-1 text-center text-[var(--text-muted)]">
@@ -120,7 +120,7 @@ export function MatrizTransicion({
         ))}
         {[4, 3, 2, 1].map((de) => (
           <>
-            <div key={`l${de}`} className="pr-2 text-right leading-8 text-[var(--text-muted)]">
+            <div key={`l${de}`} className="pr-2 text-right leading-7 text-[var(--text-muted)]">
               de Q{de}
             </div>
             {[1, 2, 3, 4].map((a) => {
@@ -129,7 +129,7 @@ export function MatrizTransicion({
               return (
                 <div
                   key={`${de}-${a}`}
-                  className="tabular flex h-8 items-center justify-center rounded-sm font-medium"
+                  className="tabular flex h-7 items-center justify-center rounded-sm font-medium"
                   style={{
                     background:
                       n === 0
@@ -146,7 +146,7 @@ export function MatrizTransicion({
           </>
         ))}
       </div>
-      <p className="mt-3 text-xs text-[var(--text-muted)]">
+      <p className="mt-2 text-[11px] leading-tight text-[var(--text-muted)]">
         La diagonal es el equipo congelado. Lo que se busca mover es la
         columna izquierda hacia la derecha.
       </p>

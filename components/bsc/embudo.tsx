@@ -26,7 +26,7 @@ export function Embudo({ etapas }: { etapas: EtapaEmbudo[] }) {
     <div
       data-tono
       style={{ "--tono": "var(--tono-agendamiento)" } as React.CSSProperties}
-      className="vidrio rounded-2xl p-5"
+      className="vidrio rounded-lg p-2.5"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -50,7 +50,7 @@ export function Embudo({ etapas }: { etapas: EtapaEmbudo[] }) {
           Sin actividad para construir el embudo.
         </p>
       ) : (
-        <ol className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <ol className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
           {etapas.map((e, indice) => (
             <li key={e.orden} className="relative min-w-0">
               <div className="mb-2 flex items-start justify-between gap-2">
@@ -84,7 +84,7 @@ export function Embudo({ etapas }: { etapas: EtapaEmbudo[] }) {
         </ol>
       )}
 
-      <p className="mt-4 text-[11px] leading-relaxed text-[var(--text-muted)]">
+      <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
         Lectura orientativa: discador, cotizaciones y ventas se agregan por el mismo
         periodo, pero todavía no están enlazados como una cohorte única. Una tasa puede
         superar 100% si una etapa proviene de actividad iniciada antes del rango.

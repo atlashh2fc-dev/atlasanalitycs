@@ -98,7 +98,7 @@ export function MapaCobertura({
           </div>
           <div className="grid grid-cols-7 gap-1.5">
             {Array.from({ length: desplazamiento }).map((_, indice) => (
-              <span key={`vacio-${indice}`} className="min-h-[94px]" />
+              <span key={`vacio-${indice}`} className="min-h-[62px]" />
             ))}
             {dias.map((dia) => {
               const noExigible = !dia.esHabil || dia.esFeriado || dia.esFuturo;
@@ -106,7 +106,7 @@ export function MapaCobertura({
               return (
                 <article
                   key={dia.fecha}
-                  className={`min-h-[94px] rounded-lg border p-2 ${
+                  className={`min-h-[62px] rounded-lg border p-1.5 ${
                     noExigible
                       ? "bg-[var(--surface-0)] opacity-60"
                       : estaCompleto

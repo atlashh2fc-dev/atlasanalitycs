@@ -163,11 +163,11 @@ function ResumenPerspectivas({
         return (
           <motion.div
             key={p.nombre}
-            initial={reducido ? false : { opacity: 0, y: 12 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: k * 0.05, type: "spring", stiffness: 260, damping: 26 }}
             style={{ "--tono": p.tono } as React.CSSProperties}
-            className="flex flex-col border-b border-[var(--vidrio-borde)] p-3.5 last:border-b-0 md:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0"
+            className="flex flex-col border-b border-[var(--vidrio-borde)] p-2.5 last:border-b-0 md:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0"
           >
             <div className="mb-3 flex items-center gap-2">
               <span className="grid size-7 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, var(--tono) 18%, transparent)", border: "1px solid color-mix(in srgb, var(--tono) 38%, transparent)", color: "var(--tono)" }}>
@@ -201,7 +201,7 @@ function ResumenPerspectivas({
             ) : null}
             <Link
               href={`/analisis?${analysisQuery}&foco=${encodeURIComponent(p.nombre.toLocaleLowerCase("es"))}`}
-              className="mt-3 border-t border-[var(--vidrio-borde)] pt-2 text-[11px] font-medium text-[var(--tono)]"
+            className="mt-2 border-t border-[var(--vidrio-borde)] pt-1.5 text-[11px] font-medium text-[var(--tono)]"
             >
               Profundizar en Análisis →
             </Link>
@@ -378,7 +378,7 @@ export function Tablero({
   const ultimoProyectado = proyeccion.at(-1)?.proyectado ?? null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <section className="space-y-3">
         <Titulo numero="1" titulo="Resultado ejecutivo" subtitulo="Real al corte, cierre esperado, meta y sostenibilidad" />
         <div className="vidrio grid overflow-hidden rounded-xl lg:grid-cols-3 lg:divide-x lg:divide-[var(--vidrio-borde)]">
@@ -389,14 +389,14 @@ export function Tablero({
         ].map((c, k) => (
           <motion.div
             key={c.t}
-            initial={reducido ? false : { opacity: 0, y: 12 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: k * 0.05, type: "spring", stiffness: 260, damping: 26 }}
             style={{ "--tono": c.tono } as React.CSSProperties}
-            className="border-b border-[var(--vidrio-borde)] p-3.5 last:border-b-0 lg:border-b-0"
+            className="border-b border-[var(--vidrio-borde)] p-2.5 last:border-b-0 lg:border-b-0"
           >
             <p className="etiqueta">{c.t}</p>
-            <p className="cifra mt-2 text-[25px]">
+            <p className="cifra mt-1.5 text-[22px]">
               {formatea(
                 faltaTarifa && (c.t === "Ingreso del periodo" || c.t === "Margen")
                   ? null
@@ -404,10 +404,10 @@ export function Tablero({
                 c.i?.unidad ?? "clp",
               )}
             </p>
-            <p className="mt-2 text-xs text-[var(--text-secondary)]">
+            <p className="mt-1.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">
               {c.i?.detalle}
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--vidrio-borde)] pt-2.5">
+            <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[var(--vidrio-borde)] pt-2">
               <div>
                 <p className="etiqueta">Cierre proyectado</p>
                 <p className="tabular mt-1 text-sm font-semibold">{c.lineal === null || c.lineal === undefined ? "—" : fmt.clp(c.lineal)}</p>
@@ -424,7 +424,7 @@ export function Tablero({
               const pct = previo === 0 ? null : (delta / Math.abs(previo)) * 100;
               const favorable = c.mejorAlSubir ? delta >= 0 : delta <= 0;
               return (
-                <p className="mt-3 border-t border-[var(--vidrio-borde)] pt-2 text-[11px]" style={{ color: favorable ? ESTADO.good : ESTADO.serious }}>
+                <p className="mt-2 border-t border-[var(--vidrio-borde)] pt-1.5 text-[11px]" style={{ color: favorable ? ESTADO.good : ESTADO.serious }}>
                   {delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {pct === null ? formatea(Math.abs(delta), c.i.unidad) : `${Math.abs(pct).toFixed(1)}%`} vs. período anterior
                 </p>
               );
@@ -455,9 +455,9 @@ export function Tablero({
           <div
             data-tono
             style={{ "--tono": "var(--tono-asistencia)" } as React.CSSProperties}
-            className="vidrio overflow-hidden rounded-2xl"
+            className="vidrio overflow-hidden rounded-[10px]"
           >
-            <div className="grid gap-4 border-b border-[var(--vidrio-borde)] p-5 lg:grid-cols-[1.35fr_repeat(3,minmax(130px,0.65fr))] lg:items-end">
+            <div className="grid gap-3 border-b border-[var(--vidrio-borde)] p-3 lg:grid-cols-[1.35fr_repeat(3,minmax(120px,0.65fr))] lg:items-end">
               <div>
                 <p className="etiqueta">Estructura de costo · cierre proyectado</p>
                 <h3 className="mt-1 text-sm font-semibold">Qué compone el costo y cuánto pesa</h3>
@@ -531,7 +531,7 @@ export function Tablero({
         </p>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-3 xl:grid-cols-2">
           {proyeccionesAgrupadas.map(([agrupacion, puntos]) => (
             <Proyeccion
               key={agrupacion}
@@ -565,12 +565,12 @@ export function Tablero({
         </p>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-[1fr_1.35fr]">
+        <div className="grid gap-3 xl:grid-cols-[1fr_1.35fr]">
           {equilibrio?.asegurados_equilibrio ? (
             <div
               data-tono
               style={{ "--tono": "var(--tono-asistencia)" } as React.CSSProperties}
-              className="vidrio rounded-2xl p-5"
+              className="vidrio rounded-[10px] p-3"
             >
               <p className="etiqueta">Punto de equilibrio</p>
               <div className="mt-2.5 flex flex-wrap items-baseline gap-x-8 gap-y-3">
@@ -626,7 +626,7 @@ export function Tablero({
               </p>
             </div>
           ) : (
-            <div className="vidrio rounded-2xl p-5 text-xs text-[var(--text-muted)]">
+            <div className="vidrio rounded-[10px] p-3 text-[11px] text-[var(--text-muted)]">
               El punto de equilibrio aparecerá cuando existan costos y producción valorizada.
             </div>
           )}
@@ -634,7 +634,7 @@ export function Tablero({
           <div
             data-tono
             style={{ "--tono": "var(--tono-cotizacion)" } as React.CSSProperties}
-            className="vidrio overflow-x-auto rounded-2xl p-5"
+            className="vidrio overflow-x-auto rounded-[10px] p-3"
           >
             <h3 className="mb-3 text-[13px] font-semibold">Ingreso por línea</h3>
             <TablaLineas lineas={lineas} />

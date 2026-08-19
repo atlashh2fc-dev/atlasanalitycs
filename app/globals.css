@@ -146,11 +146,56 @@ body {
 
 @media (min-width: 1024px) {
   body .atlas-sidebar ~ main {
-    width: calc(100% - 184px);
+    width: calc(100% - 156px);
     max-width: none !important;
-    margin-left: 184px !important;
+    margin-left: 156px !important;
     margin-right: 0 !important;
-    padding-top: 70px !important;
+    padding: 54px 16px 14px !important;
+  }
+
+  body .atlas-sidebar ~ main h1 {
+    font-size: 20px !important;
+    line-height: 1.05 !important;
+  }
+
+  body .atlas-sidebar ~ main .vidrio {
+    border-radius: 8px;
+  }
+
+  body .atlas-sidebar ~ main .vidrio.p-5,
+  body .atlas-sidebar ~ main .vidrio.p-4 {
+    padding: 10px !important;
+  }
+
+  body .atlas-sidebar ~ main .space-y-5 > :not(:last-child),
+  body .atlas-sidebar ~ main .space-y-4 > :not(:last-child) {
+    margin-block-end: 12px !important;
+  }
+
+  body .atlas-sidebar ~ main .gap-6,
+  body .atlas-sidebar ~ main .gap-5,
+  body .atlas-sidebar ~ main .gap-4 {
+    gap: 12px !important;
+  }
+
+  body .atlas-sidebar ~ main .mt-8 {
+    margin-top: 16px !important;
+  }
+
+  body .atlas-sidebar ~ main .mt-6,
+  body .atlas-sidebar ~ main .mt-5 {
+    margin-top: 12px !important;
+  }
+
+  body .atlas-sidebar ~ main .mb-5,
+  body .atlas-sidebar ~ main .mb-4 {
+    margin-bottom: 12px !important;
+  }
+
+  body .atlas-sidebar ~ main table td.py-2,
+  body .atlas-sidebar ~ main table td.py-2\.5 {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
   }
 }
 
@@ -226,12 +271,12 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-height: 32px;
-  border-radius: 9px;
+  min-height: 28px;
+  border-radius: 8px;
   border: 1px solid var(--vidrio-borde);
   background: var(--vidrio);
-  padding: 0.32rem 0.7rem;
-  font-size: 12px;
+  padding: 0.22rem 0.6rem;
+  font-size: 11px;
   color: var(--text-primary);
   transition: border-color 160ms ease, background 160ms ease;
 }
@@ -255,16 +300,16 @@ body::before {
 
 .glass-select-trigger {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 28px;
   align-items: center;
   gap: 0.55rem;
   border: 1px solid var(--vidrio-borde);
-  border-radius: 9px;
+  border-radius: 8px;
   background: var(--vidrio);
   box-shadow: none;
-  padding: 0.4rem 0.78rem 0.4rem 0.85rem;
+  padding: 0.22rem 0.6rem;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
@@ -279,11 +324,11 @@ input:focus-visible,
 }
 
 table th {
-  height: 32px;
+  height: 28px;
 }
 
 table tbody tr {
-  min-height: 38px;
+  min-height: 32px;
 }
 
 .glass-select-trigger:hover,
@@ -428,7 +473,7 @@ input[type="month"] {
 }
 .recharts-text {
   fill: var(--text-secondary);
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 /* El halo se calibra por tipo de marca: pleno en trazos finos, contenido

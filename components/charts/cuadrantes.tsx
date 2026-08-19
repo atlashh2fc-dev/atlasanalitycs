@@ -57,7 +57,7 @@ export function GraficoCuadrantes({
 
   return (
     <div>
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={220}>
         <ScatterChart margin={{ top: 16, right: 24, bottom: 32, left: 8 }}>
           <CartesianGrid />
           <XAxis

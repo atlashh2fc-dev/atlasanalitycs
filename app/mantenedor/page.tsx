@@ -237,14 +237,14 @@ export default async function Mantenedor({
   return (
     <>
       <Nav email={ctx.email} />
-      <main className="mx-auto max-w-[1400px] px-6 py-4">
+      <main className="mx-auto max-w-[1400px] px-5 py-3">
         <p className="etiqueta">Administración del negocio</p>
-        <div className="mt-1.5 flex flex-wrap items-end justify-between gap-4">
+        <div className="mt-0.5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[24px] font-semibold leading-none tracking-[-0.03em]">
+            <h1 className="text-[20px] font-semibold leading-none tracking-[-0.025em]">
               {seleccionada ? seleccionada.nombre : "Campañas"}
             </h1>
-            <p className="mt-1.5 text-[12px] text-[var(--text-secondary)]">
+            <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
               {seleccionada
                 ? "Define equipo, metas, economía y accesos. Las cargas y su calidad se controlan en Datos."
                 : "Crea una campaña para definir su equipo, metas, economía y usuarios."}
@@ -253,7 +253,7 @@ export default async function Mantenedor({
           {seleccionada ? (
             <Link
               href={`/cargar?campana=${seleccionada.id}`}
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--series-1)] px-4 py-2 text-sm font-semibold text-white"
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-[var(--series-1)] px-3 text-[11px] font-semibold text-white"
             >
               <Upload className="size-4" /> Cargar a esta campaña
             </Link>
@@ -261,14 +261,14 @@ export default async function Mantenedor({
         </div>
 
         {campanas.length > 1 ? (
-          <div className="mt-5">
-            <p className="mb-2 text-[11px] font-medium text-[var(--text-muted)]">CAMPAÑA QUE ESTÁS ADMINISTRANDO</p>
-            <nav className="flex flex-wrap gap-2" aria-label="Elegir campaña">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <p className="text-[11px] font-medium text-[var(--text-muted)]">CAMPAÑA</p>
+            <nav className="flex flex-wrap gap-1.5" aria-label="Elegir campaña">
               {campanas.map((campana) => (
                 <Link
                   key={campana.id}
                   href={`/administracion?campana=${campana.id}`}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
                     campana.id === seleccionada?.id
                       ? "border-[var(--series-1)] bg-[color-mix(in_srgb,var(--series-1)_9%,transparent)]"
                       : "text-[var(--text-secondary)]"
@@ -282,15 +282,11 @@ export default async function Mantenedor({
         ) : null}
 
         {seleccionada ? (
-          <section className="mt-5 rounded-2xl border border-[color-mix(in_srgb,var(--series-1)_35%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--series-1)_7%,var(--surface-0))] p-4">
-            <div className="flex flex-wrap items-start gap-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--series-1)_16%,transparent)] text-[var(--series-1)]"><Tags className="size-5" /></span>
-              <div className="min-w-[240px] flex-1">
-                <h2 className="text-sm font-semibold">Todo lo de esta pantalla afecta sólo a {seleccionada.nombre}</h2>
-                <div className="mt-2 grid gap-2 text-[11px] leading-relaxed text-[var(--text-secondary)] md:grid-cols-2">
-                  <p><strong>Agregar datos</strong> acumula registros en esta campaña y actualiza Control y Análisis.</p>
-                  <p><strong>Cambiar reglas</strong> modifica cómo se calculan metas, costos, margen y quién puede verlos; no modifica los archivos cargados.</p>
-                </div>
+          <section className="mt-3 rounded-lg border border-[color-mix(in_srgb,var(--series-1)_35%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--series-1)_7%,var(--surface-0))] px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="grid size-7 shrink-0 place-items-center rounded-md bg-[color-mix(in_srgb,var(--series-1)_16%,transparent)] text-[var(--series-1)]"><Tags className="size-3.5" /></span>
+              <div className="min-w-[240px] flex-1 text-[11px] leading-snug">
+                <strong>Alcance: {seleccionada.nombre}.</strong>{" "}<span className="text-[var(--text-secondary)]">Las cargas suman registros; las reglas cambian metas, costos, margen y accesos.</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link href={`/datos`} className="pildora text-xs"><Database className="size-3.5" /> Ver datos</Link>
@@ -314,22 +310,22 @@ export default async function Mantenedor({
             )}
           </Card>
         ) : (
-          <div className="mt-5 grid items-start gap-4 lg:grid-cols-[168px_minmax(0,1fr)]">
-            <nav className="vidrio sticky top-[68px] grid rounded-xl p-1.5 text-[11px]" aria-label="Secciones de administración">
+          <div className="mt-3 grid items-start gap-3 lg:grid-cols-[142px_minmax(0,1fr)]">
+            <nav className="vidrio sticky top-[60px] grid rounded-lg p-1 text-[11px]" aria-label="Secciones de administración">
               {[
                 ["#admin-campana", "Campaña"],
                 ["#admin-equipo", "Equipo"],
                 ["#admin-metas", "Metas"],
                 ["#admin-economia", "Tarifas y costos"],
                 ["#admin-accesos", "Accesos"],
-              ].map(([href, label], indice) => <a key={href} href={href} className={`rounded-lg px-3 py-2 font-medium ${indice === 0 ? "bg-[var(--surface-0)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-0)]"}`}>{label}</a>)}
+              ].map(([href, label], indice) => <a key={href} href={href} className={`rounded-md px-2.5 py-1.5 font-medium ${indice === 0 ? "bg-[var(--surface-0)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-0)]"}`}>{label}</a>)}
             </nav>
-            <div className="space-y-4">
+            <div className="space-y-3">
             <section id="admin-campana" className="scroll-mt-20"><Card>
               <CardTitle hint="Confirma que estás trabajando en el contenedor correcto antes de cargar o cambiar parámetros." impacto="alcance de todos los datos y reglas">
                 1 · Resumen de la campaña
               </CardTitle>
-              <div className="grid gap-3 sm:grid-cols-4">
+              <div className="grid gap-2 sm:grid-cols-4">
                 <Resumen icono={Tags} etiqueta="Tipo" valor={seleccionada.tipo} />
                 <Resumen
                   icono={FileSpreadsheet}
@@ -449,12 +445,12 @@ function Resumen({
   valor: string;
 }) {
   return (
-    <div className="rounded-xl border bg-[var(--surface-0)] p-3">
+    <div className="rounded-lg border bg-[var(--surface-0)] px-2.5 py-2">
       <div className="flex items-center gap-2 text-[var(--text-muted)]">
         <Icono className="size-3.5" />
         <p className="etiqueta">{etiqueta}</p>
       </div>
-      <p className="mt-2 text-sm font-semibold capitalize">{valor}</p>
+      <p className="mt-1 text-[13px] font-semibold capitalize">{valor}</p>
     </div>
   );
 }
