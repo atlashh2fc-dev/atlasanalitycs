@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { normalizaRut, validaRut } from "@/lib/rut";
 import { extraeMatriz, normalizaTexto } from "@/lib/perfilador";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { FuenteCobertura } from "@/lib/fuente-carga";
 
 /**
  * Derivación de un archivo al modelo canónico, en el servidor.
@@ -18,6 +19,8 @@ export interface ConfigCarga {
   modo: "tabular" | "matriz";
   filaEncabezado: number;
   campanaId: string | null;
+  fuenteEsperada?: FuenteCobertura;
+  fechaEsperada?: string;
 }
 
 export interface ResultadoLote {

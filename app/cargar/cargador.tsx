@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { Upload } from "tus-js-client";
 import { extraeMatriz, perfilaHoja, type PerfilHoja } from "@/lib/perfilador";
@@ -9,6 +10,8 @@ import { Badge } from "@/components/ui/stat";
 import { fmt } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { leerCredenciales } from "@/lib/supabase/env";
+import { ETIQUETA_FUENTE, type FuenteCobertura, validaArchivoContextual } from "@/lib/fuente-carga";
+import { MapaCobertura, type CoberturaDia } from "./mapa-cobertura";
 
 const ROLES = [
   { valor: "", etiqueta: "— sin usar —" },
@@ -74,6 +77,7 @@ interface ArchivoEnCola {
   /** El archivo original: se sube a Storage tal cual llegó */
   original: File;
   cargaId?: string;
+  contextoCobertura?: { fuente: FuenteCobertura; fecha: string };
 }
 
 async function subirConProgreso(
@@ -164,8 +168,14 @@ export function Cargador({
   datasets: { id: string; nombre: string; campana_id: string | null }[];
   tenantId: string;
   campanaInicial?: string;
-  cobertura: ReactNode;
+  cobertura: {
+    dias: CoberturaDia[];
+    mes: string;
+    campana: string;
+    campanas: { id: string; nombre: string }[];
+  };
 }) {
+  const router = useRouter();
   const [archivos, setArchivos] = useState<ArchivoEnCola[]>([]);
   const [activo, setActivo] = useState(0);
   const [campana, setCampana] = useState(
@@ -189,51 +199,98 @@ export function Cargador({
    * elegir varios de una vez, o ir agregando de a uno sin perder el
    * mapeo ya confirmado de los anteriores.
    */
+  async function prepararArchivo(
+    f: File,
+    ordinal: number,
+    contextoCobertura?: { fuente: FuenteCobertura; fecha: string },
+  ): Promise<ArchivoEnCola> {
+    const buf = await f.arrayBuffer();
+    const libro = XLSX.read(buf, { cellDates: true });
+
+    const hojas = libro.SheetNames.map((nombre) => {
+      const matriz = XLSX.utils.sheet_to_json<unknown[]>(libro.Sheets[nombre], {
+        header: 1,
+        defval: null,
+        raw: true,
+      });
+      return perfilaHoja(nombre, matriz);
+    }).sort((a, b) => b.puntaje - a.puntaje);
+
+    const roles: Record<number, Record<number, string>> = {};
+    hojas.forEach((h, i) => {
+      const sugeridos: Record<number, string> = {};
+      for (const c of h.columnas) {
+        if (c.rolSugerido && !c.descartada) sugeridos[c.posicion] = c.rolSugerido;
+      }
+      roles[i] = sugeridos;
+    });
+
+    let hojasSeleccionadas = hojas
+      .map((h, i) => ({ h, i }))
+      .filter(({ h }) => h.filas > 0 && h.columnas.some((c) => !c.descartada))
+      .map(({ i }) => i);
+
+    if (contextoCobertura) {
+      const errores: string[] = [];
+      hojasSeleccionadas = hojasSeleccionadas.filter((indice) => {
+        const hoja = hojas[indice];
+        const mapeo: Record<string, string> = {};
+        for (const columna of hoja.columnas) {
+          const rol = roles[indice]?.[columna.posicion];
+          if (rol) mapeo[columna.nombreOriginal] = rol;
+        }
+        const matriz = XLSX.utils.sheet_to_json<unknown[]>(libro.Sheets[hoja.hoja], {
+          header: 1,
+          defval: null,
+          raw: true,
+        });
+        try {
+          validaArchivoContextual(matriz, {
+            modo: hoja.modo,
+            filaEncabezado: hoja.filaEncabezado,
+            mapeo,
+            fuenteEsperada: contextoCobertura.fuente,
+            fechaEsperada: contextoCobertura.fecha,
+          });
+          return true;
+        } catch (error) {
+          errores.push(error instanceof Error ? error.message : "El archivo no corresponde a la fuente solicitada.");
+          return false;
+        }
+      });
+
+      if (hojasSeleccionadas.length === 0) {
+        throw new Error(
+          errores[0] ?? `No encontramos una hoja válida de ${ETIQUETA_FUENTE[contextoCobertura.fuente]}.`,
+        );
+      }
+    }
+
+    return {
+      id: `${f.name}-${f.size}-${ordinal}-${crypto.randomUUID()}`,
+      nombre: f.name,
+      libro,
+      hojas,
+      hojaActiva: hojasSeleccionadas[0] ?? 0,
+      hojasSeleccionadas,
+      roles,
+      estado: "pendiente",
+      mensaje: null,
+      etapa: null,
+      progreso: 0,
+      original: f,
+      contextoCobertura,
+    };
+  }
+
   async function alSeleccionar(e: React.ChangeEvent<HTMLInputElement>) {
     const seleccion = Array.from(e.target.files ?? []);
     if (seleccion.length === 0) return;
 
     const nuevos: ArchivoEnCola[] = [];
 
-    for (const f of seleccion) {
-      const buf = await f.arrayBuffer();
-      const libro = XLSX.read(buf, { cellDates: true });
-
-      const hojas = libro.SheetNames.map((nombre) => {
-        const matriz = XLSX.utils.sheet_to_json<unknown[]>(libro.Sheets[nombre], {
-          header: 1,
-          defval: null,
-          raw: true,
-        });
-        return perfilaHoja(nombre, matriz);
-      }).sort((a, b) => b.puntaje - a.puntaje);
-
-      const roles: Record<number, Record<number, string>> = {};
-      hojas.forEach((h, i) => {
-        const r: Record<number, string> = {};
-        for (const c of h.columnas) {
-          if (c.rolSugerido && !c.descartada) r[c.posicion] = c.rolSugerido;
-        }
-        roles[i] = r;
-      });
-
-      nuevos.push({
-        id: `${f.name}-${f.size}-${nuevos.length}-${archivos.length}`,
-        nombre: f.name,
-        libro,
-        hojas,
-        hojaActiva: 0,
-        hojasSeleccionadas: hojas
-          .map((h, i) => ({ h, i }))
-          .filter(({ h }) => h.filas > 0 && h.columnas.some((c) => !c.descartada))
-          .map(({ i }) => i),
-        roles,
-        estado: "pendiente",
-        mensaje: null,
-        etapa: null,
-        progreso: 0,
-        original: f,
-      });
+    for (let indice = 0; indice < seleccion.length; indice++) {
+      nuevos.push(await prepararArchivo(seleccion[indice], archivos.length + indice));
     }
 
     // El primero de los recién agregados pasa a ser el activo
@@ -343,8 +400,8 @@ export function Cargador({
     );
   }
 
-  async function cargarUno(indice: number): Promise<boolean> {
-    const archivo = archivos[indice];
+  async function cargarUno(indice: number, archivoForzado?: ArchivoEnCola): Promise<boolean> {
+    const archivo = archivoForzado ?? archivos[indice];
     const seleccionadas = archivo.hojasSeleccionadas;
     if (seleccionadas.length === 0) {
       actualizar(indice, { estado: "error", mensaje: "Selecciona al menos una hoja útil." });
@@ -444,6 +501,8 @@ export function Cargador({
           motivoDescarte: c.motivoDescarte,
           muestra: c.muestra,
         })),
+        fuenteEsperada: archivo.contextoCobertura?.fuente,
+        fechaEsperada: archivo.contextoCobertura?.fecha,
       }),
       });
 
@@ -517,6 +576,49 @@ export function Cargador({
       mensaje: `${fmt.entero(procesadasTotal)} filas conservadas en ${seleccionadas.length} hoja${seleccionadas.length === 1 ? "" : "s"}${insertadasTotal ? ` · ${fmt.entero(insertadasTotal)} registros del pack` : ""}${rechazadasTotal ? ` · ${fmt.entero(rechazadasTotal)} fila${rechazadasTotal === 1 ? "" : "s"} con RUT inválido conservada${rechazadasTotal === 1 ? "" : "s"} para revisión` : ""}${periodosActualizados.size ? ` · ${periodosActualizados.size} periodo${periodosActualizados.size === 1 ? "" : "s"} actualizado${periodosActualizados.size === 1 ? "" : "s"}` : ""}`,
     });
     return true;
+  }
+
+  async function cargarDesdeCobertura(
+    original: File,
+    fuente: FuenteCobertura,
+    fecha: string,
+  ): Promise<{ ok: boolean; mensaje: string }> {
+    if (campana !== cobertura.campana) {
+      return {
+        ok: false,
+        mensaje: "El mapa visible corresponde a otra campaña. Consúltala primero y vuelve a pinchar el faltante.",
+      };
+    }
+
+    let nuevo: ArchivoEnCola;
+    try {
+      nuevo = await prepararArchivo(original, archivos.length, { fuente, fecha });
+    } catch (error) {
+      return {
+        ok: false,
+        mensaje: error instanceof Error ? error.message : "El archivo no corresponde a la fuente solicitada.",
+      };
+    }
+
+    const indice = archivos.length;
+    setArchivos((actuales) => [...actuales, nuevo]);
+    setActivo(indice);
+    setOcupado(true);
+    const ok = await cargarUno(indice, nuevo);
+    setOcupado(false);
+
+    if (!ok) {
+      return {
+        ok: false,
+        mensaje: `El archivo fue validado como ${ETIQUETA_FUENTE[fuente]}, pero la carga no pudo completarse. Revisa el detalle arriba.`,
+      };
+    }
+
+    router.refresh();
+    return {
+      ok: true,
+      mensaje: `${ETIQUETA_FUENTE[fuente]} del ${fecha} se cargó correctamente. Actualizando cobertura…`,
+    };
   }
 
   async function cargarActivo() {
@@ -674,7 +776,11 @@ export function Cargador({
       </Card>
       </div>
 
-      {cobertura}
+      <MapaCobertura
+        {...cobertura}
+        ocupado={ocupado}
+        onCargarFuente={cargarDesdeCobertura}
+      />
 
       {archivo && hoja ? (
         <>

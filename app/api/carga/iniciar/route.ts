@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { esFuenteCobertura, validaArchivoContextual, type FuenteCobertura } from "@/lib/fuente-carga";
+import { leeHoja } from "@/lib/procesa-carga";
 
 /**
  * Registra una carga cuyo archivo ya está en Storage.
@@ -42,10 +44,22 @@ export async function POST(request: Request) {
     mapeo: Record<string, string>;
     columnas: Record<string, unknown>[];
     filasTotales: number;
+    fuenteEsperada?: FuenteCobertura;
+    fechaEsperada?: string;
   };
 
   if (!body.storagePath || !body.hoja || !body.datasetId) {
     return NextResponse.json({ error: "Faltan datos de la carga." }, { status: 400 });
+  }
+  if (!body.storagePath.startsWith(`${perfil.tenant_id}/`)) {
+    return NextResponse.json({ error: "El archivo no pertenece a esta organización." }, { status: 403 });
+  }
+  const cargaContextual = body.fuenteEsperada !== undefined || body.fechaEsperada !== undefined;
+  if (
+    cargaContextual &&
+    (!esFuenteCobertura(body.fuenteEsperada) || !/^\d{4}-\d{2}-\d{2}$/.test(body.fechaEsperada ?? ""))
+  ) {
+    return NextResponse.json({ error: "El contexto de cobertura no es válido." }, { status: 400 });
   }
 
   const { data: dataset } = await supabase
@@ -79,6 +93,24 @@ export async function POST(request: Request) {
     );
   }
 
+  if (cargaContextual) {
+    try {
+      const matriz = await leeHoja(supabase, body.storagePath, body.hoja);
+      validaArchivoContextual(matriz, {
+        modo: body.modo,
+        filaEncabezado: body.filaEncabezado,
+        mapeo: body.mapeo,
+        fuenteEsperada: body.fuenteEsperada!,
+        fechaEsperada: body.fechaEsperada!,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "El archivo no corresponde a la cobertura solicitada." },
+        { status: 422 },
+      );
+    }
+  }
+
   const { data: carga, error } = await supabase
     .from("carga")
     .insert({
@@ -100,6 +132,8 @@ export async function POST(request: Request) {
         modo: body.modo,
         filaEncabezado: body.filaEncabezado,
         campanaId: dataset.campana_id,
+        fuenteEsperada: body.fuenteEsperada,
+        fechaEsperada: body.fechaEsperada,
       },
     })
     .select("id")

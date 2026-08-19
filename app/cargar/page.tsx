@@ -8,7 +8,7 @@ import { Cargador } from "./cargador";
 import { Pendientes, type CargaPendiente } from "./pendientes";
 import { createClient } from "@/lib/supabase/server";
 import { PrepararEspacio } from "./preparar-espacio";
-import { MapaCobertura, type CoberturaDia } from "./mapa-cobertura";
+import type { CoberturaDia } from "./mapa-cobertura";
 
 export const dynamic = "force-dynamic";
 
@@ -149,14 +149,7 @@ export default async function Cargar({
             datasets={datasets ?? []}
             tenantId={ctx.tenantId}
             campanaInicial={campanaInicial}
-            cobertura={
-              <MapaCobertura
-                dias={dias}
-                mes={mes}
-                campana={campanaInicial!}
-                campanas={ctx.campanas}
-              />
-            }
+            cobertura={{ dias, mes, campana: campanaInicial!, campanas: ctx.campanas }}
           />
         ) : (
           <Card>
