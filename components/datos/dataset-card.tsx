@@ -34,109 +34,52 @@ const FUENTES: Record<string, { nombre: string; impacto: string }> = {
 };
 
 export function CampanaCard({ campana }: { campana: CampanaResumen }) {
+  const alDia = campana.cobertura.length > 0 && campana.cobertura.every((fila) => fila.diasAtraso === 0);
+
   return (
-    <article className="vidrio rounded-2xl p-5">
-      <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--series-1)_14%,transparent)] text-[var(--series-1)]">
-          <Tags className="size-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate text-sm font-semibold">{campana.nombre}</h2>
-            <span className="rounded-full border px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-              {campana.tipo}
-            </span>
+    <article className="vidrio overflow-hidden rounded-xl">
+      <div className="grid items-center gap-3 px-4 py-3 lg:grid-cols-[minmax(220px,1.4fr)_110px_100px_150px_auto]">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-0)] text-[var(--series-1)]"><Tags className="size-4" /></span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2"><h2 className="truncate text-[13px] font-semibold">{campana.nombre}</h2><span className="rounded-full border px-2 py-0.5 text-[11px] text-[var(--text-muted)]">{campana.tipo}</span></div>
+            <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{campana.descripcion || "Contenedor permanente de datos e indicadores"}</p>
           </div>
-          <p className="mt-1 line-clamp-2 min-h-8 text-xs text-[var(--text-secondary)]">
-            {campana.descripcion ||
-              "Todas las cargas, usuarios e indicadores quedan reunidos en esta campaña."}
-          </p>
-          <p className="mt-2 text-[11px] font-medium text-[var(--series-1)]">
-            Los archivos nuevos se suman a esta misma campaña.
-          </p>
+        </div>
+        <div><p className="etiqueta">Registros</p><p className="mt-1 flex items-center gap-1.5 text-xs font-semibold"><Rows3 className="size-3.5" />{numero.format(campana.filas)}</p></div>
+        <div><p className="etiqueta">Cargas</p><p className="mt-1 text-xs font-semibold">{campana.cargas}</p></div>
+        <div><p className="etiqueta">Actualización</p><p className="mt-1 text-xs font-semibold">{campana.ultimaCarga ? fecha.format(new Date(campana.ultimaCarga)) : "Sin cargas"}</p></div>
+        <div className="flex items-center justify-end gap-2">
+          <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${alDia ? "bg-[color-mix(in_srgb,var(--good)_10%,transparent)] text-[var(--good)]" : "bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] text-[var(--warning)]"}`}>{alDia ? "Al día" : "Revisar cobertura"}</span>
+          <Link href={`/cargar?campana=${campana.id}`} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-[var(--series-1)] px-3 text-[11px] font-semibold text-white"><Upload className="size-3.5" /> Agregar</Link>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-4 border-t pt-3 text-xs text-[var(--text-muted)]">
-        <span className="flex items-center gap-1.5">
-          <Rows3 className="size-3.5" />
-          {numero.format(campana.filas)} filas
-        </span>
-        <span>
-          {campana.cargas} {campana.cargas === 1 ? "carga" : "cargas"}
-        </span>
-        <span className="ml-auto">
-          {campana.ultimaCarga
-            ? fecha.format(new Date(campana.ultimaCarga))
-            : "Sin cargas"}
-        </span>
-      </div>
+      {campana.cobertura.length > 0 ? <div className="border-t border-[var(--vidrio-borde)]">
+        <div className="grid min-h-8 grid-cols-[130px_180px_1fr_100px] items-center bg-[var(--surface-0)] px-4 font-mono text-[11px] uppercase tracking-[0.06em] text-[var(--text-muted)]"><span>Fuente</span><span>Frescura</span><span>KPI afectados</span><span>Estado</span></div>
+        {campana.cobertura.map((fila) => {
+          const meta = FUENTES[fila.fuente] ?? { nombre: fila.fuente, impacto: "indicadores relacionados" };
+          const fuenteAlDia = fila.diasAtraso === 0;
+          return <div key={fila.fuente} className="grid min-h-[38px] grid-cols-[130px_180px_1fr_100px] items-center border-t border-[var(--vidrio-borde)] px-4 text-[11px]">
+            <strong>{meta.nombre}</strong>
+            <span className="text-[var(--text-secondary)]">{fila.ultimaFecha ? fecha.format(new Date(`${fila.ultimaFecha}T12:00:00`)) : "Sin datos"}</span>
+            <span className="text-[var(--text-secondary)]">{meta.impacto}</span>
+            <span className={fuenteAlDia ? "text-[var(--good)]" : "text-[var(--warning)]"}>● {fuenteAlDia ? "Disponible" : "Incompleta"}</span>
+          </div>;
+        })}
+      </div> : null}
 
-      {campana.cobertura.length > 0 ? (
-        <div className="mt-4 rounded-xl border border-[var(--vidrio-borde)] bg-[var(--surface-0)] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold">Cobertura diaria</p>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              campana.cobertura.every((f) => (f.diasAtraso ?? 999) === 0)
-                ? "bg-[color-mix(in_srgb,var(--good)_12%,transparent)] text-[var(--good)]"
-                : "bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] text-[var(--warning)]"
-            }`}>
-              {campana.cobertura.every((f) => (f.diasAtraso ?? 999) === 0) ? "Al día" : "Información incompleta"}
-            </span>
-          </div>
-          <div className="mt-2 space-y-2">
-            {campana.cobertura.map((fila) => {
-              const meta = FUENTES[fila.fuente] ?? { nombre: fila.fuente, impacto: "indicadores relacionados" };
-              const alDia = fila.diasAtraso === 0;
-              return (
-                <div key={fila.fuente} className="grid gap-x-3 text-[11px] sm:grid-cols-[105px_1fr]">
-                  <span className="font-medium text-[var(--text-primary)]">
-                    <span className="mr-1.5" style={{ color: alDia ? "var(--good)" : "var(--warning)" }}>●</span>
-                    {meta.nombre}
-                  </span>
-                  <span className="text-[var(--text-secondary)]">
-                    {fila.ultimaFecha
-                      ? alDia
-                        ? `al día hasta ${fecha.format(new Date(`${fila.ultimaFecha}T12:00:00`))}`
-                        : `cargadas hasta ${fecha.format(new Date(`${fila.ultimaFecha}T12:00:00`))}; falta completar hasta ${fecha.format(new Date(`${fila.fechaEsperada}T12:00:00`))}`
-                      : "sin datos cargados"}
-                    {" · afecta "}{meta.impacto}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-2 border-t border-[var(--vidrio-borde)] pt-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
-            Se recalcula al abrir esta vista usando el último día hábil esperado. Sábados, domingos y feriados no generan atraso.
-          </p>
-        </div>
-      ) : null}
-
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <Link
-          href={`/cargar?campana=${campana.id}`}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--series-1)] px-3 py-2.5 text-xs font-semibold text-white sm:col-span-2"
-        >
-          <Upload className="size-3.5" /> Agregar datos a {campana.nombre}
-        </Link>
-        {campana.datasetId ? (
-          <Link
-            href={`/datos/${campana.datasetId}`}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium"
-          >
-            <BarChart3 className="size-3.5" /> Revisar calidad
-          </Link>
-        ) : null}
+      <div className="flex items-center gap-2 border-t border-[var(--vidrio-borde)] px-4 py-2">
         <Link
           href={`/administracion?campana=${campana.id}`}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium"
-        >
-          <Settings2 className="size-3.5" /> Cambiar reglas
-        </Link>
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)]"
+        ><Settings2 className="size-3.5" /> Administrar reglas</Link>
+        {campana.datasetId ?
+          <Link
+            href={`/datos/${campana.datasetId}`}
+            className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--series-1)]"
+          ><BarChart3 className="size-3.5" /> Abrir detalle de calidad</Link> : null}
       </div>
-      <p className="mt-3 text-[10px] leading-relaxed text-[var(--text-muted)]">
-        Agregar datos actualiza los KPI. Cambiar reglas modifica metas, costos, equipo o accesos; no altera los archivos cargados.
-      </p>
     </article>
   );
 }

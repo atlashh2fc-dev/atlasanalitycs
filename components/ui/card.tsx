@@ -10,7 +10,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "vidrio rounded-xl p-4",
+        "vidrio rounded-xl p-3.5",
         className,
       )}
     >
@@ -33,7 +33,7 @@ export function CardTitle({
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">{children}</h3>
         {impacto ? (
-          <span className="rounded-md border border-[var(--vidrio-borde)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+          <span className="rounded-md border border-[var(--vidrio-borde)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
             Impacta: {impacto}
           </span>
         ) : null}

@@ -58,7 +58,7 @@ export function Embudo({ etapas }: { etapas: EtapaEmbudo[] }) {
                 <span className="shrink-0 text-right">
                   <strong className="tabular block text-xs">{fmt.entero(e.valor)}</strong>
                   {indice > 0 ? (
-                    <span className="tabular block text-[10px] text-[var(--text-muted)]">
+                    <span className="tabular block text-[11px] text-[var(--text-muted)]">
                       {e.tasa_pct === null ? "—" : `${fmt.decimal(e.tasa_pct, 1)}%`}
                     </span>
                   ) : null}
@@ -76,7 +76,7 @@ export function Embudo({ etapas }: { etapas: EtapaEmbudo[] }) {
                   title={e.detalle}
                 />
               </div>
-              <p className="mt-1.5 text-[10px] leading-snug text-[var(--text-muted)]" title={e.detalle}>
+              <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-muted)]" title={e.detalle}>
                 {e.detalle}
               </p>
             </li>

@@ -167,7 +167,7 @@ export function Proyeccion({
             <p className="etiqueta">Ideal a hoy</p>
             <p className="cifra mt-1 text-xl">{resumen.idealHoy === null ? "—" : fmt.decimal(resumen.idealHoy, 1)}</p>
             {resumen.brechaHoy !== null ? (
-              <p className="text-[10px]" style={{ color: resumen.brechaHoy >= 0 ? ESTADO.good : ESTADO.serious }}>
+              <p className="text-[11px]" style={{ color: resumen.brechaHoy >= 0 ? ESTADO.good : ESTADO.serious }}>
                 {resumen.brechaHoy > 0 ? "+" : ""}{fmt.decimal(resumen.brechaHoy, 1)} vs. ritmo ideal
               </p>
             ) : null}
@@ -188,7 +188,7 @@ export function Proyeccion({
                 {fmt.entero(resumen.cierreAnterior)}
               </p>
               {resumen.desviacionAnterior !== null ? (
-                <p className="text-[10px]" style={{ color: resumen.desviacionAnterior >= 0 ? ESTADO.good : ESTADO.serious }}>
+                <p className="text-[11px]" style={{ color: resumen.desviacionAnterior >= 0 ? ESTADO.good : ESTADO.serious }}>
                   actual {resumen.desviacionAnterior > 0 ? "+" : ""}{fmt.entero(resumen.desviacionAnterior)} al mismo día hábil
                 </p>
               ) : null}
@@ -203,7 +203,7 @@ export function Proyeccion({
               >
                 {fmt.decimal(resumen.meta ?? 0, 1)}
               </p>
-              <p className="text-[10px]" style={{ color: resumen.brecha >= 0 ? ESTADO.good : ESTADO.serious }}>
+              <p className="text-[11px]" style={{ color: resumen.brecha >= 0 ? ESTADO.good : ESTADO.serious }}>
                 cierre proyectado {resumen.brecha > 0 ? "+" : ""}{fmt.decimal(resumen.brecha, 1)}
               </p>
             </div>

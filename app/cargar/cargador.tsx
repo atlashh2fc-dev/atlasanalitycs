@@ -827,7 +827,7 @@ export function Cargador({
                           {TIPO_ETIQUETA[c.tipo] ?? c.tipo}
                         </Badge>
                       </td>
-                      <td className="max-w-[220px] truncate py-2 pr-3 text-xs text-[var(--text-secondary)]">
+                      <td className="max-w-[280px] break-words py-2 pr-3 text-xs text-[var(--text-secondary)]">
                         {c.muestra.join(" · ") || "—"}
                       </td>
                       <td className="tabular py-2 pr-3 text-right text-xs text-[var(--text-secondary)]">

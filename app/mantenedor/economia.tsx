@@ -195,6 +195,15 @@ export function Economia({
   const totalMensual = costos
     .filter((c) => c.base === "mensual")
     .reduce((s, c) => s + Number(c.monto_clp), 0);
+  const haySolapamientos = tarifas.some((tarifa, indice) => tarifas.some((otra, otroIndice) =>
+    indice !== otroIndice &&
+    tarifa.agrupacion_meta === otra.agrupacion_meta &&
+    tarifa.criterio === otra.criterio &&
+    tarifa.alcance === otra.alcance &&
+    tarifa.vigencia_desde === otra.vigencia_desde &&
+    tarifa.desde <= (otra.hasta ?? Number.POSITIVE_INFINITY) &&
+    otra.desde <= (tarifa.hasta ?? Number.POSITIVE_INFINITY),
+  ));
 
   return (
     <div className={`space-y-5 ${ocupado ? "opacity-70" : ""}`}>
@@ -209,6 +218,14 @@ export function Economia({
           y sube para todos, no sólo para el excedente.
         </p>
 
+        {tarifas.length === 0 || haySolapamientos ? (
+          <div className="mb-3 rounded-lg border border-[color-mix(in_srgb,var(--warning)_35%,var(--vidrio-borde))] bg-[color-mix(in_srgb,var(--warning)_8%,var(--surface-0))] px-3 py-2 text-[11px] text-[var(--warning)]">
+            {tarifas.length === 0
+              ? "No hay tarifas vigentes: contratos y asegurados seguirán visibles, pero ingreso, margen y equilibrio quedarán como no valorizables."
+              : "Hay tramos superpuestos con la misma vigencia. Revisa los rangos antes de usar esta configuración para valorizar periodos."}
+          </div>
+        ) : null}
+
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b text-left text-[var(--text-muted)]">
@@ -218,6 +235,7 @@ export function Economia({
               <th className="pb-1.5 text-right font-medium">Desde</th>
               <th className="pb-1.5 text-right font-medium">Hasta</th>
               <th className="pb-1.5 text-right font-medium">UF</th>
+              <th className="pb-1.5 font-medium">Vigente desde</th>
               <th className="pb-1.5 font-medium">Nota</th>
             </tr>
           </thead>
@@ -269,6 +287,7 @@ export function Economia({
                     }
                   />
                 </td>
+                <td className="tabular py-1.5 text-[var(--text-secondary)]">{t.vigencia_desde}</td>
                 <td className="py-1.5 text-[var(--text-muted)]">
                   {t.notas?.includes("CONFIRMAR") ? (
                     <span style={{ color: "var(--warning)" }}>{t.notas}</span>

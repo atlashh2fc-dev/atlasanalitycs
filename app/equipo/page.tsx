@@ -5,13 +5,14 @@ import { redirect } from "next/navigation";
 import { hayCredenciales } from "@/lib/supabase/client";
 import { getContexto, getMovilidad } from "@/lib/datos";
 import { RecalcularPeriodo } from "./recalcular";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default async function Equipo({
   searchParams,
 }: {
-  searchParams: Promise<{ campana?: string }>;
+  searchParams: Promise<{ campana?: string; movimiento?: string }>;
 }) {
   if (!hayCredenciales()) redirect("/configuracion");
 
@@ -24,18 +25,22 @@ export default async function Equipo({
   const estancados = filas.filter((f) => f.movimiento === "estable_bajo").length;
   const suben = filas.filter((f) => f.movimiento === "sube").length;
   const bajan = filas.filter((f) => f.movimiento === "baja").length;
+  const movimiento = ["sube", "baja", "estable_bajo"].includes(sp.movimiento ?? "") ? sp.movimiento! : null;
+  const filasVisibles = movimiento ? filas.filter((fila) => fila.movimiento === movimiento) : filas;
+  const enlaceMovimiento = (valor: string) => `?${new URLSearchParams({ ...(campanaId ? { campana: campanaId } : {}), movimiento: valor })}#tabla-equipo`;
 
   return (
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1400px] px-5 py-4">
+      <main className="mx-auto max-w-[1400px] px-6 py-4">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              Movilidad del equipo
+            <p className="etiqueta">Responsables y evolución</p>
+            <h1 className="mt-1 text-[24px] font-semibold leading-none tracking-[-0.03em]">
+              Equipo
             </h1>
-            <p className="mt-0.5 max-w-2xl text-sm text-[var(--text-secondary)]">
+            <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
               El ranking de un mes es ruidoso. Lo que se gestiona es el
               movimiento: quién sube de cuartil, quién retrocede y quién lleva
               varios periodos estancado abajo.
@@ -50,26 +55,29 @@ export default async function Equipo({
               titulo="Suben de cuartil"
               valor={suben}
               detalle="El coaching está moviendo la aguja."
+              href={enlaceMovimiento("sube")}
             />
             <ResumenMovimiento
               titulo="Bajan de cuartil"
               valor={bajan}
               detalle="Revisar carga de base y acompañamiento."
+              href={enlaceMovimiento("baja")}
             />
             <ResumenMovimiento
               titulo="Estancados abajo"
               valor={estancados}
               detalle="La alerta más accionable del sistema."
+              href={enlaceMovimiento("estable_bajo")}
             />
           </div>
         ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-[1.55fr_.85fr]">
+        <div id="tabla-equipo" className="grid scroll-mt-20 gap-4 lg:grid-cols-[1.55fr_.85fr]">
           <Card>
             <CardTitle hint="Cuartil 4 es el mejor desempeño; 1, el más bajo.">
               Movimiento por ejecutivo
             </CardTitle>
-            <TablaMovilidad datos={filas} />
+            <TablaMovilidad datos={filasVisibles} />
           </Card>
 
           <Card>
@@ -88,18 +96,20 @@ function ResumenMovimiento({
   titulo,
   valor,
   detalle,
+  href,
 }: {
   titulo: string;
   valor: number;
   detalle: string;
+  href: string;
 }) {
   return (
-    <div className="rounded-xl border bg-[var(--surface-0)] p-4">
+    <Link href={href} className="rounded-xl border bg-[var(--surface-1)] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)]">
       <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
         {titulo}
       </p>
-      <p className="tabular mt-2 text-3xl font-semibold leading-none">{valor}</p>
-      <p className="mt-2 text-xs text-[var(--text-secondary)]">{detalle}</p>
-    </div>
+      <p className="tabular mt-1.5 text-[25px] font-semibold leading-none">{valor}</p>
+      <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">{detalle}</p>
+    </Link>
   );
 }

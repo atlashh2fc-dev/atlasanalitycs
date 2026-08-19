@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Database, LogOut, Settings2, Target } from "lucide-react";
+import { BarChart3, Database, LogOut, Settings2, Target, Upload, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SelectorTema } from "./tema";
 
 const LINKS = [
   { href: "/bsc", label: "Control", detalle: "Resultado ejecutivo", icono: Target, rutas: ["/bsc"] },
-  { href: "/analisis", label: "Análisis", detalle: "Causas y responsables", icono: BarChart3, rutas: ["/analisis", "/dashboard", "/equipo"] },
-  { href: "/datos", label: "Datos", detalle: "Cobertura y calidad", icono: Database, rutas: ["/datos", "/cargar"] },
+  { href: "/analisis", label: "Análisis", detalle: "Causas y tendencias", icono: BarChart3, rutas: ["/analisis", "/dashboard"] },
+  { href: "/datos", label: "Datos", detalle: "Cobertura y calidad", icono: Database, rutas: ["/datos"] },
+  { href: "/cargar", label: "Cargar", detalle: "Ingesta e historial", icono: Upload, rutas: ["/cargar"] },
+  { href: "/equipo", label: "Equipo", detalle: "Desempeño y movilidad", icono: Users, rutas: ["/equipo"] },
   { href: "/administracion", label: "Administración", detalle: "Reglas y accesos", icono: Settings2, rutas: ["/administracion", "/mantenedor"] },
 ];
 
@@ -27,10 +29,11 @@ function Marca() {
 
 export function Nav({ email }: { email: string | null }) {
   const path = usePathname();
+  const actual = LINKS.find((item) => item.rutas.some((ruta) => path === ruta || path.startsWith(`${ruta}/`)));
 
   return (
     <>
-      <aside className="atlas-sidebar fixed inset-y-0 left-0 z-50 hidden w-[196px] flex-col border-r border-[var(--vidrio-borde)] bg-[color-mix(in_srgb,var(--plano-alto)_94%,transparent)] px-2.5 py-3.5 backdrop-blur-xl lg:flex">
+      <aside className="atlas-sidebar fixed inset-y-0 left-0 z-50 hidden w-[184px] flex-col border-r border-[var(--vidrio-borde)] bg-[var(--plano-alto)] px-2.5 py-3.5 lg:flex">
         <div className="px-2"><Marca /></div>
         <p className="etiqueta mb-1.5 mt-6 px-2.5">Navegación</p>
         <nav className="space-y-1">
@@ -51,7 +54,7 @@ export function Nav({ email }: { email: string | null }) {
                 </span>
                 <span className="min-w-0">
                   <span className="block text-[13px] font-semibold">{l.label}</span>
-                  <span className="block truncate text-[10px] text-[var(--text-muted)]">{l.detalle}</span>
+                  <span className="block truncate text-[11px] text-[var(--text-muted)]">{l.detalle}</span>
                 </span>
               </Link>
             );
@@ -68,6 +71,13 @@ export function Nav({ email }: { email: string | null }) {
           </form>
         </div>
       </aside>
+
+      <div className="atlas-topbar fixed left-[184px] right-0 top-0 z-40 hidden h-[52px] items-center border-b border-[var(--vidrio-borde)] bg-[var(--plano-alto)] px-6 lg:flex">
+        <span className="text-xs text-[var(--text-muted)]">Atlas Analytics</span>
+        <span className="mx-2 text-[var(--border-strong)]">/</span>
+        <span className="text-xs font-semibold">{actual?.label ?? "Producto"}</span>
+        <span className="ml-auto rounded-full border border-[var(--vidrio-borde)] bg-[var(--surface-0)] px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--text-muted)]">Producción</span>
+      </div>
 
       <header className="sticky top-0 z-40 border-b border-[var(--vidrio-borde)] bg-[color-mix(in_srgb,var(--plano)_90%,transparent)] px-4 py-2 backdrop-blur-xl lg:hidden">
         <div className="flex items-center gap-3">

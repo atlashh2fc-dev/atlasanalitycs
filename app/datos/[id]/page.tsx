@@ -112,7 +112,7 @@ export default async function DetalleDataset({
   return (
     <>
       <Nav email={ctx.email} />
-      <main className="mx-auto max-w-[1200px] px-5 py-4">
+      <main className="mx-auto max-w-[1400px] px-6 py-4">
         <Link
           href="/datos"
           className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -127,10 +127,10 @@ export default async function DetalleDataset({
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-[23px] font-semibold leading-none tracking-[-0.03em]">
+                <h1 className="text-[24px] font-semibold leading-none tracking-[-0.03em]">
                   {dataset.nombre}
                 </h1>
-                <span className="rounded-full border px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+                <span className="rounded-full border px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
                   {dataset.activo ? "Activa" : "Inactiva"}
                 </span>
               </div>
@@ -353,7 +353,7 @@ export default async function DetalleDataset({
                       )}{" "}
                       filas
                     </span>
-                    <span className="rounded-full border px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+                    <span className="rounded-full border px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
                       {carga.estado}
                     </span>
                   </div>

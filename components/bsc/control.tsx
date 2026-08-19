@@ -253,7 +253,7 @@ export function Control({ filas }: { filas: FilaControl[] }) {
           <tbody className="tabular">
             {visibles.map((f) => (
               <tr key={f.ejecutivo_id} className="border-b last:border-0">
-                <td className="max-w-[190px] truncate py-2 pr-2 font-medium text-[var(--text-primary)]">
+                <td className="max-w-[240px] break-words py-2 pr-2 font-medium text-[var(--text-primary)]">
                   {f.ejecutivo}
                 </td>
                 <td className="px-2 py-2 text-right text-[var(--text-secondary)]">

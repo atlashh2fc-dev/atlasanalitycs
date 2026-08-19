@@ -22,21 +22,21 @@
   color-scheme: dark;
 
   /* Plano: azul-noche, no negro. El negro plano apaga los colores. */
-  --plano: #0b0d12;
-  --plano-alto: #11141a;
+  --plano: #0d1016;
+  --plano-alto: #141820;
 
   /* Vidrio */
-  --vidrio: rgba(255, 255, 255, 0.035);
-  --vidrio-alto: rgba(255, 255, 255, 0.055);
+  --vidrio: #141820;
+  --vidrio-alto: #1a202a;
   --vidrio-borde: rgba(255, 255, 255, 0.08);
   --vidrio-borde-alto: rgba(255, 255, 255, 0.13);
   --luz-cenital: rgba(255, 255, 255, 0.14);
   --desenfoque: 22px;
 
   /* Compatibilidad con los componentes existentes */
-  --surface-0: rgba(255, 255, 255, 0.03);
-  --surface-1: rgba(255, 255, 255, 0.045);
-  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-0: #11151c;
+  --surface-1: #141820;
+  --surface-2: #1a202a;
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.2);
 
@@ -66,8 +66,8 @@
   --tono-asistencia: #f5b52a;
   --tono-cliente: #1eb489;
 
-  --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.22);
-  --sombra-alta: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --sombra-alta: 0 8px 24px rgba(0, 0, 0, 0.22);
   --brillo-fino: drop-shadow(0 0 9px color-mix(in srgb, var(--tono, var(--series-1)) 45%, transparent));
   --brillo-solido: drop-shadow(0 2px 7px color-mix(in srgb, var(--tono, var(--series-1)) 28%, transparent));
 }
@@ -82,16 +82,16 @@
   color-scheme: light;
 
   --plano: #eef1f7;
-  --plano-alto: #f7f9fc;
+  --plano-alto: #ffffff;
 
-  --vidrio: rgba(255, 255, 255, 0.72);
-  --vidrio-alto: rgba(255, 255, 255, 0.92);
+  --vidrio: #ffffff;
+  --vidrio-alto: #f7f9fc;
   --vidrio-borde: rgba(11, 22, 44, 0.09);
   --vidrio-borde-alto: rgba(11, 22, 44, 0.16);
   --luz-cenital: rgba(255, 255, 255, 0.95);
 
-  --surface-0: rgba(11, 22, 44, 0.04);
-  --surface-1: rgba(255, 255, 255, 0.75);
+  --surface-0: #f5f7fa;
+  --surface-1: #ffffff;
   --surface-2: #ffffff;
   --border: rgba(11, 22, 44, 0.1);
   --border-strong: rgba(11, 22, 44, 0.22);
@@ -120,7 +120,7 @@
   --tono-asistencia: #b57e05;
   --tono-cliente: #0f9a72;
 
-  --sombra-tarjeta: 0 1px 2px rgba(11, 22, 44, 0.06), 0 10px 24px rgba(11, 22, 44, 0.06);
+  --sombra-tarjeta: 0 1px 2px rgba(11, 22, 44, 0.05), 0 8px 24px rgba(11, 22, 44, 0.04);
   --sombra-alta: 0 2px 4px rgba(11, 22, 44, 0.08), 0 18px 40px rgba(11, 22, 44, 0.12);
   --brillo-fino: none;
   --brillo-solido: none;
@@ -145,27 +145,18 @@ body {
 }
 
 @media (min-width: 1024px) {
-  html {
-    font-size: 14px;
-  }
-
   body .atlas-sidebar ~ main {
-    width: calc(100% - 196px);
+    width: calc(100% - 184px);
     max-width: none !important;
-    margin-left: 196px !important;
+    margin-left: 184px !important;
     margin-right: 0 !important;
+    padding-top: 70px !important;
   }
 }
 
 /* Profundidad contenida: una sola luz ambiental, fuera del área de lectura. */
 body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(1000px 520px at 50% -18%, color-mix(in srgb, var(--tono-venta) 13%, transparent), transparent 72%);
+  content: none;
 }
 
 :root[data-theme="light"] body::before {
@@ -178,8 +169,6 @@ body::before {
 .vidrio {
   position: relative;
   background: var(--vidrio);
-  backdrop-filter: blur(16px) saturate(120%);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--vidrio-borde);
   box-shadow: var(--sombra-tarjeta);
   transition: box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
@@ -188,19 +177,7 @@ body::before {
 /* Luz cenital: una hebra de un píxel arriba. Es lo que hace que el
    vidrio parezca un plano físico y no un rectángulo más claro. */
 .vidrio::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--luz-cenital) 16%,
-    var(--luz-cenital) 84%,
-    transparent
-  );
-  pointer-events: none;
+  content: none;
 }
 
 .vidrio:hover {
@@ -211,17 +188,7 @@ body::before {
 /* Cuando la tarjeta tiene tono, el tono tiñe apenas su esquina superior
    izquierda: suficiente para agrupar por fuente de dato de un vistazo. */
 .vidrio[data-tono]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: radial-gradient(
-    420px 220px at 0% 0%,
-    color-mix(in srgb, var(--tono) 8%, transparent),
-    transparent 68%
-  );
+  content: none;
 }
 
 .vidrio > * {
@@ -241,7 +208,7 @@ body::before {
 
 .etiqueta {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -259,13 +226,12 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  border-radius: 999px;
+  min-height: 32px;
+  border-radius: 9px;
   border: 1px solid var(--vidrio-borde);
   background: var(--vidrio);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  padding: 0.4rem 0.85rem;
-  font-size: 13px;
+  padding: 0.32rem 0.7rem;
+  font-size: 12px;
   color: var(--text-primary);
   transition: border-color 160ms ease, background 160ms ease;
 }
@@ -293,16 +259,31 @@ body::before {
   align-items: center;
   gap: 0.55rem;
   border: 1px solid var(--vidrio-borde);
-  border-radius: 999px;
+  border-radius: 9px;
   background: var(--vidrio);
-  box-shadow: inset 0 1px 0 var(--luz-cenital), 0 8px 28px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
   padding: 0.4rem 0.78rem 0.4rem 0.85rem;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
-  backdrop-filter: blur(18px) saturate(155%);
-  -webkit-backdrop-filter: blur(18px) saturate(155%);
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--series-1) 28%, transparent);
+  outline-offset: 2px;
+}
+
+table th {
+  height: 32px;
+}
+
+table tbody tr {
+  min-height: 38px;
 }
 
 .glass-select-trigger:hover,

@@ -85,7 +85,7 @@ export function ComparacionSemanal({
               {semanas.map((semana) => (
                 <th key={semana.desde} className="pb-3 text-right font-medium">
                   <span className="block text-[var(--text-secondary)]">{semana.etiqueta}</span>
-                  <span className="text-[10px] font-normal">
+                  <span className="text-[11px] font-normal">
                     {fechaCorta(semana.desde)}–{fechaCorta(semana.hasta)}
                   </span>
                 </th>

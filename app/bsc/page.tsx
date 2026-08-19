@@ -231,11 +231,11 @@ export default async function CuadroDeMando({
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1400px] px-5 py-4">
+      <main className="mx-auto max-w-[1400px] px-6 py-4">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="etiqueta">Contact center · gestión de venta</p>
-            <h1 className="mt-1 text-[23px] font-semibold leading-none tracking-[-0.03em]">
+            <h1 className="mt-1 text-[24px] font-semibold leading-none tracking-[-0.03em]">
               Cuadro de mando integral
             </h1>
           </div>

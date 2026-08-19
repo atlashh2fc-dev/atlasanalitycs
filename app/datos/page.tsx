@@ -19,14 +19,14 @@ export default async function Datos() {
   return (
     <>
       <Nav email={ctx.email} />
-      <main className="mx-auto max-w-[1200px] px-5 py-4">
+      <main className="mx-auto max-w-[1400px] px-6 py-4">
         <div>
           <div>
             <p className="etiqueta">Gobierno de datos</p>
-            <h1 className="mt-1 text-[23px] font-semibold leading-none tracking-[-0.03em]">
+            <h1 className="mt-1 text-[24px] font-semibold leading-none tracking-[-0.03em]">
               Datos y calidad
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
+            <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
               Controla fuentes, cobertura, frescura, calidad e historial de cargas.
               Los parámetros del negocio y los usuarios viven en Administración.
             </p>
@@ -64,7 +64,7 @@ export default async function Datos() {
             <EstadoVacioDatos />
           </div>
         ) : (
-          <div id="campanas" className="mt-7 grid scroll-mt-24 gap-4 md:grid-cols-2">
+          <div id="campanas" className="mt-5 grid scroll-mt-24 gap-3">
             {campanas.map((campana) => (
               <CampanaCard key={campana.id} campana={campana} />
             ))}

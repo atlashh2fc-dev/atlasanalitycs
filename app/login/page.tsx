@@ -121,7 +121,7 @@ export default function Login() {
             <ShieldCheck size={14} strokeWidth={1.7} aria-hidden />
             Acceso protegido por organización y rol
           </div>
-          <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-white/28">
+          <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-white/28">
             Altius Ignite · Atlas Suite
           </p>
         </div>
@@ -218,7 +218,7 @@ export default function Login() {
           </p>
         </div>
 
-        <p className="absolute bottom-5 hidden text-[10px] uppercase tracking-[0.14em] text-[#b0b0b5] sm:block">
+        <p className="absolute bottom-5 hidden text-[11px] uppercase tracking-[0.14em] text-[#b0b0b5] sm:block">
           Atlas Analytics · Enterprise Edition
         </p>
       </section>

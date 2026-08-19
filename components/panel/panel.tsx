@@ -166,7 +166,7 @@ export function Panel({
     <div>
       {/* Barra de filtros: píldoras de vidrio, no formularios sueltos.
           Lo que está filtrado se lee de un vistazo. */}
-      <div className="mb-6 flex flex-wrap items-center gap-2.5">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <label className="pildora cursor-pointer">
           <CalendarRange className="size-3.5 text-[var(--text-muted)]" />
           <input

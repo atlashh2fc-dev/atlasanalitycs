@@ -185,7 +185,7 @@ export function Pendientes({
 
             return (
               <tr key={c.id} className="border-b last:border-0">
-                <td className="max-w-[220px] truncate py-2 text-[var(--text-primary)]">
+                <td className="max-w-[280px] break-words py-2 text-[var(--text-primary)]">
                   {c.archivo}
                 </td>
                 <td className="py-2 text-[var(--text-secondary)]">{c.hoja}</td>

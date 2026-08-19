@@ -237,14 +237,14 @@ export default async function Mantenedor({
   return (
     <>
       <Nav email={ctx.email} />
-      <main className="mx-auto max-w-[1320px] px-5 py-4">
+      <main className="mx-auto max-w-[1400px] px-6 py-4">
         <p className="etiqueta">Administración del negocio</p>
         <div className="mt-1.5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[23px] font-semibold leading-none tracking-[-0.03em]">
+            <h1 className="text-[24px] font-semibold leading-none tracking-[-0.03em]">
               {seleccionada ? seleccionada.nombre : "Campañas"}
             </h1>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            <p className="mt-1.5 text-[12px] text-[var(--text-secondary)]">
               {seleccionada
                 ? "Define equipo, metas, economía y accesos. Las cargas y su calidad se controlan en Datos."
                 : "Crea una campaña para definir su equipo, metas, economía y usuarios."}
@@ -314,8 +314,18 @@ export default async function Mantenedor({
             )}
           </Card>
         ) : (
-          <div className="mt-6 space-y-5">
-            <Card>
+          <div className="mt-5 grid items-start gap-4 lg:grid-cols-[168px_minmax(0,1fr)]">
+            <nav className="vidrio sticky top-[68px] grid rounded-xl p-1.5 text-[11px]" aria-label="Secciones de administración">
+              {[
+                ["#admin-campana", "Campaña"],
+                ["#admin-equipo", "Equipo"],
+                ["#admin-metas", "Metas"],
+                ["#admin-economia", "Tarifas y costos"],
+                ["#admin-accesos", "Accesos"],
+              ].map(([href, label], indice) => <a key={href} href={href} className={`rounded-lg px-3 py-2 font-medium ${indice === 0 ? "bg-[var(--surface-0)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-0)]"}`}>{label}</a>)}
+            </nav>
+            <div className="space-y-4">
+            <section id="admin-campana" className="scroll-mt-20"><Card>
               <CardTitle hint="Confirma que estás trabajando en el contenedor correcto antes de cargar o cambiar parámetros." impacto="alcance de todos los datos y reglas">
                 1 · Resumen de la campaña
               </CardTitle>
@@ -337,16 +347,16 @@ export default async function Mantenedor({
                   valor={fmt.entero(supervisores)}
                 />
               </div>
-            </Card>
+            </Card></section>
 
-            <Card>
+            <section id="admin-equipo" className="scroll-mt-20"><Card>
               <CardTitle hint="Asigna aquí las personas que participan y su jornada. No carga sus resultados: esos llegan desde Datos." impacto="metas individuales, productividad y costos">
                 2 · Ejecutivos de {seleccionada.nombre}
               </CardTitle>
               <Ejecutivos ejecutivos={ejecutivos} campanas={campanaUnica} />
-            </Card>
+            </Card></section>
 
-            <Card>
+            <section id="admin-metas" className="scroll-mt-20"><Card>
               <CardTitle hint="Define el objetivo y su vigencia. Las ventas reales no cambian; cambia la referencia contra la que se evalúan." impacto="cumplimiento, ideal y forecast">
                 3 · Metas de {seleccionada.nombre}
               </CardTitle>
@@ -382,10 +392,10 @@ export default async function Mantenedor({
                   ) : null}
                 </tbody>
               </table>
-            </Card>
+            </Card></section>
 
             {ctx.esAdmin ? (
-              <Card>
+              <section id="admin-economia" className="scroll-mt-20"><Card>
                 <CardTitle hint="Configura tarifas, comisiones, remuneraciones y costos. No modifica ventas; les asigna valor económico." impacto="ingreso, costo, margen y equilibrio">
                   4 · Economía de {seleccionada.nombre}
                 </CardTitle>
@@ -396,11 +406,11 @@ export default async function Mantenedor({
                   costos={(costos ?? []) as unknown as FilaCosto[]}
                   campanaId={seleccionada.id}
                 />
-              </Card>
+              </Card></section>
             ) : null}
 
             {ctx.esAdmin ? (
-              <Card>
+              <section id="admin-accesos" className="scroll-mt-20"><Card>
                 <CardTitle hint="Define quién puede entrar a esta campaña. Los administradores conservan visibilidad total." impacto="acceso y visibilidad, no KPI">
                   5 · Usuarios de {seleccionada.nombre}
                 </CardTitle>
@@ -410,7 +420,7 @@ export default async function Mantenedor({
                   huerfanos={huerfanos}
                   yo={ctx.userId}
                 />
-              </Card>
+              </Card></section>
             ) : null}
 
             {ctx.esAdmin ? (
@@ -421,6 +431,7 @@ export default async function Mantenedor({
                 <FormCampana />
               </Card>
             ) : null}
+            </div>
           </div>
         )}
       </main>

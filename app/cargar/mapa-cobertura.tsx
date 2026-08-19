@@ -49,7 +49,7 @@ export function MapaCobertura({
   const desplazamiento = (primerDia + 6) % 7;
 
   return (
-    <Card className="mb-6">
+    <Card>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <CardTitle
           impacto="Control de integridad"
@@ -86,19 +86,19 @@ export function MapaCobertura({
         <span className={completos === evaluables.length && evaluables.length > 0 ? "text-[var(--good)]" : "text-[var(--warning)]"}>
           {completos} de {evaluables.length} días hábiles con las cuatro fuentes
         </span>
-        <span className="ml-auto text-[10px] text-[var(--text-muted)]">
+        <span className="ml-auto text-[11px] text-[var(--text-muted)]">
           ✓ con registros · × pendiente · — no exigible
         </span>
       </div>
 
       <div className="overflow-x-auto">
-        <div className="min-w-[920px]">
-          <div className="mb-1 grid grid-cols-7 gap-1.5 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
+        <div className="min-w-[560px]">
+          <div className="mb-1 grid grid-cols-7 gap-1.5 text-center text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((dia) => <span key={dia}>{dia}</span>)}
           </div>
           <div className="grid grid-cols-7 gap-1.5">
             {Array.from({ length: desplazamiento }).map((_, indice) => (
-              <span key={`vacio-${indice}`} className="min-h-[132px]" />
+              <span key={`vacio-${indice}`} className="min-h-[94px]" />
             ))}
             {dias.map((dia) => {
               const noExigible = !dia.esHabil || dia.esFeriado || dia.esFuturo;
@@ -106,7 +106,7 @@ export function MapaCobertura({
               return (
                 <article
                   key={dia.fecha}
-                  className={`min-h-[132px] rounded-xl border p-2.5 ${
+                  className={`min-h-[94px] rounded-lg border p-2 ${
                     noExigible
                       ? "bg-[var(--surface-0)] opacity-60"
                       : estaCompleto
@@ -116,7 +116,7 @@ export function MapaCobertura({
                 >
                   <div className="mb-2 flex items-center justify-between">
                     <strong className="tabular text-sm">{Number(dia.fecha.slice(-2))}</strong>
-                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                    <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
                       noExigible
                         ? "text-[var(--text-muted)]"
                         : estaCompleto
@@ -126,15 +126,15 @@ export function MapaCobertura({
                       {dia.esFuturo ? "Futuro" : dia.esFeriado ? "Feriado" : !dia.esHabil ? "Libre" : estaCompleto ? "Completo" : "Incompleto"}
                     </span>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     {FUENTES.map(([clave, etiqueta]) => {
                       const cantidad = dia[clave];
                       const presente = cantidad > 0;
                       const Icono = presente ? Check : noExigible ? Minus : X;
                       return (
-                        <div key={clave} className="flex items-center gap-1.5 text-[10px]">
+                        <div key={clave} className="flex items-center gap-1.5 text-[11px]">
                           <Icono className={`size-3 ${presente ? "text-[var(--good)]" : noExigible ? "text-[var(--text-muted)]" : "text-[var(--critical)]"}`} />
-                          <span className="text-[var(--text-secondary)]">{etiqueta}</span>
+                          <span className="truncate text-[var(--text-secondary)]" title={etiqueta}>{etiqueta.slice(0, 3)}</span>
                           <span className="tabular ml-auto font-medium text-[var(--text-primary)]">
                             {presente ? cantidad.toLocaleString("es-CL") : "—"}
                           </span>

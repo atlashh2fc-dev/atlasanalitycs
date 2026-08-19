@@ -167,7 +167,7 @@ function ResumenPerspectivas({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: k * 0.05, type: "spring", stiffness: 260, damping: 26 }}
             style={{ "--tono": p.tono } as React.CSSProperties}
-            className="flex flex-col border-b border-[var(--vidrio-borde)] p-4 last:border-b-0 md:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0"
+            className="flex flex-col border-b border-[var(--vidrio-borde)] p-3.5 last:border-b-0 md:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0"
           >
             <div className="mb-3 flex items-center gap-2">
               <span className="grid size-7 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, var(--tono) 18%, transparent)", border: "1px solid color-mix(in srgb, var(--tono) 38%, transparent)", color: "var(--tono)" }}>
@@ -380,12 +380,7 @@ export function Tablero({
   return (
     <div className="space-y-5">
       <section className="space-y-3">
-        <Titulo numero="1" titulo="Resumen ejecutivo BSC" subtitulo="Financiera · Cliente · Procesos · Personas" />
-        <ResumenPerspectivas porPerspectiva={porPerspectiva} abierto={abierto} setAbierto={setAbierto} reducido={reducido} analysisQuery={analysisQuery} />
-      </section>
-
-      <section className="space-y-3">
-        <Titulo numero="2" titulo="Resultado financiero y forecast" subtitulo="Real al corte, cierre esperado, meta y sostenibilidad" />
+        <Titulo numero="1" titulo="Resultado ejecutivo" subtitulo="Real al corte, cierre esperado, meta y sostenibilidad" />
         <div className="vidrio grid overflow-hidden rounded-xl lg:grid-cols-3 lg:divide-x lg:divide-[var(--vidrio-borde)]">
         {[
           { t: "Ingreso del periodo", i: ingreso, tono: "var(--tono-venta)", mejorAlSubir: true, lineal: forecastFinanciero?.ingresoLineal, ideal: forecastFinanciero?.ingresoIdeal },
@@ -398,10 +393,10 @@ export function Tablero({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: k * 0.05, type: "spring", stiffness: 260, damping: 26 }}
             style={{ "--tono": c.tono } as React.CSSProperties}
-            className="border-b border-[var(--vidrio-borde)] p-4 last:border-b-0 lg:border-b-0"
+            className="border-b border-[var(--vidrio-borde)] p-3.5 last:border-b-0 lg:border-b-0"
           >
             <p className="etiqueta">{c.t}</p>
-            <p className="cifra mt-2 text-[1.8rem]">
+            <p className="cifra mt-2 text-[25px]">
               {formatea(
                 faltaTarifa && (c.t === "Ingreso del periodo" || c.t === "Margen")
                   ? null
@@ -444,6 +439,11 @@ export function Tablero({
             El ingreso y el margen no se pueden calcular porque no existe una tarifa contractual vigente para este mes.
           </div>
         ) : null}
+
+        <div className="space-y-3 pt-1">
+          <Titulo numero="2" titulo="Cuadro de mando integral" subtitulo="Financiera · Cliente · Procesos · Personas" />
+          <ResumenPerspectivas porPerspectiva={porPerspectiva} abierto={abierto} setAbierto={setAbierto} reducido={reducido} analysisQuery={analysisQuery} />
+        </div>
 
         {forecastFinanciero && !faltaTarifa ? (
           <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
@@ -494,7 +494,7 @@ export function Tablero({
                         <span className="ml-2 font-normal text-[var(--text-muted)]">{fila.base.replaceAll("_", " ")}</span>
                       </td>
                       <td className="py-2.5">
-                        <span className="rounded-full border border-[var(--vidrio-borde)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
+                        <span className="rounded-full border border-[var(--vidrio-borde)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
                           {fila.fijo ? "Fijo" : "Variable"}
                         </span>
                       </td>

@@ -82,7 +82,7 @@ function TablaAnalitica({ datos }: { datos: Resultado }) {
           <Search className="size-3 text-[var(--text-muted)]" />
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar…" className="min-w-0 flex-1 bg-transparent text-[11px] outline-none" />
         </label>
-        <button type="button" onClick={() => setDescendente((v) => !v)} className="rounded-lg border border-[var(--vidrio-borde)] px-2 py-1 text-[10px]">
+        <button type="button" onClick={() => setDescendente((v) => !v)} className="rounded-lg border border-[var(--vidrio-borde)] px-2 py-1 text-[11px]">
           Valor {descendente ? "↓" : "↑"}
         </button>
         <button type="button" onClick={exportar} title="Exportar CSV" aria-label="Exportar tabla CSV" className="rounded-lg border border-[var(--vidrio-borde)] p-1.5">

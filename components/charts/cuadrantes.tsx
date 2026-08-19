@@ -178,7 +178,7 @@ export function GraficoCuadrantes({
                   <td className="py-1.5 text-[var(--text-primary)]">
                     {d.ejecutivo}
                     {destacados.has(d.ejecutivo) ? (
-                      <span className="ml-1.5 text-[10px] text-[var(--text-muted)]">
+                      <span className="ml-1.5 text-[11px] text-[var(--text-muted)]">
                         destacado
                       </span>
                     ) : null}

@@ -134,10 +134,11 @@ export default async function Cargar({
     <>
       <Nav email={ctx.email} />
 
-      <main className="mx-auto max-w-[1200px] px-5 py-4">
+      <main className="mx-auto max-w-[1400px] px-6 py-4">
         <div className="mb-5">
-          <h1 className="text-xl font-semibold tracking-tight">Cargar datos</h1>
-          <p className="mt-0.5 max-w-2xl text-sm text-[var(--text-secondary)]">
+          <p className="etiqueta">Ingesta controlada</p>
+          <h1 className="mt-1 text-[24px] font-semibold leading-none tracking-[-0.03em]">Cargar datos</h1>
+          <p className="mt-1.5 max-w-2xl text-[12px] text-[var(--text-secondary)]">
             Sube los archivos diarios de una campaña. Atlas perfila las columnas por su contenido
             —no por su nombre—, propone el mapeo y tú lo confirmas una vez. La
             próxima carga se suma al mismo historial y reutiliza esa estructura.
@@ -145,14 +146,14 @@ export default async function Cargar({
         </div>
 
         {ctx.campanas.length > 0 ? (
-          <>
-            <Cargador
-              campanas={ctx.campanas}
-              datasets={datasets ?? []}
-              tenantId={ctx.tenantId}
-              campanaInicial={campanaInicial}
-            />
-            <div className="mt-6">
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(520px,.9fr)]">
+            <div><Cargador
+                campanas={ctx.campanas}
+                datasets={datasets ?? []}
+                tenantId={ctx.tenantId}
+                campanaInicial={campanaInicial}
+              /></div>
+            <div>
               <MapaCobertura
                 dias={dias}
                 mes={mes}
@@ -160,7 +161,7 @@ export default async function Cargar({
                 campanas={ctx.campanas}
               />
             </div>
-          </>
+          </div>
         ) : (
           <Card>
             <CardTitle hint="Toda carga debe quedar asociada desde el inicio.">
