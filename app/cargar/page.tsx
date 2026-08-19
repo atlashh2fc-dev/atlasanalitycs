@@ -144,22 +144,20 @@ export default async function Cargar({
         </div>
 
         {ctx.campanas.length > 0 ? (
-          <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(500px,.9fr)]">
-            <div><Cargador
-                campanas={ctx.campanas}
-                datasets={datasets ?? []}
-                tenantId={ctx.tenantId}
-                campanaInicial={campanaInicial}
-              /></div>
-            <div>
+          <Cargador
+            campanas={ctx.campanas}
+            datasets={datasets ?? []}
+            tenantId={ctx.tenantId}
+            campanaInicial={campanaInicial}
+            cobertura={
               <MapaCobertura
                 dias={dias}
                 mes={mes}
                 campana={campanaInicial!}
                 campanas={ctx.campanas}
               />
-            </div>
-          </div>
+            }
+          />
         ) : (
           <Card>
             <CardTitle hint="Toda carga debe quedar asociada desde el inicio.">

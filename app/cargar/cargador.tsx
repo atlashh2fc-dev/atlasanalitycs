@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import * as XLSX from "xlsx";
 import { Upload } from "tus-js-client";
 import { extraeMatriz, perfilaHoja, type PerfilHoja } from "@/lib/perfilador";
@@ -158,11 +158,13 @@ export function Cargador({
   datasets,
   tenantId,
   campanaInicial,
+  cobertura,
 }: {
   campanas: { id: string; nombre: string }[];
   datasets: { id: string; nombre: string; campana_id: string | null }[];
   tenantId: string;
   campanaInicial?: string;
+  cobertura: ReactNode;
 }) {
   const [archivos, setArchivos] = useState<ArchivoEnCola[]>([]);
   const [activo, setActivo] = useState(0);
@@ -671,6 +673,8 @@ export function Cargador({
         ) : null}
       </Card>
       </div>
+
+      {cobertura}
 
       {archivo && hoja ? (
         <>
